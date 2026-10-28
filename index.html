@@ -110,8 +110,9 @@
   nav { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   nav::-webkit-scrollbar { display: none; }
   nav button { white-space: nowrap; flex: none; }
-  .sheet { overflow-x: auto; }
-  .sheet > * { min-width: 660px; }
+  .sheet { min-width: 0; }
+  .countwrap { overflow-x: auto; max-width: 100%; }
+  .countwrap > .lsec { min-width: 640px; }
   .modal { max-width: calc(100vw - 24px); }
   .card:has(> table.list), .card > div:has(> table.list) { overflow-x: auto; }
   @media (max-width: 1180px) {
@@ -141,18 +142,27 @@
     .modal { padding: 14px; max-height: calc(100vh - 20px); }
     .form .row { gap: 8px; }
     .list th, .list td { padding: 7px 8px; }
-    .lrow { grid-template-columns: 40px 120px 40px 40px minmax(380px, 1fr); }
-    .sheet > * { min-width: 600px; }
+    .sheet { padding: 10px 8px; }
     .daily .dayside .card { margin-bottom: 8px; }
   }
 
   /* ---- lineare giornaliero ---- */
+  @media screen and (max-width: 900px) {
+    .sheet .lrow { grid-template-columns: 36px 130px 40px 40px minmax(0, 1fr); font-size: 11.5px; }
+  }
+  @media screen and (max-width: 560px) {
+    .sheet .lrow { grid-template-columns: 96px 36px 36px minmax(0, 1fr); font-size: 11px; min-height: 20px; }
+    .sheet .lrow > div { padding: 2px 3px; }
+    .sheet .lrow .lpos { display: none; }
+    .sheet .lhead .ltrack span.odd { display: none; }
+    .sheet .countwrap .lrow { grid-template-columns: 96px 72px minmax(0, 1fr); }
+  }
   .daily { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
-  @media (max-width: 1100px) { .daily { grid-template-columns: 1fr; } }
+  @media (max-width: 1100px) { .daily { grid-template-columns: minmax(0, 1fr); } }
   .sheet { padding: 12px 14px; }
   .lsec { margin-top: 12px; }
   .lsec h4 { margin: 0 0 4px; font-size: 12px; letter-spacing: .6px; text-transform: uppercase; color: var(--green); text-align: center; background: var(--yellow); border-radius: 4px; padding: 2px; }
-  .lrow { display: grid; grid-template-columns: 62px 190px 46px 46px minmax(420px, 1fr); align-items: stretch; min-height: 22px; border-bottom: 1px solid #eee; font-size: 12px; }
+  .lrow { display: grid; grid-template-columns: 62px 190px 46px 46px minmax(0, 1fr); align-items: stretch; min-height: 22px; border-bottom: 1px solid #eee; font-size: 12px; }
   .lrow > div { padding: 2px 4px; display: flex; align-items: center; }
   .lrow.click { cursor: pointer; } .lrow.click:hover { background: #f4f8f5; }
   .lrow .lpos { font-size: 10px; font-weight: 700; color: var(--muted); justify-content: flex-end; }
@@ -552,7 +562,7 @@ function renderGiornaliero() {
     </div>`;
   };
   const head = `<div class="lrow lhead"><div class="lpos">Post.</div><div class="lname">Nome</div><div class="ltime">Dalle</div><div class="ltime">Alle</div>
-    <div class="ltrack" style="--hw:${hw}">${hours.map((h) => `<span style="left:${pct(h * 60 + 30)}">${h}</span>`).join('')}</div></div>`;
+    <div class="ltrack" style="--hw:${hw}">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60 + 30)}">${h}</span>`).join('')}</div></div>`;
   const body = sections.map(([title, list]) => `<div class="lsec"><h4>${title} (${list.length})</h4>${head}${
     list.sort((a, b) => a.start - b.start || a.end - b.end).map(row).join('') || '<div class="lrow"><div></div><div class="lname muted">nessuno</div></div>'}</div>`).join('');
 
@@ -565,9 +575,9 @@ function renderGiornaliero() {
       <div class="ltrack">${hours.map((h) => `<span>${fmtN(hoursIn(list, h))}</span>`).join('')}</div></div>`;
   };
   const crewPresent = (h) => { let mx = 0; for (let m = h * 60; m < (h + 1) * 60; m += 15) mx = Math.max(mx, day_.filter((s) => typeOf(s) === 'CREW' && s.start <= m && s.end >= m + 15).length); return mx; };
-  const counts = `<div class="lsec"><h4>Ore per fascia oraria</h4>${head}
+  const counts = `<div class="countwrap"><div class="lsec"><h4>Ore per fascia oraria</h4>${head}
     ${countRow('Ore hospitality', sections[0][1])}${countRow('Ore crew', sections[1][1])}${countRow('Ore doppi turni', sections[2][1])}${countRow('Totale', day_, 'total')}
-    <div class="lrow lcount"><div></div><div class="lname">Crew presenti (max)</div><div class="ltime" style="grid-column: span 2"></div><div class="ltrack">${hours.map((h) => `<span>${crewPresent(h)}</span>`).join('')}</div></div></div>`;
+    <div class="lrow lcount"><div></div><div class="lname">Crew presenti (max)</div><div class="ltime" style="grid-column: span 2"></div><div class="ltrack">${hours.map((h) => `<span>${crewPresent(h)}</span>`).join('')}</div></div></div></div>`;
 
   // colonna laterale
   const resting = sortByName(ctx.employees.filter((e) => T.started(e, day) && T.isRest(e, day) && !day_.some((s) => s.employeeId === e.id)));
