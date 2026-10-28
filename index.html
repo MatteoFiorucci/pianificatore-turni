@@ -223,14 +223,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610282240"></script>
-<script src="turni-core.js?v=202610282240"></script>
+<script src="turni-storico.js?v=202610282249"></script>
+<script src="turni-core.js?v=202610282249"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610282240"></script>
-<script src="turni-cloud-config.js?v=202610282240"></script>
-<script src="turni-cloud.js?v=202610282240"></script>
-<script src="turni-cripto.js?v=202610282240"></script>
+<script src="turni-data.js?v=202610282249"></script>
+<script src="turni-cloud-config.js?v=202610282249"></script>
+<script src="turni-cloud.js?v=202610282249"></script>
+<script src="turni-cripto.js?v=202610282249"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -866,7 +866,7 @@ function renderDoppi() {
   return `
   <h2>Doppi</h2>
   <p class="muted">Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
-  I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica.</p>
+  I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica. <b>Chi apre</b> (turno delle 7:30) quel giorno non fa il doppio.</p>
   <p><span class="pill on">Persone con doppi: ${tot}</span></p>
   <div class="card"><table class="list"><thead><tr><th>Dipendente</th><th>Ruolo</th><th>Giorni di doppio a settimana</th></tr></thead><tbody>
     ${list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${T.TYPES[e.type]}</td>

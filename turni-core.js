@@ -314,6 +314,8 @@
       if (total > max) out.push(V('DAILY_MAX', 'ERROR', `${who}: turno di ${fmtDur(total)} il ${when} (massimo ${fmtDur(max)}, doppio escluso)`, e.id, d));
       if (main.length > 1) out.push(V('DAILY_MAX', 'WARNING', `${who}: ${main.length} turni il ${when}: se uno è un doppio segnalo come doppio`, e.id, d));
       if (dbl.length > 1) out.push(V('DOUBLES', 'ERROR', `${who}: più di un doppio il ${when}`, e.id, d));
+      // chi apre (turno che inizia all'apertura del locale) quel giorno non fa il doppio
+      if (dbl.length && day.some((s) => s.start <= (cfg.open ?? 450))) out.push(V('DOUBLES', 'ERROR', `${who}: apre il ${when} e fa anche il doppio (chi apre non fa il doppio)`, e.id, d));
       for (const x of dbl) {
         if (dur(x) > dMax) out.push(V('DOUBLES', 'ERROR', `${who}: doppio di ${fmtDur(dur(x))} il ${when} (massimo ${fmtDur(dMax)})`, e.id, d));
         if (!main.length) out.push(V('DOUBLES', 'WARNING', `${who}: doppio senza turno normale il ${when}`, e.id, d));
@@ -679,6 +681,7 @@
       if (!e.fixedShift && !cand.doppio && isRigidAfternoon(cfg, cand)) return false; // pomeriggio: turni sfalsati, non rigidi
       if (!e.fixedShift && !cand.doppio && e.type === 'CREW' && (isHybridAfternoon(cfg, cand) || isLongWithoutRush(cfg, cand))) return false; // niente ibridi, turni lunghi solo sul rush
       if (dur(cand) <= 0 || cand.start < 0 || cand.end > 1440) return false;
+      if (!cand.doppio && cand.start <= OPEN && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false; // chi apre non fa il doppio
       const others = dayMain(e.id, cand.day).filter((s) => s !== replacing);
       if (!replacing && others.length) return false;
       if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
@@ -704,6 +707,7 @@
       if (lateEnd(cand.end)) return false;
       const main = dayMain(e.id, cand.day);
       if (main.length !== 1 || shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s))) return false;
+      if (cand.start <= OPEN || main[0].start <= OPEN) return false; // chi apre non fa il doppio
       if (Math.max(cand.start - main[0].end, main[0].start - cand.end) < D_GAP) return false;
       if (unaccompanied(ctx, cand, shifts)) return false;
       const cf = closingFit(ctx, cand, shifts);
