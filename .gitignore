@@ -1,0 +1,4 @@
+# Dati personali del personale: restano solo sul computer del manager
+privato/
+*.json
+.DS_Store

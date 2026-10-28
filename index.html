@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pianificatore turni</title>
+<style>
+  :root {
+    --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70;
+    --line: #d9d9de; --bg: #f6f6f4; --err: #ffd3d6; --err-ink: #b3261e; --warn: #fff0c2; --warn-ink: #8a6100;
+    --ok: #dcf0e1; --rest: #1e40af;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+  header { background: var(--green); color: #fff; display: flex; align-items: center; gap: 24px; padding: 0 20px; height: 56px; position: sticky; top: 0; z-index: 5; }
+  header .brand { font-weight: 800; letter-spacing: .5px; display: flex; align-items: center; gap: 10px; }
+  header .brand .m { background: var(--yellow); color: var(--green); border-radius: 6px; padding: 2px 8px; font-size: 18px; }
+  nav { display: flex; gap: 4px; }
+  nav button { background: transparent; border: 0; color: #d9eadf; font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
+  nav button:hover { background: rgba(255,255,255,.1); }
+  nav button.active { background: var(--yellow); color: var(--green); }
+  main { padding: 16px 20px 40px; }
+  h2 { margin: 4px 0 12px; font-size: 20px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  button.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  button.btn:hover { border-color: #b9b9c0; }
+  button.primary { background: var(--green); color: #fff; border-color: var(--green); }
+  button.danger { background: var(--err-ink); color: #fff; border-color: var(--err-ink); }
+  button.link { background: none; border: 0; color: var(--green); font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
+  button:disabled { opacity: .45; cursor: default; }
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .toolbar .week { font-size: 17px; font-weight: 700; min-width: 210px; text-align: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+  .seg button { border: 0; background: none; font: inherit; padding: 7px 14px; cursor: pointer; font-weight: 600; color: var(--muted); }
+  .seg button.on { background: var(--green-soft); color: var(--green); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+  .chip.err { background: var(--err); color: var(--err-ink); }
+  .chip.warn { background: var(--warn); color: var(--warn-ink); }
+  .chip.ok { background: var(--ok); color: var(--green); }
+  .spacer { flex: 1; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+  .gridwrap { overflow: auto; max-height: calc(100vh - 190px); }
+  table.grid { border-collapse: separate; border-spacing: 0; width: 100%; }
+  .grid th, .grid td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 0; }
+  .grid thead th { position: sticky; top: 0; background: #fafafa; z-index: 2; padding: 8px 6px; font-size: 13px; }
+  .grid .name { position: sticky; left: 0; background: #fff; z-index: 1; text-align: left; padding: 6px 10px; min-width: 190px; font-weight: 600; white-space: nowrap; }
+  .grid thead .name { z-index: 3; background: #fafafa; }
+  .grid tr.cov td { background: #fbfbfb; font-size: 12px; }
+  .grid tr.cov .name { font-weight: 500; color: var(--muted); background: #fbfbfb; }
+  .grid tr.cov .c { text-align: center; font-weight: 700; padding: 4px; }
+  .grid tr.cov .c.okc { color: var(--green); background: var(--ok); }
+  .grid tr.cov .c.bad { color: var(--err-ink); background: var(--err); }
+  td.cell { min-width: 96px; height: 50px; text-align: center; cursor: pointer; font-variant-numeric: tabular-nums; font-size: 13px; }
+  td.cell:hover { outline: 2px solid var(--green); outline-offset: -2px; }
+  td.cell.err { background: var(--err); }
+  td.cell.warn { background: var(--warn); }
+  td.cell .st { font-size: 10px; color: var(--muted); letter-spacing: .3px; }
+  td.cell.dbl { box-shadow: inset 3px 0 0 var(--yellow); }
+  .rest { color: var(--rest); font-weight: 600; font-size: 12px; }
+  .abs { color: #777; font-weight: 700; font-size: 12px; }
+  .empty { color: #c8c8cc; }
+  td.tot { text-align: center; min-width: 80px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  td.tot .sub { font-weight: 400; font-size: 11px; color: var(--muted); }
+  td.tot.over { background: var(--err); } td.tot.under { background: var(--warn); } td.tot.exact { background: var(--ok); }
+  aside.problems { padding: 14px; max-height: calc(100vh - 190px); overflow: auto; }
+  aside h3 { margin: 0 0 8px; font-size: 15px; }
+  .prob { display: flex; gap: 8px; padding: 8px; border-radius: 8px; cursor: default; }
+  .prob.click { cursor: pointer; } .prob.click:hover { background: #f3f3f5; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none; }
+  .dot.ERROR { background: #d32f2f; } .dot.WARNING { background: #f9a825; }
+  .prob .r { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+  details.help { margin-bottom: 12px; padding: 10px 14px; }
+  details.help summary { cursor: pointer; font-weight: 700; }
+  details.help ul { margin: 8px 0 0; padding-left: 20px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0 0; font-size: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); display: inline-block; }
+  table.list { border-collapse: collapse; width: 100%; }
+  .list th, .list td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  .list th { font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); background: #fafafa; }
+  .list tr.group td { background: var(--green-soft); color: var(--green); font-weight: 700; }
+  .list tr.sel td { background: var(--err); }
+  .list tr.clickable { cursor: pointer; } .list tr.clickable:hover td { background: #f6f8f6; }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eee; font-size: 12px; margin-right: 4px; }
+  .pill.on { background: var(--green-soft); color: var(--green); font-weight: 600; }
+  label.tg { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; margin: 2px 4px 2px 0; user-select: none; background: #fff; }
+  label.tg.on { background: var(--green-soft); border-color: var(--green); color: var(--green); font-weight: 600; }
+  label.tg input { display: none; }
+  .deletebar { position: sticky; bottom: 0; display: flex; gap: 8px; justify-content: flex-end; padding: 12px; background: #fff; border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; }
+  .form { display: grid; gap: 12px; }
+  .form .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .form label.f { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  input[type=text], input[type=number], input[type=date], select { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  input.bad { border-color: var(--err-ink); }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
+  .modal { background: #fff; border-radius: 14px; padding: 20px; width: min(560px, 100%); max-height: 90vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .modal h3 { margin: 0 0 4px; }
+  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  .shiftbox { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+  .notice { padding: 8px 10px; border-radius: 8px; font-size: 13px; }
+  .notice.err { background: var(--err); color: var(--err-ink); } .notice.info { background: #e8eefc; color: var(--rest); } .notice.warn { background: var(--warn); color: var(--warn-ink); }
+  .section { padding: 16px; margin-bottom: 16px; }
+  /* ---- lineare giornaliero ---- */
+  .daily { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .daily { grid-template-columns: 1fr; } }
+  .sheet { padding: 12px 14px; }
+  .lsec { margin-top: 12px; }
+  .lsec h4 { margin: 0 0 4px; font-size: 12px; letter-spacing: .6px; text-transform: uppercase; color: var(--green); text-align: center; background: var(--yellow); border-radius: 4px; padding: 2px; }
+  .lrow { display: grid; grid-template-columns: 62px 190px 46px 46px minmax(420px, 1fr); align-items: stretch; min-height: 22px; border-bottom: 1px solid #eee; font-size: 12px; }
+  .lrow > div { padding: 2px 4px; display: flex; align-items: center; }
+  .lrow.click { cursor: pointer; } .lrow.click:hover { background: #f4f8f5; }
+  .lrow .lpos { font-size: 10px; font-weight: 700; color: var(--muted); justify-content: flex-end; }
+  .lrow .lname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lrow .ltime { font-variant-numeric: tabular-nums; justify-content: center; }
+  .lrow .ltrack { position: relative; padding: 0; min-height: 20px;
+    background-image: linear-gradient(to right, #cfcfd4 1px, transparent 1px), linear-gradient(to right, #ececf0 1px, transparent 1px);
+    background-size: var(--hw) 100%, calc(var(--hw) / 4) 100%; }
+  .lbar { position: absolute; top: 4px; bottom: 4px; border-radius: 3px; opacity: .9; }
+  .lhead { border-bottom: 2px solid var(--line); font-weight: 700; font-size: 11px; color: var(--muted); }
+  .lhead .ltrack { background: #fafafa; }
+  .lhead .ltrack span { position: absolute; top: 3px; transform: translateX(-50%); font-size: 10px; }
+  .lcount .ltrack { display: flex; background: none; }
+  .lcount .ltrack span { flex: 1; text-align: center; border-left: 1px solid var(--line); font-variant-numeric: tabular-nums; font-size: 11px; display: flex; align-items: center; justify-content: center; }
+  .lcount.total { font-weight: 800; background: var(--green-soft); }
+  .st-CUCINA { background: #d84a3a; } .st-FRONT { background: #2f80c0; } .st-MCCAFE { background: #7a4a2a; }
+  .st-SERVIZIO { background: #8a8a8a; } .st-HOSPITALITY { background: #6c4bb5; }
+  .dayside .card { padding: 12px; margin-bottom: 12px; } .dayside h3 { margin: 0 0 6px; font-size: 14px; }
+  .dayside ul { margin: 0; padding-left: 18px; } .dayside li { margin: 2px 0; }
+  @media print {
+    @page { size: A4 landscape; margin: 8mm; }
+    header, .toolbar, .no-print, #modal { display: none !important; }
+    body { background: #fff; } main { padding: 0; }
+    .daily { grid-template-columns: 1fr 230px; gap: 8px; } .card { border: 0; }
+    .lrow { grid-template-columns: 50px 150px 40px 40px 1fr; font-size: 10px; min-height: 16px; }
+    .lbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .lcount.total, .lsec h4 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand" id="brand">🗓 Orari</div>
+  <nav id="nav"></nav>
+</header>
+<main id="app"></main>
+<div id="modal"></div>
+
+<script src="turni-storico.js"></script>
+<script src="turni-core.js"></script>
+<!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
+<script src="privato/turni-privato.js" onerror="this.remove()"></script>
+<script src="turni-data.js"></script>
+<script>
+'use strict';
+const T = window.Turni;
+const KEY = 'turni-familyfood-v1';
+const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie'], ['regole', 'Regole']];
+const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
+
+// ---------- stato (salvato nel browser) ----------
+let storageOk = true;
+let state = loadState();
+const ui = { view: 'turni', ws: T.mondayOf(T.todayDay()), day: T.todayDay(), type: 'CREW', deleteMode: false, selected: new Set(), draft: null };
+
+// Se il browser non permette di salvare (es. navigazione privata) l'app funziona lo stesso, ma senza memoria.
+function loadState() {
+  try { const s = JSON.parse(window.localStorage.getItem(KEY)); if (s && Array.isArray(s.employees)) return TurniData.migrate(s); } catch (e) { storageOk = false; }
+  return TurniData.sampleState();
+}
+function save() {
+  try { window.localStorage.setItem(KEY, JSON.stringify(state)); storageOk = true; } catch (e) { storageOk = false; }
+}
+const newId = () => state.nextId++;
+const empById = (id) => state.employees.find((e) => e.id === id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const timeSelect = (value, onchange) =>
+  `<select onchange="${onchange}">${TIME_OPTIONS.map((t) => `<option value="${t}" ${t === value ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompare(T.fullName(b), 'it'));
+
+// ---------- navigazione ----------
+function go(view) { ui.view = view; ui.deleteMode = false; ui.selected.clear(); render(); }
+function renderBrand() {
+  const n = (state.config && state.config.storeName) || '';
+  document.getElementById('brand').textContent = n ? `🗓 Orari · ${n}` : '🗓 Orari';
+  document.title = n ? `Orari · ${n}` : 'Pianificatore turni';
+}
+function render() {
+  renderBrand();
+  document.getElementById('nav').innerHTML = VIEWS.map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}</button>`).join('');
+  const views = { turni: renderTurni, giornaliero: renderGiornaliero, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, regole: renderRegole };
+  document.getElementById('app').innerHTML =
+    (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
+    views[ui.view]();
+}
+function showModal(html) { document.getElementById('modal').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
+function closeModal() { document.getElementById('modal').innerHTML = ''; ui.draft = null; }
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+// ================= TURNI =================
+function renderTurni() {
+  const ctx = T.makeCtx(state, ui.ws);
+  const vs = T.validate(ctx);
+  const cellV = new Map();
+  vs.forEach((v) => { if (v.emp != null && v.day != null) { const k = v.emp + '|' + v.day; if (!cellV.has(k)) cellV.set(k, []); cellV.get(k).push(v); } });
+  const later = ctx.employees.filter((e) => e.type === ui.type && e.startDate != null && e.startDate > ui.ws + 6);
+  const emps = sortByName(ctx.employees.filter((e) => e.type === ui.type && !later.includes(e)));
+  const nErr = vs.filter((v) => v.sev === 'ERROR').length, nWarn = vs.length - nErr;
+  const cfg = state.config;
+
+  const head = `<tr><th class="name">Dipendente</th>${ctx.days.map((d) => `<th><button class="link" title="Apri il lineare di questo giorno" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button></th>`).join('')}<th>Ore</th></tr>`;
+  const covList = state.coverage.filter((r) => (ui.type === 'HOSPITALITY') === (r.station === 'HOSPITALITY'));
+  const cov = covList.map((req) => `<tr class="cov"><td class="name">${esc(req.name)} <span class="small">(${T.fmtTime(req.start)}–${T.fmtTime(req.end)})</span></td>${
+    ctx.days.map((d) => { const need = T.reqMin(req, d); if (!need) return '<td class="c">—</td>'; const c = T.coverageMin(ctx, d, req); return `<td class="c ${c >= need ? 'okc' : 'bad'}" title="Presenti nel momento più scoperto / minimo richiesto (gli ultimi minuti prima della chiusura non contano)">${c}/${need}</td>`; }).join('')}<td></td></tr>`).join('');
+  const rows = emps.map((e) => {
+    const w = T.worked(ctx, e.id), t = T.target(ctx, e), dw = T.doubleWorked(ctx, e.id);
+    return `<tr><td class="name" title="${esc(T.TYPES[e.type])} · ${T.fmtDur(e.weeklyMinutes)}/sett.${e.trainee ? ' · in formazione' : ''}">${esc(T.fullName(e))}${ctx.days.some((d) => T.isTrainee(e, d)) ? ' 🎓' : ''}</td>${ctx.days.map((d) => cellHtml(ctx, e, d, cellV.get(e.id + '|' + d))).join('')}
+      <td class="tot ${w > t ? 'over' : w < t ? 'under' : 'exact'}">${T.fmtDur(w)}<div class="sub">su ${T.fmtDur(t)}${dw ? ` · +${T.fmtDur(dw)} doppi` : ''}</div></td></tr>`;
+  }).join('');
+
+  const probs = vs.map((v, i) => {
+    const click = v.emp != null && v.day != null;
+    return `<div class="prob ${click ? 'click' : ''}" ${click ? `onclick="openFromProblem(${v.emp},${v.day})"` : ''}><span class="dot ${v.sev}"></span><div><div class="r">${T.RULES[v.rule]}</div>${esc(v.msg)}</div></div>`;
+  }).join('') || '<p class="muted">Nessun problema: la settimana rispetta tutte le regole. 🎉</p>';
+
+  return `
+  <div class="toolbar">
+    <button class="btn" onclick="moveWeek(-1)">◀</button>
+    <div class="week">${T.weekLabel(ui.ws)}</div>
+    <button class="btn" onclick="moveWeek(1)">▶</button>
+    <button class="btn" onclick="ui.ws=T.mondayOf(T.todayDay());render()">Oggi</button>
+    <div class="seg">${Object.entries(T.TYPES).map(([k, l]) => `<button class="${ui.type === k ? 'on' : ''}" onclick="ui.type='${k}';render()">${l} (${ctx.employees.filter((e) => e.type === k).length})</button>`).join('')}</div>
+    <div class="spacer"></div>
+    <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
+    <button class="btn" onclick="askClearWeek()">Svuota settimana</button>
+    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">🛠 Risolvi problemi</button>
+    <button class="btn primary" onclick="askGenerate()">⚙ Genera turni</button>
+  </div>
+  ${ctx.forecast ? (() => { const fd = (k) => T.forecastDay((state.forecasts || {})[ui.ws], k) || {};
+    return `<div class="notice info" style="margin-bottom:10px">📈 <b>Crew Hours</b>: ${DAYS7.map((k) => `${T.DOW_SHORT[k + 1]} ${fd(k).crewHours ? `<b>${fd(k).crewHours}h</b>` : '—'}`).join(' · ')} <button class="link" onclick="go('previsioni')">Previsioni</button></div>`; })() : ''}
+  <details class="help card">
+    <summary>Come funziona (clicca per aprire)</summary>
+    <ul>
+      <li><b>Clicca una casella</b> per inserire o modificare il turno di quel giorno; puoi aggiungere un secondo turno (doppio).</li>
+      <li>Ogni modifica viene controllata subito: le caselle diventano <b style="color:var(--err-ink)">rosse</b> (errore) o <b style="color:var(--warn-ink)">gialle</b> (avviso). Passa il mouse su una casella per leggere il motivo; l'elenco completo è a destra.</li>
+      <li>Regole attuali: ore settimanali da contratto esatte (oltre = straordinario) · massimo ${T.fmtDur(cfg.crewMax)} al giorno per i crew e ${T.fmtDur(cfg.hospMax)} per le hospitality, doppi inclusi · turno minimo ${T.fmtDur(cfg.minShift)} · stacco ${T.fmtDur(cfg.rest11)} tra giorni consecutivi · ${T.fmtDur(cfg.rest36)} se in mezzo c'è un riposo · niente turni nei riposi fissi e nelle ferie.</li>
+      <li>Le hospitality hanno le loro fasce (in sala dalle 11 alla chiusura, rinforzi a pranzo e cena): le vedi in cima alla scheda Hospitality.</li>
+      <li><b>Squadra di chiusura</b>: alle ${T.fmtTime(cfg.close)} restano esattamente ${state.coverage.filter((r) => r.exact).map((r) => r.name.replace('Chiusura ', '')).join(', ')} come indicato in Regole (feriali 2 MFY, 1 McCafé, 1 Sala; weekend 3, 1, 2). Nessun altro, tranne chi è in formazione e affiancato.</li>
+      <li><b>Aree</b>: MFY = cucina, patate e bibite · OA = front · McCafé · Sala · Hospitality.</li>
+      <li>Da lunedì a giovedì il turno normale dei crew arriva a ${T.fmtDur(cfg.crewMaxWeekday ?? 240)}; i <b>turni lunghi</b> (fino a ${T.fmtDur(cfg.crewMax)}) li fanno tutti <b>a rotazione</b>, al massimo ${cfg.weekdayLongPerWeek ?? 1} a testa a settimana, prima chi ne ha fatti meno nelle ultime settimane. Da venerdì a domenica sono tutti a disposizione e i turni arrivano a ${T.fmtDur(cfg.crewMax)}.</li>
+      <li><b>Pomeriggio post-rush</b> (${T.fmtTime(cfg.afternoonStart ?? 870)}–${T.fmtTime(cfg.afternoonEnd ?? 1140)}): niente turni lunghi tutti lì dentro né turni ibridi (es. 15:30–20:30); si copre con turni sfalsati, es. 13:00–17:00 che arriva dal pranzo e 17:00–21:00 che entra per la cena (dalle ${T.fmtTime(cfg.dinnerPreStart ?? 990)}). I turni oltre 4h servono solo a coprire un rush più preparazione o recupero.</li>
+      <li>Il locale è aperto dalle ${T.fmtTime(cfg.open)} alle ${T.fmtTime(cfg.close)}. Le righe in alto (solo Crew) mostrano la copertura di ogni fascia: quanti crew ci sono nel momento più scoperto, rispetto al minimo richiesto (rush pranzo e cena compresi). Le fasce si cambiano in Regole.</li>
+      <li>Chi ha un <b>orario fisso</b> (es. 9:00–12:30 nei suoi giorni) viene messo sempre e solo in quell'orario.</li>
+      <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
+      <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto: per esempio 18h + 3h di doppio. Nella colonna Ore sono indicati a parte.</li>
+      <li>I minimi delle fasce cambiano in base al giorno (il weekend ne chiede di più): li trovi e li cambi in Regole.</li>
+      <li>Le aperture (McCafé, MFY) e le chiusure (McCafé, MFY, Sala) le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality).</li>
+      <li><b>Squadra di apertura</b>: alle ${T.fmtTime(cfg.open)} ci sono esattamente 1 McCafé e 1 MFY (segnati in Aperture e chiusure), nessun altro: niente hospitality, niente OA. Chi arriva dopo (es. 8:30, 9:00) va bene.</li>
+      <li><b>Data di inizio</b> (Personale): prima di quel giorno la persona non ha turni e le sue ore della settimana si riducono in proporzione (es. entra venerdì con 18h su 6 giorni → 9h quella settimana).</li>
+      <li>🎓 = <b>in formazione</b> (sezione Formazione): in apertura e chiusura deve essere affiancato/a da un formato nella stessa postazione.</li>
+      <li><b>Genera turni</b> crea una bozza che rispetta le regole: prima aperture e chiusure (chi è segnato in Aperture e chiusure), poi rush e picchi, poi completa le ore di ognuno con orari vari come nei vostri fogli.</li>
+      <li>I dati restano salvati in questo browser. Per portarli su un altro dispositivo o farne un backup usa <b>Esporta dati</b> / <b>Importa dati</b> in Regole.</li>
+    </ul>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--err)"></i>errore</span><span><i class="sw" style="background:var(--warn)"></i>avviso / ore mancanti</span>
+      <span><i class="sw" style="background:var(--ok)"></i>ore esatte</span><span><i class="sw" style="box-shadow:inset 3px 0 0 var(--yellow)"></i>turno doppio</span>
+      <span class="rest">RIPOSO</span> = riposo fisso
+    </div>
+  </details>
+  <div class="layout">
+    ${later.length ? `<div class="small muted" style="grid-column:1/-1;margin-bottom:-8px">Non mostrati perché entrano più avanti: ${later.map((e) => `${esc(T.fullName(e))} (dal ${T.itDate(e.startDate)})`).join(', ')}</div>` : ''}
+    <div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${cov}${rows || `<tr><td class="name" colspan="9">Nessun dipendente: aggiungili nella sezione Personale, oppure importa un file di dati (Regole → Dati).</td></tr>`}</tbody></table></div>
+    <aside class="card problems"><h3 style="display:flex;justify-content:space-between;align-items:center">Controlli della settimana ${nErr ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="solveWeek()">🛠 Risolvi</button>' : ''}</h3>${probs}</aside>
+  </div>`;
+}
+
+function cellHtml(ctx, e, d, vlist) {
+  const sh = T.shiftsOf(ctx, e.id, d), ab = T.absenceOn(ctx, e.id, d), rest = T.isRest(e, d);
+  const sev = vlist ? (vlist.some((v) => v.sev === 'ERROR') ? 'err' : 'warn') : '';
+  let inner;
+  if (sh.length) {
+    inner = sh.slice().sort((a, b) => !!a.doppio - !!b.doppio || a.start - b.start).map((s) => `<div>${T.fmtTime(s.start)} ${T.fmtTime(s.end)}${s.doppio ? ' <b style="color:var(--warn-ink)" title="Doppio">D</b>' : ''}</div>`).join('') +
+      (e.type === 'CREW' || sh.some((s) => s.station !== 'HOSPITALITY') ? `<div class="st">${sh.map((s) => T.STATIONS[s.station].short).join(' + ')}</div>` : '');
+  } else if (!T.started(e, d)) inner = `<span class="abs" title="Data di inizio: ${T.itDate(e.startDate)}">entra il<br>${T.shortDate(e.startDate).split(' ')[1]}</span>`;
+  else if (ab) inner = `<span class="abs">${ab.type}</span>`;
+  else if (rest) inner = '<span class="rest">RIPOSO</span>';
+  else inner = '<span class="empty">—</span>';
+  const title = vlist ? vlist.map((v) => '• ' + v.msg).join('\n') : 'Clicca per modificare';
+  return `<td class="cell ${sev} ${sh.some((s) => s.doppio) ? 'dbl' : ''}" title="${esc(title)}" onclick="openDay(${e.id},${d})">${inner}</td>`;
+}
+
+function moveWeek(n) { ui.ws += 7 * n; render(); }
+function openFromProblem(empId, day) {
+  const e = empById(empId); if (!e) return;
+  if (e.type !== ui.type) { ui.type = e.type; render(); }
+  openDay(empId, day);
+}
+
+// --- modifica giorno ---
+function openDay(empId, day) {
+  const e = empById(empId);
+  const list = state.shifts.filter((s) => s.employeeId === empId && s.day === day).sort((a, b) => !!a.doppio - !!b.doppio || a.start - b.start)
+    .map((s) => ({ start: s.start, end: s.end, station: s.station }));
+  ui.draft = { empId, day, list };
+  renderDayModal();
+}
+function defaultStation(e) { return e.type === 'HOSPITALITY' ? 'HOSPITALITY' : (T.CREW_STATIONS.find((s) => e.trainings.includes(s)) || 'FRONT'); }
+function renderDayModal() {
+  const { empId, day, list } = ui.draft;
+  const e = empById(empId), ctx = T.makeCtx(state, T.mondayOf(day));
+  const max = T.maxDaily(state.config, e.type), total = list.length ? list[0].end - list[0].start : 0;
+  const dMax = state.config.doubleMax ?? 180, dGap = state.config.doubleGap ?? 120;
+  const ab = T.absenceOn(ctx, e.id, day);
+  const boxes = list.map((s, i) => `
+    <div class="shiftbox">
+      <div class="row" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <b style="width:60px">${i === 0 ? 'Turno' : 'Doppio'}</b>
+        ${timeSelect(s.start, `ui.draft.list[${i}].start=+this.value;renderDayModal()`)} –
+        ${timeSelect(s.end, `ui.draft.list[${i}].end=+this.value;renderDayModal()`)}
+        <span class="muted">${s.end > s.start ? T.fmtDur(s.end - s.start) : 'orario non valido'}</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="link" style="color:var(--err-ink)" onclick="ui.draft.list.splice(${i},1);renderDayModal()">Rimuovi</button>
+      </div>
+      <div>${(e.type === 'CREW' ? T.CREW_STATIONS : ['HOSPITALITY', ...T.CREW_STATIONS]).map((st) => `<label class="tg ${s.station === st ? 'on' : ''}"><input type="radio" onclick="ui.draft.list[${i}].station='${st}';renderDayModal()">${T.STATIONS[st].label}${e.trainings.includes(st) ? ' ✓' : ''}${(e.openings || []).includes(st) ? ' 🔑' : ''}${(e.closings || []).includes(st) ? ' 🌙' : ''}</label>`).join('')}</div>
+    </div>`).join('');
+  showModal(`
+    <h3>${esc(T.fullName(e))}</h3>
+    <div class="muted">${T.longDate(day)} · ${T.TYPES[e.type]}</div>
+    <div class="form" style="margin-top:14px">
+      ${ab ? `<div class="notice err">In ${ab.type} questo giorno: non dovrebbe lavorare.</div>` : ''}
+      ${!T.started(e, day) ? `<div class="notice err">Entra il ${T.itDate(e.startDate)}: prima di quella data non può avere turni.</div>` : ''}
+      ${T.isRest(e, day) ? `<div class="notice info">È il suo giorno di riposo fisso.</div>` : ''}
+      ${T.isTrainee(e, day) ? `<div class="notice warn">🎓 In formazione: in apertura e chiusura deve avere accanto un formato nella stessa postazione.</div>` : ''}
+      ${boxes || '<div class="muted">Nessun turno in questo giorno.</div>'}
+      ${list.length < 2 ? `<div><button class="btn" onclick="addDraftShift()">+ ${list.length ? 'Aggiungi doppio' : 'Aggiungi turno'}</button></div>` : ''}
+      <div class="notice ${total > max ? 'err' : 'info'}">Turno: <b>${T.fmtDur(total)}</b> (massimo ${T.fmtDur(max)})${list[1] ? ` · Doppio: <b>${T.fmtDur(list[1].end - list[1].start)}</b> (massimo ${T.fmtDur(dMax)}, almeno ${T.fmtDur(dGap)} di pausa) · ${e.doubleDays ? `fa ${e.doubleDays} doppi a settimana` : 'non ha doppi previsti'}` : ''}</div>
+      <div class="small muted">✓ = formato/a in quella postazione · 🔑 = formato/a per l'apertura · 🌙 = formato/a per la chiusura</div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="closeModal()">Annulla</button>
+      <button class="btn primary" onclick="saveDay()">Salva</button>
+    </div>`);
+}
+function addDraftShift() {
+  const e = empById(ui.draft.empId), l = ui.draft.list;
+  l.push(l.length ? { start: 18 * 60 + 30, end: 21 * 60 + 30, station: defaultStation(e) } : { start: 12 * 60, end: 15 * 60, station: defaultStation(e) });
+  renderDayModal();
+}
+function saveDay() {
+  const { empId, day, list } = ui.draft;
+  state.shifts = state.shifts.filter((s) => !(s.employeeId === empId && s.day === day));
+  list.forEach((s, i) => state.shifts.push({ id: newId(), employeeId: empId, day, start: s.start, end: s.end, station: s.station, doppio: i === 1 }));
+  save(); closeModal(); render();
+}
+
+// --- generazione ---
+function askGenerate() {
+  const trained = (st) => state.employees.filter((e) => e.active && (e.openings || []).includes(st)).length;
+  const missing = ['MCCAFE', 'CUCINA'].filter((st) => !trained(st)).map((st) => T.STATIONS[st].label);
+  const warn = missing.length
+    ? `<div class="notice warn" style="margin-top:12px">Nessuno risulta formato per l'apertura ${missing.join(' né ')}: quelle aperture non potranno essere coperte. Segnalo nella sezione <b>Aperture e chiusure</b>.</div>` : '';
+  showModal(`
+    <h3>Genera turni · ${T.weekLabel(ui.ws)}</h3>
+    <p><b>Completa</b>: tiene i turni già inseriti e aggiunge quelli che mancano.<br><b>Da zero</b>: cancella tutti i turni della settimana e li ricrea.</p>
+    <p class="muted small">Il generatore rispetta riposi fissi, orari fissi, ferie, massimo giornaliero, stacchi 11h/36h e ore da contratto distribuite su tutti i giorni lavorativi. Mette i doppi solo a chi li fa (sezione Doppi), nei rush e preferibilmente nel weekend.</p>
+    ${warn}
+    <div class="actions">
+      <button class="btn" onclick="closeModal()">Annulla</button>
+      <button class="btn" onclick="startGenerate(true)">Da zero</button>
+      <button class="btn primary" onclick="startGenerate(false)">Completa</button>
+    </div>`);
+}
+function startGenerate(fromScratch) {
+  showModal('<h3>⚙ Sto generando i turni…</h3><p class="muted">Provo alcune varianti e tengo la migliore. Ci vuole qualche secondo.</p>');
+  setTimeout(() => runGenerate(fromScratch), 30);
+}
+function runGenerate(fromScratch) {
+  if (fromScratch) state.shifts = state.shifts.filter((s) => s.day < ui.ws || s.day > ui.ws + 6);
+  // prova alcune varianti e tiene la migliore (meno errori, poi meno avvisi); ogni "Genera" dà varianti nuove
+  ui.genCount = (ui.genCount || 0) + 1;
+  let best = null;
+  for (let k = 0; k < 4; k++) {
+    const res = T.generate(T.makeCtx(state, ui.ws), { seed: ui.ws * 7919 + ui.genCount * 101 + k });
+    const sc = scoreWeek(state.shifts.filter((s) => s.day >= ui.ws && s.day <= ui.ws + 6).concat(res.added));
+    if (!best || sc.score < best.sc.score) best = { res, sc };
+    if (sc.score === 0) break;
+  }
+  const res = best.res;
+  res.added.forEach((s) => state.shifts.push({ ...s, id: newId() }));
+  save(); render();
+  const notes = best.sc.err ? res.notes : [];
+  showModal(`<h3>Generazione completata</h3><p>Aggiunti <b>${res.added.length}</b> turni · <b style="color:${best.sc.err ? 'var(--err-ink)' : 'var(--green)'}">${best.sc.err} errori</b> · ${best.sc.warn} avvisi.</p>
+    ${notes.length ? `<ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul><p class="small muted">Prova <b>🛠 Risolvi problemi</b>: cerca altre soluzioni e ti spiega cosa non si può sistemare.</p>` : '<p>✅ Tutte le coperture e le ore sono state assegnate.</p>'}
+    <div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+}
+// --- risoluzione automatica ---
+/** Valuta un insieme di turni per la settimana: meno errori è meglio, poi meno avvisi. */
+function scoreWeek(weekShifts) {
+  const tmp = { ...state, shifts: state.shifts.filter((s) => s.day < ui.ws || s.day > ui.ws + 6).concat(weekShifts) };
+  const vs = T.validate(T.makeCtx(tmp, ui.ws));
+  const err = vs.filter((v) => v.sev === 'ERROR').length;
+  return { vs, err, warn: vs.length - err, score: err * 1000 + (vs.length - err) };
+}
+/** Suggerimento su cosa fare quando un problema non si può risolvere da solo. */
+function hintFor(v) {
+  const m = v.msg;
+  if (v.rule === 'COVERAGE' && /apertura/i.test(m)) {
+    const st = /McCafé/.test(m) ? 'MCCAFE' : 'CUCINA';
+    const n = state.employees.filter((e) => e.active && (e.openings || []).includes(st)).length;
+    return n ? `Solo ${n} ${n === 1 ? 'persona è segnata' : 'persone sono segnate'} per l'apertura ${T.STATIONS[st].label}: quel giorno non sono disponibili (riposo, ferie o chiusura la sera prima). Segnane altre in Aperture e chiusure.`
+      : `Nessuno è segnato per l'apertura ${T.STATIONS[st].label}: segnalo nella sezione Aperture e chiusure.`;
+  }
+  if (v.rule === 'COVERAGE' && /Hospitality/.test(m)) return 'Le hospitality disponibili quel giorno non bastano: controlla riposi e ferie, oppure abbassa il minimo in Regole.';
+  if (v.rule === 'COVERAGE' && /Chiusura/.test(m)) return 'Mancano persone che possono chiudere quella postazione quel giorno: segnane altre nella sezione Aperture e chiusure (o in Formazione), oppure cambia il minimo in Regole.';
+  if (v.rule === 'COVERAGE') {
+    const crew = state.employees.filter((e) => e.active && e.type === 'CREW' && !e.fixedShift);
+    const resting = v.day != null ? crew.filter((e) => T.isRest(e, v.day)) : [];
+    const avgRest = crew.length ? DAYS7.reduce((t, k) => t + crew.filter((e) => e.restDays.includes(k + 1)).length, 0) / 4 : 0; // i riposi sono da lun a gio
+    const fc = (state.forecasts || {})[T.mondayOf(v.day ?? ui.ws)];
+    if (resting.length > avgRest + 1) return `Quel giorno sono a riposo ${resting.length} crew (${resting.map(T.fullName).slice(0, 8).join(', ')}${resting.length > 8 ? '…' : ''}): sposta qualche riposo su un altro giorno da lunedì a giovedì${fc ? ', oppure rivedi le Crew Hours di quel giorno' : ''}.`;
+    return `Non ci sono abbastanza persone libere in quella fascia${fc ? ' per le Crew Hours di quel giorno' : ''}: ${fc ? 'rivedi le Crew Hours, ' : ''}abbassa il minimo in Regole o sposta un riposo.`;
+  }
+  if (v.rule === 'WEEKLY_HOURS' || v.rule === 'WORK_DAYS') return 'Le ore non entrano nei giorni disponibili con le regole attuali (stacchi, massimo giornaliero).';
+  if (v.rule === 'TRAINEE') return 'Serve un formato nella stessa postazione: segna altre persone in Formazione.';
+  return 'Va sistemato a mano cliccando la casella.';
+}
+function solveWeek() {
+  showModal('<h3>🛠 Sto cercando la soluzione migliore…</h3><p class="muted">Provo a sistemare la settimana mantenendo i tuoi turni e a rigenerarla da zero in più varianti. Ci vuole qualche secondo.</p>');
+  setTimeout(() => {
+    const ws = ui.ws, other = (s) => s.day < ws || s.day > ws + 6;
+    const current = state.shifts.filter((s) => !other(s));
+    const before = scoreWeek(current);
+    const tries = [];
+    // A) ripara la settimana attuale: tiene i turni, completa e sposta quelli che servono
+    for (const seed of [11, 12, 13]) {
+      const ctx = T.makeCtx(state, ws);
+      const r = T.generate(ctx, { seed: ws * 31 + seed, moveAll: true });
+      tries.push({ how: 'Riparata mantenendo i tuoi turni (alcuni spostati di orario)', shifts: r.all.map((x) => ({ ...x })) });
+    }
+    // B) rigenera da zero in più varianti
+    const empty = { ...state, shifts: state.shifts.filter(other) };
+    for (let k = 1; k <= 8; k++) {
+      const r = T.generate(T.makeCtx(empty, ws), { seed: ws * 7919 + 1000 + k + (ui.genCount || 0) * 17 });
+      tries.push({ how: 'Rigenerata da zero', shifts: r.added.map((x) => ({ ...x })) });
+    }
+    let best = null;
+    for (const t of tries) { t.res = scoreWeek(t.shifts); if (!best || t.res.score < best.res.score) best = t; }
+    ui.solution = best;
+    const better = best.res.score < before.score;
+    const left = best.res.vs.filter((v) => v.sev === 'ERROR');
+    const changed = best.shifts.length;
+    showModal(`
+      <h3>🛠 Risolvi problemi · ${T.weekLabel(ws)}</h3>
+      <p>Adesso: <b style="color:var(--err-ink)">${before.err} errori</b> · ${before.warn} avvisi<br>
+      Soluzione migliore trovata: <b style="color:${best.res.err ? 'var(--err-ink)' : 'var(--green)'}">${best.res.err} errori</b> · ${best.res.warn} avvisi
+      <span class="muted small">(${best.how}, ${changed} turni)</span></p>
+      ${better ? '' : '<div class="notice warn">Non ho trovato niente di meglio della settimana attuale.</div>'}
+      ${left.length ? `<p><b>Cosa resta e perché</b> (non si può sistemare da solo con le regole attuali):</p>
+        <ul style="max-height:260px;overflow:auto;padding-left:18px">${left.map((v) => `<li style="margin-bottom:6px">${esc(v.msg)}<br><span class="small muted">→ ${esc(hintFor(v))}</span></li>`).join('')}</ul>` : '<p>✅ Tutti gli errori risolti.</p>'}
+      <div class="actions">
+        <button class="btn" onclick="closeModal()">Annulla</button>
+        ${better ? '<button class="btn primary" onclick="applySolution()">Applica la soluzione</button>' : ''}
+      </div>`);
+  }, 30);
+}
+function applySolution() {
+  const sol = ui.solution; if (!sol) return;
+  const ws = ui.ws;
+  state.shifts = state.shifts.filter((s) => s.day < ws || s.day > ws + 6).concat(sol.shifts.map((x) => ({ ...x, id: newId() })));
+  ui.solution = null; save(); closeModal(); render();
+}
+
+function askClearWeek() {
+  showModal(`<h3>Svuotare la settimana?</h3><p>Verranno cancellati tutti i turni dal ${T.itDate(ui.ws)} al ${T.itDate(ui.ws + 6)}. Riposi e ferie restano.</p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="clearWeek()">Svuota</button></div>`);
+}
+function clearWeek() { state.shifts = state.shifts.filter((s) => s.day < ui.ws || s.day > ui.ws + 6); save(); closeModal(); render(); }
+
+// ================= GIORNALIERO (lineare) =================
+function openDaily(day) { ui.day = day; go('giornaliero'); }
+function moveDay(n) { ui.day += n; render(); }
+function renderGiornaliero() {
+  const day = ui.day, cfg = state.config;
+  const ctx = T.makeCtx(state, T.mondayOf(day));
+  const H0 = Math.floor(((cfg.open ?? 450) - 30) / 60), H1 = Math.ceil(((cfg.close ?? 1290) + 60) / 60);
+  const hours = []; for (let h = H0; h < H1; h++) hours.push(h);
+  const span = (H1 - H0) * 60, pct = (m) => (((m - H0 * 60) / span) * 100).toFixed(3) + '%';
+  const hw = `calc(100% / ${hours.length})`;
+  const day_ = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
+  const typeOf = (s) => ctx.byId.get(s.employeeId).type;
+  const sections = [
+    ['Hospitality', day_.filter((s) => !s.doppio && typeOf(s) === 'HOSPITALITY')],
+    ['Crew', day_.filter((s) => !s.doppio && typeOf(s) === 'CREW')],
+    ['Doppi turni', day_.filter((s) => s.doppio)],
+  ];
+  const vs = T.validate(ctx).filter((v) => v.day === day);
+  const bad = new Set(vs.filter((v) => v.emp != null).map((v) => v.emp));
+  const row = (s) => {
+    const e = ctx.byId.get(s.employeeId);
+    const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}`;
+    return `<div class="lrow click" onclick="openDay(${e.id},${day})" title="${esc(tip)}">
+      <div class="lpos">${T.STATIONS[s.station].short}</div>
+      <div class="lname">${bad.has(e.id) ? '<span style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}</div>
+      <div class="ltime">${T.fmtTime(s.start)}</div><div class="ltime">${T.fmtTime(s.end)}</div>
+      <div class="ltrack" style="--hw:${hw}"><div class="lbar st-${s.station}" style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%"></div></div>
+    </div>`;
+  };
+  const head = `<div class="lrow lhead"><div class="lpos">Post.</div><div class="lname">Nome</div><div class="ltime">Dalle</div><div class="ltime">Alle</div>
+    <div class="ltrack" style="--hw:${hw}">${hours.map((h) => `<span style="left:${pct(h * 60 + 30)}">${h}</span>`).join('')}</div></div>`;
+  const body = sections.map(([title, list]) => `<div class="lsec"><h4>${title} (${list.length})</h4>${head}${
+    list.sort((a, b) => a.start - b.start || a.end - b.end).map(row).join('') || '<div class="lrow"><div></div><div class="lname muted">nessuno</div></div>'}</div>`).join('');
+
+  // ore per fascia oraria (persone × ore) come nel lineare
+  const hoursIn = (list, h) => list.reduce((t, s) => t + Math.max(0, Math.min(s.end, (h + 1) * 60) - Math.max(s.start, h * 60)), 0) / 60;
+  const fmtN = (x) => (Math.round(x * 100) / 100).toString().replace('.', ',');
+  const countRow = (label, list, cls = '') => {
+    const tot = list.reduce((t, s) => t + s.end - s.start, 0) / 60;
+    return `<div class="lrow lcount ${cls}"><div></div><div class="lname">${label}</div><div class="ltime" style="grid-column: span 2">${fmtN(tot)}</div>
+      <div class="ltrack">${hours.map((h) => `<span>${fmtN(hoursIn(list, h))}</span>`).join('')}</div></div>`;
+  };
+  const crewPresent = (h) => { let mx = 0; for (let m = h * 60; m < (h + 1) * 60; m += 15) mx = Math.max(mx, day_.filter((s) => typeOf(s) === 'CREW' && s.start <= m && s.end >= m + 15).length); return mx; };
+  const counts = `<div class="lsec"><h4>Ore per fascia oraria</h4>${head}
+    ${countRow('Ore hospitality', sections[0][1])}${countRow('Ore crew', sections[1][1])}${countRow('Ore doppi turni', sections[2][1])}${countRow('Totale', day_, 'total')}
+    <div class="lrow lcount"><div></div><div class="lname">Crew presenti (max)</div><div class="ltime" style="grid-column: span 2"></div><div class="ltrack">${hours.map((h) => `<span>${crewPresent(h)}</span>`).join('')}</div></div></div>`;
+
+  // colonna laterale
+  const resting = sortByName(ctx.employees.filter((e) => T.started(e, day) && T.isRest(e, day) && !day_.some((s) => s.employeeId === e.id)));
+  const away = ctx.employees.map((e) => ({ e, a: T.absenceOn(ctx, e.id, day) })).filter((x) => x.a);
+  const cov = state.coverage.filter((r) => T.reqMin(r, day)).map((r) => { const c = T.coverageMin(ctx, day, r), need = T.reqMin(r, day);
+    return `<li><span class="chip ${c >= need ? 'ok' : 'err'}" style="padding:1px 8px">${c}/${need}</span> ${esc(r.name)} <span class="muted small">${T.fmtTime(r.start)}–${T.fmtTime(r.end)}</span></li>`; }).join('');
+  const legend = [...T.CREW_STATIONS, 'HOSPITALITY'].map((st) => `<span><i class="sw st-${st}"></i>${T.STATIONS[st].short} = ${T.STATIONS[st].label}</span>`).join('');
+
+  return `
+  <div class="toolbar">
+    <button class="btn" onclick="moveDay(-1)">◀</button>
+    <div class="week">${T.DOW_LONG[T.dow(day)]} ${T.itDate(day)}</div>
+    <button class="btn" onclick="moveDay(1)">▶</button>
+    <button class="btn" onclick="ui.day=T.todayDay();render()">Oggi</button>
+    <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
+    <div class="spacer"></div>
+    <button class="btn" onclick="ui.ws=T.mondayOf(ui.day);go('turni')">Vai alla settimana</button>
+    <button class="btn primary" onclick="window.print()">🖨 Stampa</button>
+  </div>
+  <div class="daily">
+    <div class="card sheet">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><b>LINEARE GIORNALIERO</b><span><b>${T.DOW_LONG[T.dow(day)]}</b> ${T.itDate(day)}</span></div>
+      ${body}${counts}
+      <div class="legend" style="margin-top:10px">${legend}</div>
+      <p class="small muted no-print">Clicca una riga per modificare il turno. I numeri in fondo sono le ore lavorate in ogni fascia oraria (es. 2 persone per mezz'ora = 1).</p>
+    </div>
+    <div class="dayside">
+      ${(() => { const fd = T.forecastDay((state.forecasts || {})[T.mondayOf(day)], T.dow(day) - 1);
+        if (!fd || !(fd.sales || fd.gc || fd.crewHours)) return '';
+        return `<div class="card"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b><br>` : ''}${fd.gc ? `GC: <b>${fd.gc}</b><br>` : ''}${fd.crewHours ? `Crew Hours: <b>${fd.crewHours}h</b>` : ''}</div>`; })()}
+      <div class="card"><h3>Coperture</h3><ul style="list-style:none;padding:0">${cov || '<li class="muted">Nessuna fascia</li>'}</ul></div>
+      <div class="card"><h3>Riposi (${resting.length})</h3><ul>${resting.map((e) => `<li>${esc(T.fullName(e))}</li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
+      <div class="card"><h3>Ferie e assenze (${away.length})</h3><ul>${away.map((x) => `<li>${esc(T.fullName(x.e))} <span class="muted small">${x.a.type}</span></li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
+      <div class="card no-print"><h3>Problemi del giorno (${vs.length})</h3>${vs.map((v) => `<div class="prob"><span class="dot ${v.sev}"></span><div class="small">${esc(v.msg)}</div></div>`).join('') || '<p class="muted small">Nessuno</p>'}</div>
+    </div>
+  </div>`;
+}
+
+// ================= PREVISIONI =================
+const DAYS7 = [0, 1, 2, 3, 4, 5, 6];
+function fcOf(ws) {
+  const f = (state.forecasts || {})[ws];
+  return { days: DAYS7.map((k) => ({ ...(T.forecastDay(f, k) || {}) })) };
+}
+const parseNum = (v) => (v === '' || v == null ? null : Math.max(0, +String(v).replace(',', '.')) || null);
+function setFc(k, field, v) {
+  state.forecasts = state.forecasts || {};
+  const f = fcOf(ui.ws);
+  f.days[k][field] = parseNum(v);
+  state.forecasts[ui.ws] = f; save(); render();
+}
+/** Copia lo stesso valore su più giorni (es. lun–gio uguali). */
+function fillFc(from, to) {
+  const f = fcOf(ui.ws);
+  for (let k = to[0]; k <= to[1]; k++) f.days[k] = { ...f.days[from] };
+  state.forecasts = state.forecasts || {}; state.forecasts[ui.ws] = f; save(); render();
+}
+function copyFcPrev() { const p = (state.forecasts || {})[ui.ws - 7]; if (!p) return alert('La settimana precedente non ha previsioni.'); state.forecasts[ui.ws] = fcOf(ui.ws - 7); save(); render(); }
+function clearFc() { if (state.forecasts) delete state.forecasts[ui.ws]; save(); render(); }
+function renderPrevisioni() {
+  const f = fcOf(ui.ws);
+  const num = (val, on, ph = '') => `<input type="number" min="0" step="any" value="${val ?? ''}" placeholder="${ph}" style="width:130px" onchange="${on}">`;
+  const dayRows = DAYS7.map((k) => `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td><b>${T.shortDate(ui.ws + k)}</b></td>
+      <td>${num(f.days[k].sales, `setFc(${k},'sales',this.value)`)}</td>
+      <td>${num(f.days[k].gc, `setFc(${k},'gc',this.value)`)}</td>
+      <td>${num(f.days[k].crewHours, `setFc(${k},'crewHours',this.value)`)}</td></tr>`).join('');
+  return `
+  <div class="toolbar">
+    <button class="btn" onclick="moveWeek(-1)">◀</button><div class="week">${T.weekLabel(ui.ws)}</div><button class="btn" onclick="moveWeek(1)">▶</button>
+    <div class="spacer"></div>
+    <button class="btn" onclick="copyFcPrev()">Copia dalla settimana precedente</button>
+    <button class="btn" onclick="clearFc()">Svuota la settimana</button>
+  </div>
+  <h2>Previsioni</h2>
+  <p class="muted">Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.</p>
+  <div class="card section">
+    <table class="list" style="max-width:640px"><thead><tr><th>Giorno</th><th>Vendite previste (€)</th><th>GC</th><th>Crew Hours</th></tr></thead><tbody>${dayRows}</tbody></table>
+    <div class="row small" style="margin-top:8px"><span class="muted">Scorciatoie:</span>
+      <button class="link" onclick="fillFc(0,[1,3])">copia il lunedì su mar–gio</button> ·
+      <button class="link" onclick="fillFc(4,[5,6])">copia il venerdì su sab–dom</button>
+    </div>
+  </div>`;
+}
+
+// ================= PERSONALE =================
+function renderPersonale() {
+  const groups = ['HOSPITALITY', 'CREW'].map((type) => {
+    const list = sortByName(state.employees.filter((e) => e.type === type));
+    if (!list.length) return '';
+    return `<tr class="group"><td colspan="${ui.deleteMode ? 7 : 6}">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => {
+      const sel = ui.selected.has(e.id);
+      const onclick = ui.deleteMode ? `toggleSel(${e.id})` : `editEmployee(${e.id})`;
+      return `<tr class="clickable ${sel ? 'sel' : ''}" onclick="${onclick}">
+        ${ui.deleteMode ? `<td style="width:36px"><input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleSel(${e.id})"></td>` : ''}
+        <td><b>${esc(T.fullName(e))}</b></td>
+        <td>${e.fixedShift ? `<span class="pill on">Fisso ${T.fmtTime(e.fixedShift.start)}–${T.fmtTime(e.fixedShift.end)}</span>` : T.fmtDur(e.weeklyMinutes)}</td>
+        <td>${e.restDays.length ? e.restDays.slice().sort().map((d) => T.DOW_SHORT[d]).join(', ') : '<span class="muted">nessuno</span>'}</td>
+        <td>${e.type === 'CREW' ? (e.trainings.length ? e.trainings.map((s) => `<span class="pill on">${T.STATIONS[s].label}</span>`).join('') : '<span class="muted small">non inserita</span>') : '—'}</td>
+        <td>${e.active ? 'Sì' : '<b style="color:var(--err-ink)">No</b>'}${e.trainee ? ' <span class="pill" style="background:var(--warn)">🎓 in formazione</span>' : ''}${e.startDate != null && e.startDate > T.todayDay() ? ` <span class="pill" style="background:#e8eefc;color:var(--rest)">entra il ${T.itDate(e.startDate)}</span>` : ''}</td>
+      </tr>`;
+    }).join('');
+  }).join('');
+  return `
+  <div class="toolbar">
+    <h2 style="margin:0">Personale (${state.employees.length})</h2>
+    <div class="spacer"></div>
+    ${ui.deleteMode ? '' : `<button class="btn" style="color:var(--err-ink)" onclick="ui.deleteMode=true;render()">🗑 Elimina persone</button>
+    <button class="btn primary" onclick="editEmployee(null)">+ Nuovo dipendente</button>`}
+  </div>
+  ${ui.deleteMode ? '<div class="notice warn" style="margin-bottom:12px">Seleziona chi se n\'è andato o non è stato riconfermato, poi premi <b>Elimina</b>. Se è solo una pausa, meglio aprire la persona e togliere "Attivo".</div>' : ''}
+  ${state.employees.length ? '' : '<div class="notice info" style="margin-bottom:12px">Nessun dipendente. Aggiungili con <b>+ Nuovo dipendente</b>, oppure, se hai un file esportato da un altro dispositivo, caricalo da <b>Regole → Dati → Importa dati</b>.</div>'}
+  <div class="card">
+    <table class="list"><thead><tr>${ui.deleteMode ? '<th></th>' : ''}<th>Nome</th><th>Ore / orario</th><th>Riposi fissi</th><th>Formazione</th><th>Attivo</th></tr></thead><tbody>${groups}</tbody></table>
+    ${ui.deleteMode ? `<div class="deletebar"><button class="btn" onclick="ui.deleteMode=false;ui.selected.clear();render()">Annulla</button>
+      <button class="btn danger" ${ui.selected.size ? '' : 'disabled'} onclick="askDelete()">Elimina (${ui.selected.size})</button></div>` : ''}
+  </div>`;
+}
+function toggleSel(id) { ui.selected.has(id) ? ui.selected.delete(id) : ui.selected.add(id); render(); }
+function askDelete() {
+  const names = state.employees.filter((e) => ui.selected.has(e.id)).map(T.fullName);
+  showModal(`<h3>Eliminare ${names.length} ${names.length === 1 ? 'persona' : 'persone'}?</h3><ul>${names.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+    <p class="muted small">Verranno cancellati anche i loro turni e le loro ferie. Non si può annullare.</p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="deleteSelected()">Elimina</button></div>`);
+}
+function deleteSelected() {
+  const ids = ui.selected;
+  state.employees = state.employees.filter((e) => !ids.has(e.id));
+  state.shifts = state.shifts.filter((s) => !ids.has(s.employeeId));
+  state.absences = state.absences.filter((a) => !ids.has(a.employeeId));
+  ui.selected = new Set(); ui.deleteMode = false;
+  save(); closeModal(); render();
+}
+function editEmployee(id) {
+  const e = id ? empById(id) : { id: null, lastName: '', firstName: '', type: 'CREW', weeklyMinutes: 1080, restDays: [], trainings: [], active: true, fixedShift: null, doubleDays: 0 };
+  const fx = e.fixedShift || { start: 540, end: 750 };
+  showModal(`
+    <h3>${id ? 'Modifica dipendente' : 'Nuovo dipendente'}</h3>
+    <div class="form" style="margin-top:12px">
+      <div class="row">
+        <label class="f">Cognome<input type="text" id="f-last" value="${esc(e.lastName)}"></label>
+        <label class="f">Nome<input type="text" id="f-first" value="${esc(e.firstName)}"></label>
+      </div>
+      <div class="row">
+        <label class="f">Ruolo<select id="f-type">${Object.entries(T.TYPES).map(([k, l]) => `<option value="${k}" ${e.type === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+        <label class="f">Ore settimanali da contratto<input type="text" id="f-hours" value="${T.hoursText(e.weeklyMinutes)}" style="width:120px"></label>
+        <label class="f">Data di inizio (assunzione)<input type="date" id="f-start" value="${e.startDate != null ? T.toIso(e.startDate) : ''}" title="Prima di questa data non gli vengono assegnati turni. Lascia vuoto se lavora già da tempo."></label>
+      </div>
+      <div><div class="small muted" style="font-weight:600;margin-bottom:4px">Riposi fissi <span style="font-weight:400">(da venerdì a domenica sono tutti a disposizione: metti i riposi da lunedì a giovedì)</span></div>
+        ${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="tg ${e.restDays.includes(d) ? 'on' : ''}"><input type="checkbox" class="f-rest" value="${d}" ${e.restDays.includes(d) ? 'checked' : ''} onchange="this.parentNode.classList.toggle('on',this.checked)">${T.DOW_SHORT[d]}</label>`).join('')}
+      </div>
+      <div class="shiftbox">
+        <label class="tg ${e.fixedShift ? 'on' : ''}" style="width:max-content"><input type="checkbox" id="f-fixed" ${e.fixedShift ? 'checked' : ''} onchange="this.parentNode.classList.toggle('on',this.checked);document.getElementById('f-fixed-times').style.display=this.checked?'flex':'none'">Orario fisso</label>
+        <div id="f-fixed-times" class="row" style="display:${e.fixedShift ? 'flex' : 'none'};gap:8px;align-items:center">
+          dalle ${timeSelect(fx.start, '').replace('<select', '<select id="f-fstart"')} alle ${timeSelect(fx.end, '').replace('<select', '<select id="f-fend"')}
+        </div>
+        <div class="small muted">Lavora sempre e solo in quest'orario, in tutti i giorni che non sono di riposo. Le ore settimanali si calcolano da sole.</div>
+      </div>
+      <label class="tg ${e.active ? 'on' : ''}" style="width:max-content"><input type="checkbox" id="f-active" ${e.active ? 'checked' : ''} onchange="this.parentNode.classList.toggle('on',this.checked)">Attivo (incluso nei turni)</label>
+      <div id="f-error" class="notice err" style="display:none"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" onclick="closeModal()">Annulla</button>
+      <button class="btn primary" onclick="saveEmployee(${id})">Salva</button>
+    </div>`);
+}
+function saveEmployee(id) {
+  const last = document.getElementById('f-last').value.trim();
+  const minutes = T.parseHours(document.getElementById('f-hours').value);
+  const err = document.getElementById('f-error');
+  if (!last || minutes == null || minutes < 0 || minutes > 3600) { err.style.display = 'block'; err.textContent = 'Inserisci almeno il cognome e un numero di ore valido (es. 18 o 18,5).'; return; }
+  const data = {
+    lastName: last, firstName: document.getElementById('f-first').value.trim(),
+    type: document.getElementById('f-type').value, weeklyMinutes: minutes,
+    restDays: [...document.querySelectorAll('.f-rest:checked')].map((x) => +x.value),
+    active: document.getElementById('f-active').checked,
+    fixedShift: null,
+    startDate: document.getElementById('f-start').value ? T.toDay(document.getElementById('f-start').value) : null,
+  };
+  if (document.getElementById('f-fixed').checked) {
+    const fs = +document.getElementById('f-fstart').value, fe = +document.getElementById('f-fend').value;
+    if (fe <= fs) { err.style.display = 'block'; err.textContent = "L'orario fisso deve finire dopo l'inizio."; return; }
+    data.fixedShift = { start: fs, end: fe };
+  }
+  if (id) Object.assign(empById(id), data);
+  else state.employees.push({ id: newId(), trainings: [], doubleDays: 0, ...data });
+  save(); closeModal(); render();
+}
+
+// ================= FORMAZIONE =================
+function renderFormazione() {
+  const people = state.employees.filter((e) => e.active);
+  const today = T.todayDay();
+  const counts = T.CREW_STATIONS.map((st) => `<span class="pill on">${T.STATIONS[st].label}: ${people.filter((e) => e.trainings.includes(st)).length}</span>`).join('');
+  const trainees = sortByName(people.filter((e) => e.trainee));
+  const rows = ['HOSPITALITY', 'CREW'].map((type) => {
+    const list = sortByName(people.filter((e) => e.type === type));
+    if (!list.length) return '';
+    return `<tr class="group"><td colspan="${T.CREW_STATIONS.length + 2}">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td>${T.CREW_STATIONS.map((st) =>
+      `<td style="text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer" ${e.trainings.includes(st) ? 'checked' : ''} onchange="toggleTraining(${e.id},'${st}')"></td>`).join('')}
+      <td style="white-space:nowrap;background:${e.trainee ? 'var(--warn)' : ''}"><label style="cursor:pointer"><input type="checkbox" style="width:18px;height:18px;vertical-align:middle" ${e.trainee ? 'checked' : ''} onchange="setTrainee(${e.id},this.checked)"> 🎓</label>
+        ${e.trainee ? ` fino al <input type="date" value="${e.traineeUntil != null ? T.toIso(e.traineeUntil) : ''}" onchange="setTraineeUntil(${e.id},this.value)" title="Lascia vuoto se non sai quando finisce">` : ''}</td></tr>`).join('');
+  }).join('');
+  return `
+  <h2>Formazione</h2>
+  <p class="muted">Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="go('aperture');return false">Aperture</a>.</p>
+  <div class="notice warn" style="margin-bottom:10px"><b>🎓 In formazione</b>: chi sta ancora imparando non può fare apertura o chiusura da solo/a. In quelle fasce non conta per i minimi e deve avere accanto, nella stessa postazione, una persona già formata. Se metti la data "fino al", dal giorno dopo torna a contare normalmente.
+    ${trainees.length ? `<div style="margin-top:6px">Ora in formazione: ${trainees.map((e) => `<b>${esc(T.fullName(e))}</b>${e.traineeUntil != null ? ` (fino al ${T.itDate(e.traineeUntil)}${e.traineeUntil < today ? ', finita' : ''})` : ''}`).join(', ')}</div>` : ''}</div>
+  <p>Formati → ${counts}</p>
+  <div class="card"><table class="list"><thead><tr><th>Nome</th>${T.CREW_STATIONS.map((st) => `<th style="text-align:center">${T.STATIONS[st].label}</th>`).join('')}<th>In formazione (affiancato)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function setTrainee(id, on) { const e = empById(id); e.trainee = on; if (!on) e.traineeUntil = null; save(); render(); }
+function setTraineeUntil(id, v) { empById(id).traineeUntil = v ? T.toDay(v) : null; save(); render(); }
+function toggleTraining(id, st) {
+  const e = empById(id);
+  e.trainings = e.trainings.includes(st) ? e.trainings.filter((s) => s !== st) : [...e.trainings, st];
+  save(); render();
+}
+
+// ================= APERTURE =================
+const OPENINGS = ['MCCAFE', 'CUCINA'];
+const CLOSINGS = ['MCCAFE', 'CUCINA', 'SERVIZIO'];
+function renderAperture() {
+  const people = state.employees.filter((e) => e.active);
+  const has = (e, key, st) => (e[key] || []).includes(st);
+  const markedClose = (st) => people.some((e) => has(e, 'closings', st));
+  const cnt = (key, st) => people.filter((e) => has(e, key, st)).length;
+  const pills = OPENINGS.map((st) => `<span class="pill on">Apertura ${T.STATIONS[st].label}: ${cnt('openings', st)}</span>`).join('') +
+    CLOSINGS.map((st) => `<span class="pill ${markedClose(st) ? 'on' : ''}" title="${markedClose(st) ? '' : 'Nessuno segnato: chiudono tutti i formati in questa postazione'}">Chiusura ${T.STATIONS[st].short === 'SALA' ? 'Sala' : T.STATIONS[st].label}: ${cnt('closings', st) || 'tutti i formati'}</span>`).join('');
+  const box = (e, key, st) => `<td style="text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer" ${has(e, key, st) ? 'checked' : ''} onchange="toggleQual(${e.id},'${key}','${st}')"></td>`;
+  const rows = ['HOSPITALITY', 'CREW'].map((type) => {
+    const list = sortByName(people.filter((e) => e.type === type));
+    if (!list.length) return '';
+    return `<tr class="group"><td colspan="6">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b>${e.fixedShift ? ' <span class="small muted">(orario fisso)</span>' : ''}${e.trainee ? ' 🎓' : ''}</td>
+      ${OPENINGS.map((st) => (e.type === 'HOSPITALITY' ? '<td style="text-align:center" class="small muted" title="In apertura ci sono solo 1 McCafé e 1 MFY (crew)">—</td>' : box(e, 'openings', st))).join('')}
+      ${CLOSINGS.map((st) => (st === 'SERVIZIO' && e.type === 'HOSPITALITY' ? '<td style="text-align:center" class="small muted" title="Le hospitality possono sempre chiudere la Sala">sempre ✓</td>' : box(e, 'closings', st))).join('')}</tr>`).join('');
+  }).join('');
+  return `
+  <h2>Aperture e chiusure</h2>
+  <p class="muted">Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.</p>
+  <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la può chiudere sempre un'hospitality.<br>
+  Chi è 🎓 in formazione non apre e non chiude mai da solo/a. In <b>apertura</b> (7:30) ci sono solo 2 persone: 1 McCafé e 1 MFY, niente hospitality.</div>
+  <p>${pills}</p>
+  <div class="card"><table class="list"><thead><tr><th>Nome</th>${OPENINGS.map((st) => `<th style="text-align:center">Apertura<br>${T.STATIONS[st].label}</th>`).join('')}${CLOSINGS.map((st) => `<th style="text-align:center">Chiusura<br>${st === 'SERVIZIO' ? 'Sala' : T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function toggleQual(id, key, st) {
+  const e = empById(id), o = e[key] || [];
+  e[key] = o.includes(st) ? o.filter((x) => x !== st) : [...o, st];
+  save(); render();
+}
+function toggleOpening(id, st) { toggleQual(id, 'openings', st); }
+
+// ================= DOPPI =================
+function renderDoppi() {
+  const list = sortByName(state.employees.filter((e) => e.active));
+  const tot = list.filter((e) => e.doubleDays > 0).length;
+  return `
+  <h2>Doppi</h2>
+  <p class="muted">Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
+  I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica.</p>
+  <p><span class="pill on">Persone con doppi: ${tot}</span></p>
+  <div class="card"><table class="list"><thead><tr><th>Dipendente</th><th>Ruolo</th><th>Giorni di doppio a settimana</th></tr></thead><tbody>
+    ${list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${T.TYPES[e.type]}</td>
+      <td><select onchange="setDoubles(${e.id},+this.value)">${[0, 1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${(e.doubleDays || 0) === n ? 'selected' : ''}>${n === 0 ? 'nessuno' : n}</option>`).join('')}</select></td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function setDoubles(id, n) { empById(id).doubleDays = n; save(); render(); }
+
+// ================= FERIE =================
+function renderFerie() {
+  const list = [...state.absences].sort((a, b) => b.from - a.from);
+  const today = T.toIso(T.todayDay());
+  return `
+  <h2>Ferie e assenze</h2>
+  <p class="muted">Nei giorni di ferie o assenza non si possono assegnare turni, e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno).</p>
+  <div class="card section">
+    <div class="form"><div class="row">
+      <label class="f">Dipendente<select id="a-emp"><option value="">— scegli —</option>${sortByName(state.employees).map((e) => `<option value="${e.id}">${esc(T.fullName(e))}</option>`).join('')}</select></label>
+      <label class="f">Tipo<select id="a-type"><option>FERIE</option><option>ASSENTE</option></select></label>
+      <label class="f">Dal<input type="date" id="a-from" value="${today}"></label>
+      <label class="f">Al<input type="date" id="a-to" value="${today}"></label>
+      <label class="f">Note<input type="text" id="a-note" placeholder="facoltative"></label>
+      <button class="btn primary" style="align-self:end" onclick="addAbsence()">Aggiungi</button>
+    </div><div id="a-error" class="notice err" style="display:none"></div></div>
+  </div>
+  <div class="card"><table class="list"><thead><tr><th>Dipendente</th><th>Tipo</th><th>Periodo</th><th>Note</th><th></th></tr></thead><tbody>
+    ${list.map((a) => { const e = empById(a.employeeId); return `<tr><td><b>${e ? esc(T.fullName(e)) : '?'}</b></td><td>${a.type}</td>
+      <td>${a.from === a.to ? 'il ' + T.itDate(a.from) : `dal ${T.itDate(a.from)} al ${T.itDate(a.to)}`}</td><td class="muted">${esc(a.note || '')}</td>
+      <td style="text-align:right"><button class="link" style="color:var(--err-ink)" onclick="deleteAbsence(${a.id})">Elimina</button></td></tr>`; }).join('') || '<tr><td colspan="5" class="muted">Nessuna ferie inserita.</td></tr>'}
+  </tbody></table></div>`;
+}
+function addAbsence() {
+  const emp = +document.getElementById('a-emp').value;
+  const fromV = document.getElementById('a-from').value, toV = document.getElementById('a-to').value;
+  const err = document.getElementById('a-error');
+  if (!emp || !fromV || !toV || toV < fromV) { err.style.display = 'block'; err.textContent = 'Scegli il dipendente e un periodo valido (la fine non può essere prima dell\'inizio).'; return; }
+  state.absences.push({ id: newId(), employeeId: emp, from: T.toDay(fromV), to: T.toDay(toV), type: document.getElementById('a-type').value, note: document.getElementById('a-note').value.trim() });
+  save(); render();
+}
+function deleteAbsence(id) { state.absences = state.absences.filter((a) => a.id !== id); save(); render(); }
+
+// ================= REGOLE =================
+function renderRegole() {
+  const c = state.config;
+  const field = (key, label) => `<label class="f">${label}<input type="text" id="cfg-${key}" value="${T.hoursText(c[key])}" style="width:110px"></label>`;
+  return `
+  <h2>Regole</h2>
+  <div class="card section">
+    <div class="form">
+      <div class="row">${field('crewMaxWeekday', 'Max ore turno Crew lun–gio (standard)')}${field('crewMax', 'Max ore turno Crew (turni lunghi e ven–dom)')}${field('hospMax', 'Max ore turno Hospitality')}${field('minShift', 'Turno minimo (ore)')}${field('rest11', 'Stacco tra giorni consecutivi (ore)')}${field('rest36', 'Stacco con riposo in mezzo (ore)')}</div>
+      <div class="row"><label class="f">Turni lunghi lun–gio a testa a settimana (a rotazione)<input type="number" min="0" max="4" id="cfg-longpw" value="${c.weekdayLongPerWeek ?? 1}" style="width:110px"></label></div>
+      <div class="row">${field('doubleMax', 'Durata massima doppio (ore)')}${field('doubleGap', 'Pausa minima turno–doppio (ore)')}${field('closeGrace', 'Ultimi minuti non controllati prima della chiusura (ore)')}</div>
+      <div class="row"><label class="f">Post-rush pomeriggio: dalle${timeSelect(c.afternoonStart ?? 870, '').replace('<select', '<select id="cfg-aft0"')}</label><label class="f">alle${timeSelect(c.afternoonEnd ?? 1140, '').replace('<select', '<select id="cfg-aft1"')}</label>
+        <label class="f">Chi fa la cena entra dalle${timeSelect(c.dinnerPreStart ?? 990, '').replace('<select', '<select id="cfg-pre"')}</label>
+        <span class="small muted" style="align-self:end">Niente turni tutti nel post-rush (es. 14:30–19:30) né ibridi (es. 15:30–20:30): turni sfalsati che si agganciano ai rush (13:00–17:00 → 17:00–21:00). I turni oltre 4h devono coprire il picco del pranzo o della cena.</span></div>
+      <div class="row"><label class="f">Apertura locale${timeSelect(c.open, '').replace('<select', '<select id="cfg-open"')}</label><label class="f">Chiusura locale${timeSelect(c.close, '').replace('<select', '<select id="cfg-close"')}</label></div>
+      <div class="small muted">Il massimo del turno non comprende il doppio, che ha il suo limite. Si possono scrivere anche mezze ore: 4,5 oppure 4:30. Il generatore non mette turni fuori dall'orario del locale.</div>
+      <div id="cfg-error" class="notice err" style="display:none"></div>
+      <div><button class="btn primary" onclick="saveConfig()">Salva regole</button></div>
+    </div>
+  </div>
+  <h2>Fasce di copertura</h2>
+  <p class="muted">Numero minimo di persone presenti per tutta la durata della fascia, giorno per giorno (0 = nessun minimo). Nei giorni con le Crew Hours (sezione Previsioni), i minimi delle fasce senza postazione (rush, picchi, intermedi) vengono ricavati dalle Crew Hours. I valori iniziali vengono dagli orari reali delle settimane 39–44. Contano crew e hospitality messe in una postazione crew (non quelle in sala). Con una postazione indicata contano solo i presenti in quella postazione; con "Solo formati apertura" solo chi è segnato nella sezione Aperture.</p>
+  <div class="card"><table class="list"><thead><tr><th>Nome</th><th>Dalle</th><th>Alle</th><th>Minimo crew per giorno (Lun → Dom)</th><th>Postazione</th><th>Solo formati apertura</th><th>Solo formati chiusura</th><th title="In quel momento devono esserci esattamente questi, nessun altro">Squadra esatta</th><th></th></tr></thead><tbody>
+    ${state.coverage.map((r, i) => `<tr>
+      <td><input type="text" value="${esc(r.name)}" onchange="state.coverage[${i}].name=this.value;save()"></td>
+      <td>${timeSelect(r.start, `state.coverage[${i}].start=+this.value;save()`)}</td>
+      <td>${timeSelect(r.end, `state.coverage[${i}].end=+this.value;save()`)}</td>
+      <td style="white-space:nowrap">${[0, 1, 2, 3, 4, 5, 6].map((k) => `<input type="number" min="0" title="${T.DOW_SHORT[k + 1]}" value="${r.min ? r.min[k] : r.minStaff}" style="width:46px;padding:5px" onchange="setCovMin(${i},${k},this.value)">`).join('')}</td>
+      <td><select onchange="state.coverage[${i}].station=this.value||null;if(!this.value)state.coverage[${i}].opening=false;save();render()"><option value="">Qualsiasi crew</option>${[...T.CREW_STATIONS, 'HOSPITALITY'].map((st) => `<option value="${st}" ${r.station === st ? 'selected' : ''}>${T.STATIONS[st].label}</option>`).join('')}</select></td>
+      <td style="text-align:center"><input type="checkbox" ${r.opening ? 'checked' : ''} ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].opening=this.checked;save()"></td>
+      <td style="text-align:center"><input type="checkbox" ${r.closing ? 'checked' : ''} ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].closing=this.checked;save()"></td>
+      <td style="text-align:center"><select ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].exact=this.value==='start'?'start':this.value==='end';save()">
+        <option value="" ${!r.exact ? 'selected' : ''}>no</option><option value="start" ${r.exact === 'start' ? 'selected' : ''}>all'inizio</option><option value="end" ${r.exact === true ? 'selected' : ''}>alla fine</option></select></td>
+      <td style="text-align:right"><button class="link" style="color:var(--err-ink)" onclick="state.coverage.splice(${i},1);save();render()">Elimina</button></td></tr>`).join('')}
+  </tbody></table>
+  <div style="padding:12px"><button class="btn" onclick="state.coverage.push({id:'c'+newId(),name:'Nuova fascia',start:720,end:840,min:[1,1,1,1,1,1,1],station:null});save();render()">+ Aggiungi fascia</button></div></div>
+  <h2 style="margin-top:20px">Dati</h2>
+  <div class="card section">
+    <div class="form">
+      <div class="row"><label class="f">Nome del locale (compare in alto)<input type="text" value="${esc(c.storeName || '')}" placeholder="es. il nome del ristorante" onchange="state.config.storeName=this.value.trim();save();render()"></label></div>
+      <p style="margin:0">I dati (personale, turni, ferie, regole, previsioni) sono salvati <b>solo in questo browser</b>. Per spostarli su un altro dispositivo o farne una copia di sicurezza:</p>
+      <div class="row">
+        <button class="btn primary" onclick="exportData()">⬇ Esporta dati (file)</button>
+        <label class="btn" style="cursor:pointer">⬆ Importa dati (file)<input type="file" accept=".json,application/json" style="display:none" onchange="importData(this.files[0]);this.value=''"></label>
+      </div>
+      <p class="small muted" style="margin:0">Il file contiene nomi e orari del personale: tienilo per te e non condividerlo.</p>
+      <hr style="border:0;border-top:1px solid var(--line);width:100%">
+      ${window.TurniPrivato
+        ? `<p style="margin:0">Ripristina personale e orari della settimana 44 dal file privato di questo computer. <b>Cancella tutte le modifiche fatte.</b></p>
+           <div><button class="btn danger" onclick="if(confirm('Ripristinare i dati iniziali? Tutte le modifiche andranno perse.')){state=TurniData.sampleState();save();ui.ws=T.toDay('2026-10-26');go('turni')}">Ripristina dati iniziali</button></div>`
+        : `<div><button class="btn danger" onclick="if(confirm('Cancellare tutti i dati di questo browser? Fai prima Esporta dati se vuoi tenerli.')){state=TurniData.emptyState();save();go('personale')}">Cancella tutti i dati</button></div>`}
+    </div>
+  </div>`;
+}
+// --- esporta / importa ---
+function exportData() {
+  const data = { app: 'pianificatore-turni', exportedAt: new Date().toISOString(), state };
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `turni-${T.toIso(T.todayDay())}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function importData(file) {
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => {
+    let data;
+    try { data = JSON.parse(r.result); } catch (e) { return alert('Il file non è valido.'); }
+    const st = data && data.state ? data.state : data;
+    if (!st || !Array.isArray(st.employees) || !Array.isArray(st.shifts)) return alert('Questo file non contiene dati di turni.');
+    if (!confirm(`Importare ${st.employees.length} dipendenti e ${st.shifts.length} turni? I dati attuali di questo browser verranno sostituiti.`)) return;
+    state = TurniData.migrate(st); save(); go('turni');
+  };
+  r.readAsText(file);
+}
+function setCovMin(i, k, v) {
+  const r = state.coverage[i];
+  if (!r.min) r.min = [0, 1, 2, 3, 4, 5, 6].map(() => r.minStaff || 0);
+  r.min[k] = Math.max(0, Math.round(+v || 0));
+  save();
+}
+function saveConfig() {
+  const keys = ['crewMaxWeekday', 'crewMax', 'hospMax', 'minShift', 'rest11', 'rest36', 'doubleMax', 'doubleGap', 'closeGrace'];
+  const vals = keys.map((k) => T.parseHours(document.getElementById('cfg-' + k).value));
+  if (vals.some((v, i) => v == null || (keys[i] === 'closeGrace' ? v < 0 : v <= 0))) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = 'Valori non validi: usa numeri di ore, es. 4 o 4,5.'; return; }
+  const open = +document.getElementById('cfg-open').value, close = +document.getElementById('cfg-close').value;
+  if (close <= open) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = "La chiusura deve essere dopo l'apertura."; return; }
+  keys.forEach((k, i) => (state.config[k] = vals[i]));
+  state.config.open = open; state.config.close = close;
+  state.config.afternoonStart = +document.getElementById('cfg-aft0').value; state.config.afternoonEnd = +document.getElementById('cfg-aft1').value;
+  state.config.dinnerPreStart = +document.getElementById('cfg-pre').value;
+  state.config.weekdayLongPerWeek = Math.max(0, Math.min(4, Math.round(+document.getElementById('cfg-longpw').value || 0)));
+  save(); render();
+  showModal('<h3>Regole salvate</h3><p>I controlli dei turni ora usano i nuovi valori.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>');
+}
+
+save();
+render();
+</script>
+</body>
+</html>
