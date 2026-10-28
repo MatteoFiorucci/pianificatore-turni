@@ -234,8 +234,12 @@
   const isRest = (e, day) => e.restDays.includes(dow(day));
   /** In formazione quel giorno (fino alla data indicata, se c'è): in apertura/chiusura deve essere affiancato. */
   const isTrainee = (e, day) => !!e.trainee && (e.traineeUntil == null || day <= e.traineeUntil);
-  /** Può chiudere quella postazione? Hospitality sempre per la Sala; se per la postazione non è segnato nessuno, tutti i formati. */
-  const canClose = (ctx, e, station) => (station === 'SERVIZIO' && e.type === 'HOSPITALITY') || (e.closings || []).includes(station) ||
+  /**
+   * Può chiudere quella postazione? Se per la postazione è segnato qualcuno (sezione Aperture e chiusure), solo i segnati.
+   * Se non è segnato nessuno, tutti i formati in quella postazione (per la Sala anche le hospitality).
+   * La Sala la possono chiudere sia crew sia hospitality: nessuna delle due è obbligatoria.
+   */
+  const canClose = (ctx, e, station) => (e.closings || []).includes(station) ||
     (!(ctx.closingMarked && ctx.closingMarked.has(station)) && (e.trainings.includes(station) || (station === 'SERVIZIO' && e.type === 'HOSPITALITY')));
   /** In forza quel giorno? Prima della data di inizio (assunzione) non si può pianificare. */
   const started = (e, day) => e.startDate == null || day >= e.startDate;
@@ -843,9 +847,8 @@
           .filter((e) => !isTrainee(e, d));
         const wins = windowsFor(d, m, [180, 210, 240, 150, 270, 300], [req], 0, 'CREW', cfg.crewMax);
         const st = (e) => (req.station === 'SERVIZIO' && e.type === 'HOSPITALITY' && !e.trainings.includes('SERVIZIO') ? 'HOSPITALITY' : req.station);
-        // per aperture e chiusure prima i crew: le hospitality servono anche in sala
-        // aperture/chiusure: prima i crew (le hospitality servono in sala), tranne la Sala di chiusura che fanno di solito le hospitality
-        const hospBias = req.station === 'SERVIZIO' && !req.opening ? 2 : -2;
+        // aperture/chiusure: prima i crew (le hospitality servono in sala); per la Sala di chiusura crew e hospitality alla pari
+        const hospBias = req.station === 'SERVIZIO' && !req.opening ? 0 : -2;
         return pickPair(d, wins, pool, (e) => st(e), false, canPlace, (e) => (e.type === 'HOSPITALITY' ? hospBias : 0));
       }
       const s1 = pickPair(d, windowsFor(d, m, LENGTHS, generic, 0, 'CREW', cfg.crewMax), crew, (e, a, b) => pickStation(e, d, a, b));
@@ -862,7 +865,9 @@
       const need = reqMin(req, d);
       if (!need) continue;
       let m = req.start;
-      const endC = req.end; // il generatore copre fino alla chiusura vera (il margine vale solo per i controlli)
+      // la squadra di chiusura va coperta fino alla chiusura vera; le altre fasce (es. hospitality cena) fino alle 21:00,
+      // così nessuna fascia obbliga una hospitality a restare fino alle 21:30
+      const endC = req.closing ? req.end : covEnd(cfg, req);
       while (m < endC) {
         const c = countAt(ctx, d, m, req, shifts);
         if (c >= need) { m += SLOT; continue; }

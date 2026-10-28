@@ -820,12 +820,12 @@ function renderAperture() {
     if (!list.length) return '';
     return `<tr class="group"><td colspan="6">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b>${e.fixedShift ? ' <span class="small muted">(orario fisso)</span>' : ''}${e.trainee ? ' 🎓' : ''}</td>
       ${OPENINGS.map((st) => (e.type === 'HOSPITALITY' ? '<td style="text-align:center" class="small muted" title="In apertura ci sono solo 1 McCafé e 1 MFY (crew)">—</td>' : box(e, 'openings', st))).join('')}
-      ${CLOSINGS.map((st) => (st === 'SERVIZIO' && e.type === 'HOSPITALITY' ? '<td style="text-align:center" class="small muted" title="Le hospitality possono sempre chiudere la Sala">sempre ✓</td>' : box(e, 'closings', st))).join('')}</tr>`).join('');
+      ${CLOSINGS.map((st) => box(e, 'closings', st)).join('')}</tr>`).join('');
   }).join('');
   return `
   <h2>Aperture e chiusure</h2>
   <p class="muted">Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.</p>
-  <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la può chiudere sempre un'hospitality.<br>
+  <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la possono chiudere sia crew sia hospitality: se non segni nessuno, possono chiuderla tutti i crew formati in Sala e tutte le hospitality.<br>
   Chi è 🎓 in formazione non apre e non chiude mai da solo/a. In <b>apertura</b> (7:30) ci sono solo 2 persone: 1 McCafé e 1 MFY, niente hospitality.</div>
   <p>${pills}</p>
   <div class="card"><table class="list"><thead><tr><th>Nome</th>${OPENINGS.map((st) => `<th style="text-align:center">Apertura<br>${T.STATIONS[st].label}</th>`).join('')}${CLOSINGS.map((st) => `<th style="text-align:center">Chiusura<br>${st === 'SERVIZIO' ? 'Sala' : T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
