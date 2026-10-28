@@ -49,11 +49,11 @@
     { id: 'c5', name: 'Rush cena', start: 1080, end: 1260, min: [3, 3, 3, 3, 4, 5, 5], station: null },
     { id: 'c10', name: 'Picco cena', start: 1140, end: 1230, min: [6, 6, 6, 6, 9, 11, 11], station: null },
     // squadra di chiusura (exact = alla fine della fascia devono restare esattamente questi, nessun altro):
-    // feriali 2 MFY + 1 McCafé + 1 Sala, weekend 3 + 1 + 2 (la Sala può farla un'hospitality)
+    // lun–gio 2 MFY + 1 McCafé + 1 Sala, ven–dom 3 + 1 + 2 (la Sala può farla un'hospitality). Nessuno in front alla chiusura.
     // closing: true = contano solo i formati per la chiusura di quella postazione (sezione Aperture e chiusure)
     { id: 'c11', name: 'Chiusura McCafé', start: 1110, end: 1290, min: all(1), station: 'MCCAFE', exact: true, closing: true },
-    { id: 'c12', name: 'Chiusura Sala', start: 1110, end: 1290, min: [1, 1, 1, 1, 1, 2, 2], station: 'SERVIZIO', exact: true, closing: true },
-    { id: 'c13', name: 'Chiusura MFY', start: 1110, end: 1290, min: [2, 2, 2, 2, 2, 3, 3], station: 'CUCINA', exact: true, closing: true },
+    { id: 'c12', name: 'Chiusura Sala', start: 1110, end: 1290, min: [1, 1, 1, 1, 2, 2, 2], station: 'SERVIZIO', exact: true, closing: true },
+    { id: 'c13', name: 'Chiusura MFY', start: 1110, end: 1290, min: [2, 2, 2, 2, 3, 3, 3], station: 'CUCINA', exact: true, closing: true },
     // hospitality in sala (dallo storico: sempre presenti a pranzo e a cena, il pomeriggio varia; 2 nei rush del weekend)
     { id: 'h2', name: 'Hospitality pranzo', start: 750, end: 870, min: [1, 1, 1, 1, 2, 2, 2], station: 'HOSPITALITY' },
     { id: 'h3', name: 'Hospitality cena', start: 1050, end: 1290, min: [1, 1, 1, 1, 1, 2, 1], station: 'HOSPITALITY' },
@@ -474,13 +474,18 @@
       return x.station === station || (station === 'SERVIZIO' && x.station === 'HOSPITALITY') || (station === 'HOSPITALITY' && x.station === 'SERVIZIO');
     }).length;
   }
-  /** Momenti di apertura/chiusura (fasce con postazione) in cui un turno in formazione resterebbe senza un formato accanto. */
+  /**
+   * Momenti di apertura/chiusura in cui un turno in formazione resterebbe senza un formato accanto nella stessa postazione.
+   * Per la chiusura si controlla fino alla chiusura vera (21:30), compresi gli ultimi minuti: chi è in formazione
+   * non chiude mai da solo/a, in nessuna postazione (neanche in front, dove alla chiusura non resta nessun formato).
+   */
   function unaccompanied(ctx, s, list) {
     const e = ctx.byId.get(s.employeeId);
     if (!e || !isTrainee(e, s.day)) return null;
     for (const r of ctx.coverage) {
-      if (!r.station || !reqMin(r, s.day)) continue;
-      for (let t = Math.max(s.start, r.start); t < Math.min(s.end, covEnd(ctx.cfg, r)); t += SLOT) {
+      if (!r.station || !(r.opening || r.closing) || !reqMin(r, s.day)) continue;
+      const end = r.closing ? r.end : covEnd(ctx.cfg, r);
+      for (let t = Math.max(s.start, r.start); t < Math.min(s.end, end); t += SLOT) {
         if (!seniorsAt(ctx, s.day, t, s.station, list)) return { req: r, t };
       }
     }
