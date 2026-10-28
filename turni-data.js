@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 20;
+  const VERSION = 21;
 
   function emptyState() {
     return {
@@ -35,6 +35,11 @@
       for (const [k, v] of Object.entries({ trainings: [], openings: [], closings: [], restDays: [], doubleDays: 0, fixedShift: null, trainee: false, traineeUntil: null, startDate: null, active: true })) {
         if (e[k] === undefined) e[k] = Array.isArray(v) ? [] : v;
       }
+    }
+    // v21: la Sala in chiusura non è più "sempre hospitality". Se qualcuno era già segnato per chiudere la Sala,
+    // le hospitality (che prima potevano sempre) vengono segnate anche loro, così non cambia niente finché non lo decide il manager.
+    if ((st.version || 1) < 21 && (st.employees || []).some((e) => (e.closings || []).includes('SERVIZIO'))) {
+      for (const e of st.employees) if (e.type === 'HOSPITALITY' && !e.closings.includes('SERVIZIO')) e.closings.push('SERVIZIO');
     }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
