@@ -14,6 +14,14 @@
     HOSPITALITY: { label: 'Hospitality', short: 'HSP' },
   };
   const CREW_STATIONS = ['CUCINA', 'FRONT', 'MCCAFE', 'SERVIZIO'];
+  /** Tipi di assenza: in tutti la persona non lavora e le ore della settimana si riducono in proporzione. */
+  const ABSENCE_TYPES = {
+    FERIE: { label: 'Ferie', phrase: 'in ferie', color: '#e8eefc', ink: '#1e40af' },
+    MALATTIA: { label: 'Malattia', phrase: 'in malattia', color: '#fde2e4', ink: '#9f1239' },
+    INFORTUNIO: { label: 'Infortunio', phrase: 'in infortunio', color: '#ffedd5', ink: '#9a3412' },
+    ASSENTE: { label: 'Assente', phrase: 'assente', color: '#eeeeee', ink: '#555555' },
+  };
+  const absenceInfo = (type) => ABSENCE_TYPES[type] || { label: type, phrase: String(type).toLowerCase(), color: '#eeeeee', ink: '#555555' };
   const TYPES = { CREW: 'Crew', HOSPITALITY: 'Hospitality' };
   const DOW_SHORT = ['', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
   const DOW_LONG = ['', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
@@ -261,7 +269,7 @@
 
   // ---------- regole ----------
   const RULES = {
-    COVERAGE: 'Copertura', FIXED_REST: 'Riposo fisso', ABSENCE: 'Ferie / assenza', INVALID_TIME: 'Orario non valido',
+    COVERAGE: 'Copertura', FIXED_REST: 'Riposo fisso', ABSENCE: 'Ferie / malattia', INVALID_TIME: 'Orario non valido',
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
     DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati',
@@ -275,7 +283,7 @@
       if (!e) continue;
       const a = absenceOn(ctx, e.id, s.day);
       let v = null;
-      if (a) v = V('ABSENCE', 'ERROR', `${fullName(e)} è in ${a.type} il ${shortDate(s.day)} ma ha un turno`, e.id, s.day);
+      if (a) v = V('ABSENCE', 'ERROR', `${fullName(e)} è ${absenceInfo(a.type).phrase} il ${shortDate(s.day)} ma ha un turno`, e.id, s.day);
       else if (isRest(e, s.day)) v = V('FIXED_REST', 'ERROR', `${fullName(e)}: turno nel giorno di riposo fisso (${DOW_LONG[dow(s.day)]})`, e.id, s.day);
       if (v && !seen.has(v.msg)) { seen.add(v.msg); out.push(v); }
     }
@@ -1010,6 +1018,7 @@
   }
 
   root.Turni = {
+    ABSENCE_TYPES, absenceInfo,
     STATIONS, CREW_STATIONS, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,

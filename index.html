@@ -211,7 +211,7 @@
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
-const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie'], ['regole', 'Regole']];
+const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['regole', 'Regole']];
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
 
 // ---------- stato (salvato nel browser) ----------
@@ -338,7 +338,7 @@ function cellHtml(ctx, e, d, vlist) {
     inner = sh.slice().sort((a, b) => !!a.doppio - !!b.doppio || a.start - b.start).map((s) => `<div>${T.fmtTime(s.start)} ${T.fmtTime(s.end)}${s.doppio ? ' <b style="color:var(--warn-ink)" title="Doppio">D</b>' : ''}</div>`).join('') +
       (e.type === 'CREW' || sh.some((s) => s.station !== 'HOSPITALITY') ? `<div class="st">${sh.map((s) => T.STATIONS[s.station].short).join(' + ')}</div>` : '');
   } else if (!T.started(e, d)) inner = `<span class="abs" title="Data di inizio: ${T.itDate(e.startDate)}">entra il<br>${T.shortDate(e.startDate).split(' ')[1]}</span>`;
-  else if (ab) inner = `<span class="abs">${ab.type}</span>`;
+  else if (ab) { const ai = T.absenceInfo(ab.type); inner = `<span class="abs" style="background:${ai.color};color:${ai.ink};padding:2px 6px;border-radius:4px">${ai.label.toUpperCase()}</span>`; }
   else if (rest) inner = '<span class="rest">RIPOSO</span>';
   else inner = '<span class="empty">—</span>';
   const title = vlist ? vlist.map((v) => '• ' + v.msg).join('\n') : 'Clicca per modificare';
@@ -383,7 +383,7 @@ function renderDayModal() {
     <h3>${esc(T.fullName(e))}</h3>
     <div class="muted">${T.longDate(day)} · ${T.TYPES[e.type]}</div>
     <div class="form" style="margin-top:14px">
-      ${ab ? `<div class="notice err">In ${ab.type} questo giorno: non dovrebbe lavorare.</div>` : ''}
+      ${ab ? `<div class="notice err">Questo giorno è ${T.absenceInfo(ab.type).phrase}: non dovrebbe lavorare.</div>` : ''}
       ${!T.started(e, day) ? `<div class="notice err">Entra il ${T.itDate(e.startDate)}: prima di quella data non può avere turni.</div>` : ''}
       ${T.isRest(e, day) ? `<div class="notice info">È il suo giorno di riposo fisso.</div>` : ''}
       ${T.isTrainee(e, day) ? `<div class="notice warn">🎓 In formazione: in apertura e chiusura deve avere accanto un formato nella stessa postazione.</div>` : ''}
@@ -610,7 +610,7 @@ function renderGiornaliero() {
         return `<div class="card"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b><br>` : ''}${fd.gc ? `GC: <b>${fd.gc}</b><br>` : ''}${fd.crewHours ? `Crew Hours: <b>${fd.crewHours}h</b>` : ''}</div>`; })()}
       <div class="card"><h3>Coperture</h3><ul style="list-style:none;padding:0">${cov || '<li class="muted">Nessuna fascia</li>'}</ul></div>
       <div class="card"><h3>Riposi (${resting.length})</h3><ul>${resting.map((e) => `<li>${esc(T.fullName(e))}</li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
-      <div class="card"><h3>Ferie e assenze (${away.length})</h3><ul>${away.map((x) => `<li>${esc(T.fullName(x.e))} <span class="muted small">${x.a.type}</span></li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
+      <div class="card"><h3>Ferie, malattie e assenze (${away.length})</h3><ul>${away.map((x) => `<li>${esc(T.fullName(x.e))} <span class="muted small">${T.absenceInfo(x.a.type).label}</span></li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
       <div class="card no-print"><h3>Problemi del giorno (${vs.length})</h3>${vs.map((v) => `<div class="prob"><span class="dot ${v.sev}"></span><div class="small">${esc(v.msg)}</div></div>`).join('') || '<p class="muted small">Nessuno</p>'}</div>
     </div>
   </div>`;
@@ -850,12 +850,12 @@ function renderFerie() {
   const list = [...state.absences].sort((a, b) => b.from - a.from);
   const today = T.toIso(T.todayDay());
   return `
-  <h2>Ferie e assenze</h2>
-  <p class="muted">Nei giorni di ferie o assenza non si possono assegnare turni, e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno).</p>
+  <h2>Ferie e malattie</h2>
+  <p class="muted">Inserisci ferie, malattie, infortuni e assenze. In quei giorni la persona non può avere turni (il generatore non la usa) e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno). Una malattia o un infortunio in corso si può inserire anche a settimana già fatta: i suoi turni di quei giorni diventano errori da coprire (usa 🛠 Risolvi problemi).</p>
   <div class="card section">
     <div class="form"><div class="row">
       <label class="f">Dipendente<select id="a-emp"><option value="">— scegli —</option>${sortByName(state.employees).map((e) => `<option value="${e.id}">${esc(T.fullName(e))}</option>`).join('')}</select></label>
-      <label class="f">Tipo<select id="a-type"><option>FERIE</option><option>ASSENTE</option></select></label>
+      <label class="f">Tipo<select id="a-type">${Object.entries(T.ABSENCE_TYPES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select></label>
       <label class="f">Dal<input type="date" id="a-from" value="${today}"></label>
       <label class="f">Al<input type="date" id="a-to" value="${today}"></label>
       <label class="f">Note<input type="text" id="a-note" placeholder="facoltative"></label>
@@ -863,7 +863,7 @@ function renderFerie() {
     </div><div id="a-error" class="notice err" style="display:none"></div></div>
   </div>
   <div class="card"><table class="list"><thead><tr><th>Dipendente</th><th>Tipo</th><th>Periodo</th><th>Note</th><th></th></tr></thead><tbody>
-    ${list.map((a) => { const e = empById(a.employeeId); return `<tr><td><b>${e ? esc(T.fullName(e)) : '?'}</b></td><td>${a.type}</td>
+    ${list.map((a) => { const e = empById(a.employeeId); return `<tr><td><b>${e ? esc(T.fullName(e)) : '?'}</b></td><td><span class="pill" style="background:${T.absenceInfo(a.type).color};color:${T.absenceInfo(a.type).ink}">${T.absenceInfo(a.type).label}</span></td>
       <td>${a.from === a.to ? 'il ' + T.itDate(a.from) : `dal ${T.itDate(a.from)} al ${T.itDate(a.to)}`}</td><td class="muted">${esc(a.note || '')}</td>
       <td style="text-align:right"><button class="link" style="color:var(--err-ink)" onclick="deleteAbsence(${a.id})">Elimina</button></td></tr>`; }).join('') || '<tr><td colspan="5" class="muted">Nessuna ferie inserita.</td></tr>'}
   </tbody></table></div>`;
