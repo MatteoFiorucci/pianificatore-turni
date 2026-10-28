@@ -103,6 +103,49 @@
   .notice { padding: 8px 10px; border-radius: 8px; font-size: 13px; }
   .notice.err { background: var(--err); color: var(--err-ink); } .notice.info { background: #e8eefc; color: var(--rest); } .notice.warn { background: var(--warn); color: var(--warn-ink); }
   .section { padding: 16px; margin-bottom: 16px; }
+  /* ---- adattamento a schermi piccoli e finestre ridotte ---- */
+  html, body { overflow-x: clip; }
+  header { flex-wrap: wrap; height: auto; min-height: 56px; row-gap: 4px; padding-top: 6px; padding-bottom: 6px; }
+  header .brand { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  nav { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  nav::-webkit-scrollbar { display: none; }
+  nav button { white-space: nowrap; flex: none; }
+  .sheet { overflow-x: auto; }
+  .sheet > * { min-width: 660px; }
+  .modal { max-width: calc(100vw - 24px); }
+  .card:has(> table.list), .card > div:has(> table.list) { overflow-x: auto; }
+  @media (max-width: 1180px) {
+    header { gap: 4px 12px; }
+    nav button { padding: 8px 10px; }
+  }
+  @media (max-width: 1024px) {
+    .grid .name { min-width: 150px; max-width: 170px; white-space: normal; line-height: 1.25; }
+    .grid tr.cov .name .small { display: none; }
+  }
+  @media (max-width: 760px) {
+    header { padding: 6px 10px; }
+    header .brand { width: 100%; font-size: 14px; }
+    nav { width: 100%; }
+    nav button { padding: 6px 10px; font-size: 13px; }
+    main { padding: 10px 10px 30px; }
+    h2 { font-size: 18px; }
+    .toolbar { gap: 6px; }
+    .toolbar .week { min-width: 0; flex: 1 1 140px; font-size: 15px; }
+    .grid .name { min-width: 112px; max-width: 128px; white-space: normal; font-size: 12px; padding: 4px 6px; line-height: 1.25; }
+    .grid tr.cov .name .small { display: none; }
+    .grid thead th { padding: 6px 3px; font-size: 12px; }
+    td.cell { min-width: 76px; height: 46px; font-size: 12px; }
+    td.tot { min-width: 62px; }
+    .gridwrap, aside.problems { max-height: none; }
+    .modal-bg { padding: 10px; align-items: flex-start; }
+    .modal { padding: 14px; max-height: calc(100vh - 20px); }
+    .form .row { gap: 8px; }
+    .list th, .list td { padding: 7px 8px; }
+    .lrow { grid-template-columns: 40px 120px 40px 40px minmax(380px, 1fr); }
+    .sheet > * { min-width: 600px; }
+    .daily .dayside .card { margin-bottom: 8px; }
+  }
+
   /* ---- lineare giornaliero ---- */
   .daily { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; align-items: start; }
   @media (max-width: 1100px) { .daily { grid-template-columns: 1fr; } }
