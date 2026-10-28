@@ -41,7 +41,7 @@
     return j;
   }
   function authMessage(m) {
-    if (/INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL/.test(m)) return 'Email o password sbagliate.';
+    if (/INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL/.test(m)) return 'Nome utente o password sbagliati.';
     if (/USER_DISABLED/.test(m)) return 'Questo account è disattivato.';
     if (/TOO_MANY_ATTEMPTS/.test(m)) return 'Troppi tentativi: riprova tra qualche minuto.';
     if (/TOKEN_EXPIRED|INVALID_REFRESH_TOKEN|USER_NOT_FOUND|invalid_grant/i.test(m)) return 'Accesso scaduto: rientra con email e password.';
