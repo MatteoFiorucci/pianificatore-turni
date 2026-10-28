@@ -100,6 +100,9 @@
   .modal h3 { margin: 0 0 4px; }
   .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
   .shiftbox { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+  .sync { margin-left: auto; }
+  .sync button { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .sync button.bad { background: #fde68a; color: #7c2d12; }
   .notice { padding: 8px 10px; border-radius: 8px; font-size: 13px; }
   .notice.err { background: var(--err); color: var(--err-ink); } .notice.info { background: #e8eefc; color: var(--rest); } .notice.warn { background: var(--warn); color: var(--warn-ink); }
   .section { padding: 16px; margin-bottom: 16px; }
@@ -197,16 +200,19 @@
 <header>
   <div class="brand" id="brand">🗓 Orari</div>
   <nav id="nav"></nav>
+  <div id="sync" class="sync"></div>
 </header>
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610281954"></script>
-<script src="turni-core.js?v=202610281954"></script>
+<script src="turni-storico.js?v=202610282008"></script>
+<script src="turni-core.js?v=202610282008"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610281954"></script>
-<script src="turni-cripto.js?v=202610281954"></script>
+<script src="turni-data.js?v=202610282008"></script>
+<script src="turni-cloud-config.js?v=202610282008"></script>
+<script src="turni-cloud.js?v=202610282008"></script>
+<script src="turni-cripto.js?v=202610282008"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -224,9 +230,11 @@ function loadState() {
   try { const s = JSON.parse(window.localStorage.getItem(KEY)); if (s && Array.isArray(s.employees)) return TurniData.migrate(s); } catch (e) { storageOk = false; }
   return TurniData.sampleState();
 }
-function save() {
+function saveLocal() {
   try { window.localStorage.setItem(KEY, JSON.stringify(state)); storageOk = true; } catch (e) { storageOk = false; }
 }
+/** Ogni modifica: salva nel browser e (se collegato) anche online, pochi secondi dopo. */
+function save() { saveLocal(); cloudTouch(); }
 const newId = () => state.nextId++;
 const empById = (id) => state.employees.find((e) => e.id === id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -242,7 +250,7 @@ function renderBrand() {
   document.title = n ? `Orari · ${n}` : 'Pianificatore turni';
 }
 function render() {
-  renderBrand();
+  renderBrand(); renderSync();
   document.getElementById('nav').innerHTML = VIEWS.map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}</button>`).join('');
   const views = { turni: renderTurni, giornaliero: renderGiornaliero, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, regole: renderRegole };
   document.getElementById('app').innerHTML =
@@ -250,7 +258,7 @@ function render() {
     views[ui.view]();
 }
 function showModal(html) { document.getElementById('modal').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
-function closeModal() { document.getElementById('modal').innerHTML = ''; ui.draft = null; }
+function closeModal() { document.getElementById('modal').innerHTML = ''; ui.draft = null; if (sync.pendingRender) { sync.pendingRender = false; render(); } }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
 // ================= TURNI =================
@@ -925,7 +933,9 @@ function renderRegole() {
   <div class="card section">
     <div class="form">
       <div class="row"><label class="f">Nome del locale (compare in alto)<input type="text" value="${esc(c.storeName || '')}" placeholder="es. il nome del ristorante" onchange="state.config.storeName=this.value.trim();save();render()"></label></div>
-      <p style="margin:0">I dati (personale, turni, ferie, regole, previsioni) sono salvati <b>solo in questo browser</b>. Per spostarli su un altro dispositivo o farne una copia di sicurezza:</p>
+      ${renderCloudBox()}
+      <hr style="border:0;border-top:1px solid var(--line);width:100%">
+      <p style="margin:0">${TurniCloud.loggedIn() ? 'Copia di sicurezza su file (facoltativa):' : 'Senza salvataggio online i dati (personale, turni, ferie, regole, previsioni) sono salvati <b>solo in questo browser</b>. Per spostarli su un altro dispositivo o farne una copia di sicurezza:'}</p>
       <div class="row">
         <button class="btn primary" onclick="exportData()">⬇ Esporta dati (file)</button>
         <label class="btn" style="cursor:pointer">⬆ Importa dati (file)<input type="file" accept=".json,application/json" style="display:none" onchange="importData(this.files[0]);this.value=''"></label>
@@ -990,6 +1000,147 @@ async function openSiteData() {
   } catch (e) { err.style.display = 'block'; err.textContent = e.message === 'Password sbagliata' ? 'Password sbagliata, riprova.' : e.message; }
 }
 
+// ================= SALVATAGGIO ONLINE =================
+const sync = { status: 'off', msg: '', timer: null, busy: false, seq: 0, pendingRender: false };
+const modalOpen = () => !!document.getElementById('modal').innerHTML;
+const fmtWhen = (iso) => { if (!iso) return '—'; const d = new Date(iso); return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) + ' alle ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
+function setSync(status, msg) { sync.status = status; sync.msg = msg || ''; renderSync(); }
+function renderSync() {
+  const el = document.getElementById('sync'); if (!el) return;
+  if (!TurniCloud.loggedIn()) { el.innerHTML = ''; return; }
+  const t = { ok: '☁️ Salvato online', saving: '⏳ Salvataggio…', offline: '⚠️ Offline: salvo appena torna la rete', error: '⚠️ Non salvato online', conflict: '⚠️ Scegli quali dati tenere' }[sync.status] || '☁️ Online';
+  el.innerHTML = `<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button>`;
+}
+function cloudTouch() {
+  if (!TurniCloud.loggedIn()) return;
+  sync.seq++; TurniCloud.setDirty(true); setSync('saving');
+  clearTimeout(sync.timer); sync.timer = setTimeout(() => cloudPush(), 1500);
+}
+/** Invia i dati online. base: vedi TurniCloud.push (undefined = ultima versione nota). */
+async function cloudPush(base) {
+  if (!TurniCloud.loggedIn()) return;
+  clearTimeout(sync.timer);
+  if (sync.busy) { sync.timer = setTimeout(() => cloudPush(base), 800); return; }
+  if (base === undefined && !TurniCloud.session().dirty) { setSync('ok'); return; }
+  sync.busy = true; const seq = sync.seq; setSync('saving');
+  try {
+    await TurniCloud.push(state, base);
+    if (seq === sync.seq) { TurniCloud.setDirty(false); setSync('ok'); }
+    else sync.timer = setTimeout(() => cloudPush(), 800); // altre modifiche nel frattempo
+  } catch (e) { cloudError(e); } finally { sync.busy = false; }
+}
+function cloudError(e) {
+  if (e.code === 'OFFLINE') { setSync('offline', e.message); if (TurniCloud.session() && TurniCloud.session().dirty) sync.timer = setTimeout(() => cloudPush(), 30000); }
+  else if (e.code === 'CONFLICT') cloudConflict();
+  else if (e.code === 'LOGGED_OUT') { setSync('off'); render(); askCloudLogin(e.message); }
+  else setSync('error', e.message);
+}
+/** Prende i dati online se sono cambiati (salvati da un altro dispositivo). */
+async function cloudPull() {
+  if (!TurniCloud.loggedIn() || sync.busy) return;
+  if (TurniCloud.session().dirty) return cloudPush();
+  sync.busy = true;
+  try {
+    const r = await TurniCloud.pull();
+    if (r.changed) applyRemote(r.state, r.doc.updateTime);
+    else if (!r.doc) { TurniCloud.setLastUpdate(null); TurniCloud.setDirty(true); sync.busy = false; return cloudPush(null); }
+    setSync('ok');
+  } catch (e) { cloudError(e); } finally { sync.busy = false; }
+}
+function applyRemote(st, updateTime) {
+  state = TurniData.migrate(st); saveLocal();
+  TurniCloud.setLastUpdate(updateTime); TurniCloud.setDirty(false);
+  if (modalOpen()) sync.pendingRender = true; else render();
+}
+async function cloudConflict() {
+  setSync('conflict');
+  let r;
+  try { r = await TurniCloud.pull(); } catch (e) { return cloudError(e); }
+  if (!r.doc) return cloudPush(null);
+  if (!r.changed) return cloudPush();
+  ui.conflict = r;
+  showModal(`<h3>⚠️ Dati modificati anche da un altro dispositivo</h3>
+    <p>Mentre lavoravi qui, online sono stati salvati altri dati (da <b>${esc(r.doc.device || 'un altro dispositivo')}</b>, ${fmtWhen(r.doc.savedAt)}). Le due versioni non si possono unire: scegli quale tenere.</p>
+    <p class="small muted">Online: ${r.state.employees.length} dipendenti, ${r.state.shifts.length} turni · Questo dispositivo: ${state.employees.length} dipendenti, ${state.shifts.length} turni.</p>
+    <div class="actions"><button class="btn" onclick="conflictKeepLocal()">Tieni quelli di questo dispositivo</button><button class="btn primary" onclick="conflictKeepOnline()">Tieni quelli online</button></div>`);
+}
+function conflictKeepOnline() { const r = ui.conflict; ui.conflict = null; closeModal(); applyRemote(r.state, r.doc.updateTime); setSync('ok'); render(); }
+function conflictKeepLocal() { const r = ui.conflict; ui.conflict = null; closeModal(); TurniCloud.setDirty(true); cloudPush(r.doc.updateTime); }
+
+function cloudLoginFields(msg) {
+  const s = TurniCloud.session();
+  return `${msg ? `<div class="notice warn">${esc(msg)}</div>` : ''}
+    <div class="form"><div class="row">
+      <label class="f">Email<input type="email" id="cl-email" autocomplete="username" value="${esc((s && s.email) || '')}"></label>
+      <label class="f">Password<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')cloudLogin()"></label>
+      <button class="btn primary" id="cl-btn" style="align-self:end" onclick="cloudLogin()">Accedi</button>
+    </div><div id="cl-err" class="notice err" style="display:none"></div></div>`;
+}
+function askCloudLogin(msg) {
+  showModal(`<h3>☁️ Accedi ai dati del locale</h3>
+    <p class="muted">Entra con l'email e la password del salvataggio online: i dati saranno gli stessi su PC e telefono.</p>
+    ${cloudLoginFields(msg)}
+    <div class="actions"><button class="btn" onclick="closeModal()">Non ora</button></div>`);
+  setTimeout(() => { const i = document.getElementById(document.getElementById('cl-email').value ? 'cl-pw' : 'cl-email'); if (i) i.focus(); }, 50);
+}
+async function cloudLogin() {
+  const email = document.getElementById('cl-email').value.trim(), pw = document.getElementById('cl-pw').value;
+  const err = document.getElementById('cl-err'), btn = document.getElementById('cl-btn');
+  if (!email || !pw) { err.style.display = 'block'; err.textContent = 'Scrivi email e password.'; return; }
+  btn.disabled = true; btn.textContent = 'Accesso…'; err.style.display = 'none';
+  let r;
+  try { r = await TurniCloud.login(email, pw); }
+  catch (e) { btn.disabled = false; btn.textContent = 'Accedi'; err.style.display = 'block'; err.textContent = e.message; return; }
+  ui.loginDoc = r;
+  if (!r.doc) {
+    // primo accesso in assoluto: i dati di questo dispositivo diventano quelli online
+    closeModal(); TurniCloud.setDirty(true); await cloudPush(null); render();
+    showModal(`<h3>✅ Salvataggio online attivo</h3><p>I dati di questo dispositivo (${state.employees.length} dipendenti, ${state.shifts.length} turni) ora sono salvati online, cifrati con la tua password.</p>
+      <p class="muted">Sul telefono apri il sito, vai in Regole → Dati e accedi con la stessa email e password.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+  } else if (r.data === undefined) {
+    showModal(`<h3>⚠️ Password diversa</h3><p>I dati online sono cifrati con una password diversa da quella con cui hai appena fatto l'accesso (forse l'hai cambiata), quindi non si possono leggere.</p>
+      <p>Puoi sostituirli con i dati di questo dispositivo (${state.employees.length} dipendenti, ${state.shifts.length} turni), cifrati con la password nuova.</p>
+      <div class="actions"><button class="btn" onclick="TurniCloud.logout();closeModal();render()">Annulla</button><button class="btn danger" onclick="closeModal();TurniCloud.setDirty(true);cloudPush('force').then(render)">Sostituisci i dati online</button></div>`);
+  } else if (!state.employees.length) {
+    closeModal(); applyRemote(r.data.state, r.doc.updateTime); setSync('ok'); go('turni');
+  } else {
+    showModal(`<h3>☁️ Online ci sono già dei dati</h3>
+      <p>Online: <b>${r.data.state.employees.length} dipendenti, ${r.data.state.shifts.length} turni</b> (salvati da ${esc(r.doc.device || '—')}, ${fmtWhen(r.doc.savedAt)}).<br>Su questo dispositivo: ${state.employees.length} dipendenti, ${state.shifts.length} turni.</p>
+      <p class="muted">Di solito conviene usare quelli online.</p>
+      <div class="actions"><button class="btn" onclick="loginKeepLocal()">Usa quelli di questo dispositivo</button><button class="btn primary" onclick="loginKeepOnline()">Usa quelli online</button></div>`);
+  }
+}
+function loginKeepOnline() { const r = ui.loginDoc; ui.loginDoc = null; closeModal(); applyRemote(r.data.state, r.doc.updateTime); setSync('ok'); go('turni'); }
+function loginKeepLocal() {
+  if (!confirm('Sostituire i dati online con quelli di questo dispositivo? Quelli online andranno persi.')) return;
+  const r = ui.loginDoc; ui.loginDoc = null; closeModal(); TurniCloud.setDirty(true); cloudPush(r.doc.updateTime).then(render);
+}
+function cloudLogout() {
+  const s = TurniCloud.session();
+  if (s && s.dirty && !confirm('Ci sono modifiche non ancora salvate online: uscendo restano solo su questo dispositivo. Uscire lo stesso?')) return;
+  if (!(s && s.dirty) && !confirm('Uscire dal salvataggio online su questo dispositivo? I dati restano qui, ma non si aggiornano più con gli altri dispositivi.')) return;
+  TurniCloud.logout(); setSync('off'); render();
+}
+function renderCloudBox() {
+  if (!TurniCloud.configured()) return `<p style="margin:0"><b>☁️ Salvataggio online:</b> non ancora attivo.</p>`;
+  if (!TurniCloud.loggedIn()) return `<p style="margin:0"><b>☁️ Salvataggio online</b> — accedi per avere gli stessi dati su PC e telefono, aggiornati da soli.</p>${cloudLoginFields()}`;
+  const s = TurniCloud.session();
+  const st = { ok: '✅ tutto salvato', saving: '⏳ salvataggio in corso…', offline: '⚠️ senza connessione: le modifiche partono appena torna la rete', error: '⚠️ ' + sync.msg, conflict: '⚠️ da scegliere quali dati tenere' }[sync.status] || '';
+  return `<p style="margin:0"><b>☁️ Salvataggio online attivo</b> come <b>${esc(s.email)}</b>${st ? ' — ' + esc(st) : ''}.</p>
+    <p class="small muted" style="margin:0">Ogni modifica viene salvata online da sola, cifrata con la tua password. Gli altri dispositivi collegati la ricevono quando li riapri (o entro un minuto). Ultimo salvataggio da qui: ${fmtWhen(s.lastSavedAt)}.</p>
+    <div class="row"><button class="btn" onclick="cloudPull()">🔄 Aggiorna ora</button><button class="btn" onclick="cloudLogout()">Esci da questo dispositivo</button></div>`;
+}
+document.addEventListener('visibilitychange', () => {
+  if (!TurniCloud.loggedIn()) return;
+  if (document.visibilityState === 'hidden') { if (TurniCloud.session().dirty) cloudPush(); }
+  else cloudPull();
+});
+window.addEventListener('online', () => { if (TurniCloud.loggedIn()) cloudPull(); });
+setInterval(() => {
+  const a = document.activeElement;
+  if (document.visibilityState === 'visible' && !modalOpen() && !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) cloudPull();
+}, 60000);
+
 // --- esporta / importa ---
 function exportData() {
   const data = { app: 'pianificatore-turni', exportedAt: new Date().toISOString(), state };
@@ -1034,9 +1185,11 @@ function saveConfig() {
   showModal('<h3>Regole salvate</h3><p>I controlli dei turni ora usano i nuovi valori.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>');
 }
 
-save();
+saveLocal();
 render();
-loadFromSite(false);
+if (TurniCloud.loggedIn()) cloudPull();
+else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
+else loadFromSite(false);
 </script>
 </body>
 </html>
