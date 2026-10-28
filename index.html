@@ -201,12 +201,12 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610281745"></script>
-<script src="turni-core.js?v=202610281745"></script>
+<script src="turni-storico.js?v=202610281954"></script>
+<script src="turni-core.js?v=202610281954"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610281745"></script>
-<script src="turni-cripto.js?v=202610281745"></script>
+<script src="turni-data.js?v=202610281954"></script>
+<script src="turni-cripto.js?v=202610281954"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -855,9 +855,9 @@ function renderFerie() {
   <div class="card section">
     <div class="form"><div class="row">
       <label class="f">Dipendente<select id="a-emp"><option value="">— scegli —</option>${sortByName(state.employees).map((e) => `<option value="${e.id}">${esc(T.fullName(e))}</option>`).join('')}</select></label>
-      <label class="f">Tipo<select id="a-type">${Object.entries(T.ABSENCE_TYPES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select></label>
-      <label class="f">Dal<input type="date" id="a-from" value="${today}"></label>
-      <label class="f">Al<input type="date" id="a-to" value="${today}"></label>
+      <label class="f">Tipo<select id="a-type" onchange="absAutoEnd()">${Object.entries(T.ABSENCE_TYPES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('')}</select></label>
+      <label class="f">Dal<input type="date" id="a-from" value="${today}" onchange="absAutoEnd()"></label>
+      <label class="f">Al<input type="date" id="a-to" value="${T.toIso(T.todayDay() + (7 - T.dow(T.todayDay())))}"></label>
       <label class="f">Note<input type="text" id="a-note" placeholder="facoltative"></label>
       <button class="btn primary" style="align-self:end" onclick="addAbsence()">Aggiungi</button>
     </div><div id="a-error" class="notice err" style="display:none"></div></div>
@@ -867,6 +867,13 @@ function renderFerie() {
       <td>${a.from === a.to ? 'il ' + T.itDate(a.from) : `dal ${T.itDate(a.from)} al ${T.itDate(a.to)}`}</td><td class="muted">${esc(a.note || '')}</td>
       <td style="text-align:right"><button class="link" style="color:var(--err-ink)" onclick="deleteAbsence(${a.id})">Elimina</button></td></tr>`; }).join('') || '<tr><td colspan="5" class="muted">Nessuna ferie inserita.</td></tr>'}
   </tbody></table></div>`;
+}
+// Ferie: vanno da lunedì a domenica, quindi "Al" diventa la domenica della settimana di "Dal" (si può sempre cambiare a mano)
+function absAutoEnd() {
+  const fromV = document.getElementById('a-from').value;
+  if (!fromV || document.getElementById('a-type').value !== 'FERIE') return;
+  const d = T.toDay(fromV);
+  document.getElementById('a-to').value = T.toIso(d + (7 - T.dow(d)));
 }
 function addAbsence() {
   const emp = +document.getElementById('a-emp').value;
