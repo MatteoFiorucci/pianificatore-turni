@@ -276,7 +276,7 @@
     COVERAGE: 'Copertura', FIXED_REST: 'Riposo fisso', ABSENCE: 'Ferie / malattia', INVALID_TIME: 'Orario non valido',
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
-    DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati',
+    DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena',
   };
   const V = (rule, sev, msg, emp = null, day = null) => ({ rule, sev, msg, emp, day });
 
@@ -491,6 +491,28 @@
     }
     return null;
   }
+  /**
+   * Picchi di pranzo e cena e presenze per postazione: serve a dividere le persone di una postazione tra pranzo e cena
+   * (es. due persone di Sala: una a pranzo e una a cena), così nessuna postazione resta scoperta in un rush.
+   */
+  const PEAK_STATIONS = ['CUCINA', 'FRONT', 'MCCAFE', 'SERVIZIO'];
+  const peaksOf = (cfg) => [cfg.lunchPeak || [750, 840], cfg.dinnerPeak || [1140, 1230]];
+  const overlap = (a, b, p) => Math.max(0, Math.min(b, p[1]) - Math.max(a, p[0]));
+  const inPeak = (a, b, p) => overlap(a, b, p) >= (p[1] - p[0]) / 2;
+  const peakStation = (st) => (st === 'HOSPITALITY' ? 'SERVIZIO' : st);
+  const peakCount = (list, day, st, p, except = null) => list.filter((x) => x !== except && x.day === day && !x.doppio && peakStation(x.station) === st && inPeak(x.start, x.end, p)).length;
+  function ruleRushSplit(ctx) {
+    const out = [];
+    const [L, D] = peaksOf(ctx.cfg);
+    for (const d of ctx.days) for (const st of PEAK_STATIONS) {
+      const l = peakCount(ctx.shifts, d, st, L), n = peakCount(ctx.shifts, d, st, D);
+      if ((l === 0 && n >= 2) || (n === 0 && l >= 2)) {
+        const p = parts(d), label = st === 'SERVIZIO' ? 'Sala' : STATIONS[st].label;
+        out.push(V('RUSH_SPLIT', 'WARNING', `${DOW_LONG[dow(d)]} ${p.d}/${p.m} · ${label}: ${l === 0 ? `a pranzo nessuno, a cena ${n}` : `a cena nessuno, a pranzo ${l}`}: meglio dividerli tra pranzo e cena`, null, d));
+      }
+    }
+    return out;
+  }
   function ruleTrainee(ctx) {
     const out = [];
     for (const s of ctx.shifts) {
@@ -622,7 +644,7 @@
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -773,6 +795,24 @@
      * Sceglie turno e persona insieme: tra le finestre che chiudono quasi più buchi possibile (≥ 80% della migliore)
      * preferisce chi ha più ore da fare e l'orario più naturale per lui/lei.
      */
+    /**
+     * Pranzo e cena divisi per postazione: bonus a chi porta la sua postazione in un picco dove manca,
+     * penalità a chi la raddoppia in un picco mentre nell'altro non c'è nessuno di quella postazione.
+     */
+    function rushBalance(st, d, a, b) {
+      // le hospitality hanno già le loro fasce di pranzo e cena (es. 2 a pranzo il sabato): la regola vale per i crew
+      if (!st || st === 'HOSPITALITY') return 0;
+      const ps = peakStation(st), [L, Dn] = peaksOf(cfg);
+      let v = 0;
+      for (const [P, Q] of [[L, Dn], [Dn, L]]) {
+        if (!inPeak(a, b, P) || inPeak(a, b, Q)) continue;
+        const cP = peakCount(shifts, d, ps, P), cQ = peakCount(shifts, d, ps, Q);
+        if (cP === 0) v += 1;
+        else if (cQ === 0) v -= 1.5;
+        else if (cP > cQ) v -= 0.5;
+      }
+      return v;
+    }
     function pickPair(d, wins, cands, stationFn, doppio = false, check = canPlace, bias = () => 0, share = 0.8) {
       if (!wins.length || !cands.length) return null;
       const best = Math.max(1, wins[0].gain);
@@ -783,7 +823,8 @@
         const pairs = [];
         for (const w of list) for (const e of cands) {
           const a = w.start, b = w.start + w.len;
-          pairs.push({ w, e, score: (w.gain / best) * 3 + (need(e) / maxNeed) * 1.5 + natural(e, d, a, b) + bias(e) });
+          const stn = doppio ? null : stationFn(e, a, b);
+          pairs.push({ w, e, score: (w.gain / best) * 3 + (need(e) / maxNeed) * 1.5 + natural(e, d, a, b) + bias(e) + rushBalance(stn, d, a, b) });
         }
         pairs.sort((x, y) => y.score - x.score);
         for (const p of pairs) {
@@ -858,7 +899,9 @@
         const st = (e) => (req.station === 'SERVIZIO' && e.type === 'HOSPITALITY' && !e.trainings.includes('SERVIZIO') ? 'HOSPITALITY' : req.station);
         // aperture/chiusure: prima i crew (le hospitality servono in sala); per la Sala di chiusura crew e hospitality alla pari
         const hospBias = req.station === 'SERVIZIO' && !req.opening ? 0 : -2;
-        return pickPair(d, wins, pool, (e) => st(e), false, canPlace, (e) => (e.type === 'HOSPITALITY' ? hospBias : 0));
+        // in apertura si preferisce chi NON è segnato per le chiusure: chi chiude serve la sera (e dopo una chiusura non può aprire)
+        const closerPenalty = (e) => (req.opening && (e.closings || []).length ? -1.5 : 0);
+        return pickPair(d, wins, pool, (e) => st(e), false, canPlace, (e) => (e.type === 'HOSPITALITY' ? hospBias : 0) + closerPenalty(e));
       }
       const s1 = pickPair(d, windowsFor(d, m, LENGTHS, generic, 0, 'CREW', cfg.crewMax), crew, (e, a, b) => pickStation(e, d, a, b));
       if (s1) return s1;
@@ -928,7 +971,7 @@
               if (Math.abs(dl - len) <= 30 && dl <= rem && dl <= max && dl >= cfg.minShift && a >= OPEN && b <= CLOSE) opts.push([d, a, b]);
             }
           }
-          const scored = opts.map(([d, a, b]) => ({ d, a, b, sc: crowd(d, a, b) - natural(e, d, a, b) * 0.35 })).sort((x, y) => x.sc - y.sc);
+          const scored = opts.map(([d, a, b]) => ({ d, a, b, sc: crowd(d, a, b) - natural(e, d, a, b) * 0.35 - rushBalance(pickStation(e, d, a, b), d, a, b) * 0.5 })).sort((x, y) => x.sc - y.sc);
           for (const o of scored) {
             const s = { employeeId: e.id, day: o.d, start: o.a, end: o.b, station: pickStation(e, o.d, o.a, o.b), doppio: false };
             if (canPlace(e, s)) { placed = s; break; }
@@ -1018,6 +1061,80 @@
               }
               if (fixed) break;
             }
+          }
+        }
+      }
+      if (!improved) break;
+    }
+
+    // 6. squadre di chiusura incomplete: chi è segnato per chiudere spesso apre anche il giorno dopo (e allora non può chiudere).
+    //    A) si sposta il suo turno della sera fino alla chiusura; B) se il giorno dopo apre, scambia quel turno con un collega
+    //    che può aprire (il collega apre, lui prende il turno più tardi del collega) e così può chiudere.
+    //    Si tiene il cambio solo se i buchi di copertura dei due giorni diminuiscono.
+    const closingReqs = ctx.coverage.filter((r) => r.closing && r.exact && r.station);
+    const movableSet = () => new Set(movable());
+    const plain = (x, id) => ({ employeeId: id, day: x.day, start: x.start, end: x.end, station: x.station, doppio: false });
+    const closeStation = (e, st) => (st === 'SERVIZIO' && e.type === 'HOSPITALITY' && !e.trainings.includes('SERVIZIO') ? 'HOSPITALITY' : st);
+    const canDo = (e, x) => (x.start <= OPEN ? (e.openings || []).includes(x.station) && autoOpenOk(e, x.station)
+      : e.type === 'HOSPITALITY' ? x.station === 'HOSPITALITY' || x.station === 'SERVIZIO' : e.trainings.includes(x.station) || x.station === 'FRONT');
+    // quanto manca nei giorni indicati: { team } = squadre di apertura/chiusura, { other } = tutte le altre fasce
+    const lossOf = (days) => {
+      const n = { team: 0, other: 0 };
+      for (const x of days) for (const r of ctx.coverage) {
+        const need = reqMin(r, x);
+        if (!need) continue;
+        const k = r.opening || r.closing ? 'team' : 'other', end = r.closing ? r.end : covEnd(cfg, r);
+        for (let m = r.start; m < end; m += SLOT) n[k] += Math.max(0, need - countAt(ctx, x, m, r, shifts));
+      }
+      return n;
+    };
+    // un cambio si tiene solo se completa di più le squadre senza scoprire niente altrove
+    const better = (now, base) => now.team < base.team && now.other <= base.other;
+    /** Prova a far chiudere e nella postazione di r il giorno d, spostando il suo turno di quel giorno (old). */
+    function closeWith(e, d, r, old) {
+      const lens = [...new Set([old ? dur(old) : 0, 180, 210, 240, 270, 300].filter((l) => l >= cfg.minShift))];
+      for (const len of lens) {
+        const cand = { employeeId: e.id, day: d, start: CLOSE - len, end: CLOSE, station: closeStation(e, r.station), doppio: false };
+        if (!countsFor(ctx, cand, r)) continue;
+        if (old ? canPlace(e, cand, old) : canPlace(e, cand)) { if (old) swapIn(old, cand); else place(cand); return { cand, old }; }
+      }
+      return null;
+    }
+    const undoClose = (res) => { if (res.old) swapIn(res.cand, res.old); else { shifts.splice(shifts.indexOf(res.cand), 1); added.splice(added.indexOf(res.cand), 1); } };
+    for (let pass = 0; pass < 3; pass++) {
+      let improved = false;
+      for (const d of ctx.days) for (const r of closingReqs) {
+        const t = teamSlot(r), need = reqMin(r, d);
+        if (!need || countAt(ctx, d, t, r, shifts) >= need) continue;
+        // il turno dopo la chiusura: il giorno dopo, oppure (se il giorno dopo è riposo) quello successivo (stacco di 36h)
+        const nextDayOf = (e) => (ctx.days.includes(d + 1) && isAvail(ctx, e, d + 1) ? d + 1 : ctx.days.includes(d + 2) && !isAvail(ctx, e, d + 1) ? d + 2 : null);
+        const closers = flexible.filter((e) => canClose(ctx, e, r.station) && !isTrainee(e, d) && isAvail(ctx, e, d));
+        for (const e of closers) {
+          if (countAt(ctx, d, t, r, shifts) >= need) break;
+          const mv = movableSet();
+          const old = dayMain(e.id, d)[0];
+          if (old && (!mv.has(old) || old.end >= CLOSE)) continue;
+          const nd = nextDayOf(e), span = nd ? [d, nd] : [d];
+          const base = lossOf(span);
+          // A) solo spostando il turno della sera
+          let res = closeWith(e, d, r, old);
+          if (res) { if (better(lossOf(span), base)) { improved = true; continue; } undoClose(res); }
+          // B) scambio con l'apertura (o il turno presto) del giorno dopo
+          const nxt = nd ? dayMain(e.id, nd)[0] : null;
+          if (!old || !nxt || !mv.has(nxt) || nxt.end >= CLOSE) continue;
+          for (const f of flexible) {
+            if (f === e || f.fixedShift || isTrainee(f, nd) || !canDo(f, nxt)) continue;
+            const y = dayMain(f.id, nd)[0];
+            if (!y || !mv.has(y) || y.start <= nxt.start || y.end >= CLOSE || !canDo(e, y)) continue;
+            const yE = plain(y, e.id), nF = plain(nxt, f.id);
+            if (!canPlace(e, yE, nxt)) continue;
+            swapIn(nxt, yE);
+            if (!canPlace(f, nF, y)) { swapIn(yE, nxt); continue; }
+            swapIn(y, nF);
+            res = closeWith(e, d, r, old);
+            if (res && better(lossOf(span), base)) { improved = true; break; }
+            if (res) undoClose(res);
+            swapIn(nF, y); swapIn(yE, nxt);
           }
         }
       }
