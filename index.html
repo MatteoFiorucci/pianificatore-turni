@@ -205,14 +205,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610282047"></script>
-<script src="turni-core.js?v=202610282047"></script>
+<script src="turni-storico.js?v=202610282059"></script>
+<script src="turni-core.js?v=202610282059"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610282047"></script>
-<script src="turni-cloud-config.js?v=202610282047"></script>
-<script src="turni-cloud.js?v=202610282047"></script>
-<script src="turni-cripto.js?v=202610282047"></script>
+<script src="turni-data.js?v=202610282059"></script>
+<script src="turni-cloud-config.js?v=202610282059"></script>
+<script src="turni-cloud.js?v=202610282059"></script>
+<script src="turni-cripto.js?v=202610282059"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1067,26 +1067,30 @@ async function cloudConflict() {
 function conflictKeepOnline() { const r = ui.conflict; ui.conflict = null; closeModal(); applyRemote(r.state, r.doc.updateTime); setSync('ok'); render(); }
 function conflictKeepLocal() { const r = ui.conflict; ui.conflict = null; closeModal(); TurniCloud.setDirty(true); cloudPush(r.doc.updateTime); }
 
+// Nome utente al posto dell'email: "NomeLocale" → nomelocale@utenti.pianificatore-turni.it (l'indirizzo non riceve posta)
+const USER_DOMAIN = '@utenti.pianificatore-turni.it';
+const toLoginEmail = (v) => { v = v.trim(); return v.includes('@') ? v : v.toLowerCase().replace(/\s+/g, '') + USER_DOMAIN; };
+const showUser = (email) => (email || '').endsWith(USER_DOMAIN) ? email.slice(0, -USER_DOMAIN.length) : (email || '');
 function cloudLoginFields(msg) {
   const s = TurniCloud.session();
   return `${msg ? `<div class="notice warn">${esc(msg)}</div>` : ''}
     <div class="form"><div class="row">
-      <label class="f">Email<input type="email" id="cl-email" autocomplete="username" value="${esc((s && s.email) || '')}"></label>
+      <label class="f">Nome utente o email<input type="text" id="cl-email" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(showUser(s && s.email))}"></label>
       <label class="f">Password<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')cloudLogin()"></label>
       <button class="btn primary" id="cl-btn" style="align-self:end" onclick="cloudLogin()">Accedi</button>
     </div><div id="cl-err" class="notice err" style="display:none"></div></div>`;
 }
 function askCloudLogin(msg) {
   showModal(`<h3>☁️ Accedi ai dati del locale</h3>
-    <p class="muted">Entra con l'email e la password del salvataggio online: i dati saranno gli stessi su PC e telefono.</p>
+    <p class="muted">Entra con il nome utente (o l'email) e la password del salvataggio online: i dati saranno gli stessi su PC e telefono.</p>
     ${cloudLoginFields(msg)}
     <div class="actions"><button class="btn" onclick="closeModal()">Non ora</button></div>`);
   setTimeout(() => { const i = document.getElementById(document.getElementById('cl-email').value ? 'cl-pw' : 'cl-email'); if (i) i.focus(); }, 50);
 }
 async function cloudLogin() {
-  const email = document.getElementById('cl-email').value.trim(), pw = document.getElementById('cl-pw').value;
+  const email = toLoginEmail(document.getElementById('cl-email').value), pw = document.getElementById('cl-pw').value;
   const err = document.getElementById('cl-err'), btn = document.getElementById('cl-btn');
-  if (!email || !pw) { err.style.display = 'block'; err.textContent = 'Scrivi email e password.'; return; }
+  if (!document.getElementById('cl-email').value.trim() || !pw) { err.style.display = 'block'; err.textContent = 'Scrivi nome utente e password.'; return; }
   btn.disabled = true; btn.textContent = 'Accesso…'; err.style.display = 'none';
   let r;
   try { r = await TurniCloud.login(email, pw); }
@@ -1126,7 +1130,7 @@ function renderCloudBox() {
   if (!TurniCloud.loggedIn()) return `<p style="margin:0"><b>☁️ Salvataggio online</b> — accedi per avere gli stessi dati su PC e telefono, aggiornati da soli.</p>${cloudLoginFields()}`;
   const s = TurniCloud.session();
   const st = { ok: '✅ tutto salvato', saving: '⏳ salvataggio in corso…', offline: '⚠️ senza connessione: le modifiche partono appena torna la rete', error: '⚠️ ' + sync.msg, conflict: '⚠️ da scegliere quali dati tenere' }[sync.status] || '';
-  return `<p style="margin:0"><b>☁️ Salvataggio online attivo</b> come <b>${esc(s.email)}</b>${st ? ' — ' + esc(st) : ''}.</p>
+  return `<p style="margin:0"><b>☁️ Salvataggio online attivo</b> come <b>${esc(showUser(s.email))}</b>${st ? ' — ' + esc(st) : ''}.</p>
     <p class="small muted" style="margin:0">Ogni modifica viene salvata online da sola, cifrata con la tua password. Gli altri dispositivi collegati la ricevono quando li riapri (o entro un minuto). Ultimo salvataggio da qui: ${fmtWhen(s.lastSavedAt)}.</p>
     <div class="row"><button class="btn" onclick="cloudPull()">🔄 Aggiorna ora</button><button class="btn" onclick="cloudLogout()">Esci da questo dispositivo</button></div>`;
 }
