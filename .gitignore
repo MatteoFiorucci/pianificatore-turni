@@ -2,3 +2,6 @@
 privato/
 *.json
 .DS_Store
+
+# file cifrato da pubblicare (illeggibile senza password)
+!dati-cifrati.json
