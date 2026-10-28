@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 21;
+  const VERSION = 22;
 
   function emptyState() {
     return {
@@ -40,6 +40,11 @@
     // le hospitality (che prima potevano sempre) vengono segnate anche loro, così non cambia niente finché non lo decide il manager.
     if ((st.version || 1) < 21 && (st.employees || []).some((e) => (e.closings || []).includes('SERVIZIO'))) {
       for (const e of st.employees) if (e.type === 'HOSPITALITY' && !e.closings.includes('SERVIZIO')) e.closings.push('SERVIZIO');
+    }
+    // v22: squadra di chiusura confermata dal manager: lun–gio 1 McCafé + 1 Sala + 2 MFY, ven–dom 1 + 2 + 3
+    if ((st.version || 1) < 22) {
+      const fix = { c11: [1, 1, 1, 1, 1, 1, 1], c12: [1, 1, 1, 1, 2, 2, 2], c13: [2, 2, 2, 2, 3, 3, 3] };
+      for (const r of st.coverage) if (fix[r.id]) r.min = [...fix[r.id]];
     }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
