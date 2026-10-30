@@ -235,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301405"></script>
-<script src="turni-core.js?v=202610301405"></script>
+<script src="turni-storico.js?v=202610301410"></script>
+<script src="turni-core.js?v=202610301410"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301405"></script>
-<script src="turni-cloud-config.js?v=202610301405"></script>
-<script src="turni-cloud.js?v=202610301405"></script>
-<script src="turni-cripto.js?v=202610301405"></script>
+<script src="turni-data.js?v=202610301410"></script>
+<script src="turni-cloud-config.js?v=202610301410"></script>
+<script src="turni-cloud.js?v=202610301410"></script>
+<script src="turni-cripto.js?v=202610301410"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1300,9 +1300,12 @@ async function pushOrari(ids) {
   for (const e of state.employees.filter((x) => x.active && state.reqCreds[x.id] && (!ids || ids.includes(x.id)))) {
     const c = state.reqCreds[e.id];
     const mine = weeks.filter(([, w]) => w.emp[e.id]).map(([ws, w]) => ({ ws, at: w.at, note: w.note || '', ...w.emp[e.id] }));
+    // le sue richieste con lo stato: così le vede da qualunque telefono o browser entri
+    const reqs = (state.requests || []).filter((q) => q.employeeId === e.id).sort((a, b) => b.day - a.day).slice(0, 30)
+      .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     try {
       const key = await TurniCripto.personalKey(TurniCloud.uid(), c.user, c.pw);
-      await TurniCloud.setOrario(c.code, await TurniCripto.sealWith(key, { nome: e.firstName || '', weeks: mine }));
+      await TurniCloud.setOrario(c.code, await TurniCripto.sealWith(key, { nome: e.firstName || '', weeks: mine, requests: reqs }));
       res.ok++;
     } catch (err) { res.fail++; }
   }
@@ -1335,6 +1338,8 @@ async function checkInbox(notify) {
   try {
     const me = TurniCloud.session().email;
     if (state.loginPublished !== me) { await TurniCloud.setStoreInfo({ login: me }); state.loginPublished = me; save(); }
+    // una volta sola dopo l'aggiornamento: ogni dipendente riceve l'elenco delle sue richieste con lo stato
+    if (!state.reqListPushed) { await pushOrari(); state.reqListPushed = true; save(); }
     const list = await TurniCloud.listRequests();
     const known = new Set((state.requests || []).map((q) => q.rid));
     const fresh = [];
@@ -1357,6 +1362,7 @@ async function checkInbox(notify) {
     }
     if (fresh.length) {
       state.requests.push(...fresh); save();
+      pushOrari([...new Set(fresh.map((q) => q.employeeId))]).catch(() => null);
       if (modalOpen()) sync.pendingRender = true; else render();
       if (notify) notifyRequests(fresh);
     }
@@ -1575,6 +1581,7 @@ async function doAccept(id) {
     showModal(`<h3>✅ Richiesta accettata e turni scambiati</h3><p>${esc(T.fullName(empById(q.employeeId)))}: <b>${shiftTxt(swapped.mine)}</b><br>${esc(T.fullName(other))}: <b>${shiftTxt(swapped.theirs)}</b></p>
       <p class="notice warn">Ricordati di avvisare <b>${esc(T.fullName(other))}</b> che il suo turno di ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)} è cambiato.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
   }
+  pushOrari([q.employeeId]).catch(() => null);
   try { await TurniCloud.answerRequest(q.rid, 'accettata', q.reply); } catch (e) { alert('Accettata qui, ma la risposta al dipendente non è partita (connessione?). Riprova più tardi da "Rimetti in attesa" → Accetta.'); }
 }
 /** Turni già pianificati (da oggi in poi) che non rispettano gli impegni fissi della richiesta. */
@@ -1595,6 +1602,7 @@ async function deleteRequests(ids) {
   const acc = list.filter((q) => q.status === 'accettata').length;
   if (!confirm(`Eliminare ${list.length === 1 ? 'questa richiesta' : list.length + ' richieste'}?${acc ? `\n${acc === 1 ? 'È accettata' : acc + ' sono accettate'}: il generatore smetterà di tenerne conto.` : ''}\nIl dipendente la vedrà come "cancellata dal manager".`)) return;
   state.requests = state.requests.filter((q) => !ids.includes(q.id)); save(); render();
+  pushOrari([...new Set(list.map((q) => q.employeeId))]).catch(() => null);
   let fail = 0;
   for (const q of list) { try { await TurniCloud.deleteRequest(q.rid); } catch (e) { fail++; } }
   if (fail) alert(`Eliminate qui, ma ${fail} non sono state cancellate online (connessione?).`);
@@ -1606,12 +1614,12 @@ function askReject(id) {
 async function doReject(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
   q.status = 'rifiutata'; q.reply = (document.getElementById('rej-msg').value || '').trim() || 'Non è possibile, parliamone.';
-  closeModal(); save(); render();
+  closeModal(); save(); render(); pushOrari([q.employeeId]).catch(() => null);
   try { await TurniCloud.answerRequest(q.rid, 'rifiutata', q.reply); } catch (e) { alert('Rifiutata qui, ma la risposta al dipendente non è partita (connessione?).'); }
 }
 async function reopenRequest(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
-  q.status = 'in attesa'; q.reply = ''; save(); render();
+  q.status = 'in attesa'; q.reply = ''; save(); render(); pushOrari([q.employeeId]).catch(() => null);
   try { await TurniCloud.answerRequest(q.rid, 'in attesa', ''); } catch (e) { /* riprova alla prossima risposta */ }
 }
 
