@@ -60,8 +60,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301440"></script>
-<script src="turni-cripto.js?v=202610301440"></script>
+<script src="turni-cloud-config.js?v=202610301449"></script>
+<script src="turni-cripto.js?v=202610301449"></script>
 <script>
 'use strict';
 /*
@@ -261,7 +261,11 @@ async function changePassword() {
     const fields = { emp: String(session.emp), nome: session.nome || '', kw: w.box, kiv: w.iv, oid: session.oid, old: oldCode };
     const r = await fetch(`${BASE}/accessi?documentId=${newCode}&key=${cfg.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { stringValue: v }])) }) });
-    if (!r.ok) return show('err', r.status === 403 ? 'Non è stato possibile cambiarla: forse il manager ti ha appena dato una password nuova. Esci e rientra.' : 'Non riuscito, riprova tra poco.');
+    if (!r.ok) {
+      // se l'accesso con cui si è entrati non esiste più, il manager ha creato una password nuova
+      const still = await fetch(`${BASE}/accessi/${oldCode}?key=${cfg.apiKey}`, { cache: 'no-store' }).then((x) => x.status !== 404).catch(() => true);
+      return show('err', !still ? 'Il manager ti ha dato una password nuova: esci e rientra con quella.' : 'Non è stato possibile cambiare la password. Riprova più tardi; se continua, avvisa il manager.');
+    }
     await fetch(`${BASE}/accessi/${oldCode}?key=${cfg.apiKey}`, { method: 'DELETE' }).catch(() => null);
     session.code = newCode; try { localStorage.setItem(SESS, JSON.stringify(session)); } catch (e) { /* niente */ }
     tab = 'turni'; show('ok', '✓ Password cambiata. Da adesso entra con quella nuova.');
