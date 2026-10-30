@@ -42,14 +42,25 @@
   .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; margin-top: 4px; }
   .pill.wait { background: var(--warn); color: var(--warn-ink); } .pill.yes { background: var(--ok); color: var(--green); } .pill.no { background: var(--err); color: var(--err-ink); }
   .muted { color: var(--muted); font-size: 14px; }
+  .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; background: #e9eae7; padding: 4px; border-radius: 12px; }
+  .tabs button { padding: 10px; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
+  .tabs button.on { background: #fff; color: var(--green); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .wk h2 { margin-bottom: 2px; }
+  .day { display: grid; grid-template-columns: 74px 1fr; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
+  .day:first-of-type { border-top: 0; }
+  .day.today { background: #f3f8f4; margin: 0 -16px; padding: 10px 16px; }
+  .day .dn { font-weight: 700; } .day .dd { font-size: 13px; color: var(--muted); }
+  .sh { font-weight: 700; font-size: 17px; } .sh .ar { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; vertical-align: 2px; }
+  .ar-CUCINA { background: #fde7e4; color: #b4321f; } .ar-FRONT { background: #e2eefa; color: #1f5f99; } .ar-MCCAFE { background: #f1e7df; color: #6b3f22; } .ar-SERVIZIO { background: #eeeeef; color: #555; } .ar-HOSPITALITY { background: #ece6f8; color: #5a3ea0; }
+  .off { color: var(--muted); font-weight: 600; }
   .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
 </style>
 </head>
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301323"></script>
-<script src="turni-cripto.js?v=202610301323"></script>
+<script src="turni-cloud-config.js?v=202610301329"></script>
+<script src="turni-cripto.js?v=202610301329"></script>
 <script>
 'use strict';
 /*
@@ -163,24 +174,72 @@ async function login() {
     const r = await fetch(`${BASE}/accessi/${code}?key=${cfg.apiKey}`, { cache: 'no-store' });
     if (!r.ok) return show(r.status === 404 || r.status === 403 ? 'Nome utente o password sbagliati.' : 'Accesso non riuscito, riprova tra poco.');
     const f = (await r.json()).fields || {};
-    session = { user, code, emp: f.emp && f.emp.stringValue, nome: (f.nome && f.nome.stringValue) || '' };
+    // chiave per aprire il proprio orario pubblicato (deriva da nome utente + password: la password non viene salvata)
+    session = { user, code, emp: f.emp && f.emp.stringValue, nome: (f.nome && f.nome.stringValue) || '', key: await TurniCripto.personalKey(STORE, user, pw) };
     try { localStorage.setItem(SESS, JSON.stringify(session)); } catch (e) { /* niente */ }
-    msg = ''; render(); if (mine().length) refresh();
+    msg = ''; tab = 'turni'; render(); loadOrario(); if (mine().length) refresh();
   } catch (e) { show(e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Accesso non riuscito.'); }
 }
 function logout() { if (!confirm('Uscire? Per rientrare servono nome utente e password.')) return; session = null; role = ''; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } msg = ''; render(); }
+
+// ---- "I miei turni": orario pubblicato dal manager (cifrato con la chiave personale) ----
+let tab = 'turni', orario = null, orarioAt = '', orarioErr = '';
+const AREA = { CUCINA: 'MFY', FRONT: 'OA', MCCAFE: 'McCafé', SERVIZIO: 'Sala', HOSPITALITY: 'Hospitality' };
+const DOW_S = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+const dayDate = (d) => new Date(d * 864e5);
+const dLabel = (d) => { const x = dayDate(d); return { dn: DOW_S[x.getUTCDay()], dd: `${x.getUTCDate()}/${x.getUTCMonth() + 1}` }; };
+const MESI = ['gen', 'feb', 'mar', 'apr', 'mag', 'giu', 'lug', 'ago', 'set', 'ott', 'nov', 'dic'];
+const wkLabel = (ws) => { const a = dayDate(ws), b = dayDate(ws + 6); return `${a.getUTCDate()}${a.getUTCMonth() !== b.getUTCMonth() ? ' ' + MESI[a.getUTCMonth()] : ''} – ${b.getUTCDate()} ${MESI[b.getUTCMonth()]}`; };
+const dur = (m) => `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`;
+const todayDay = () => { const n = new Date(); return Math.round(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) / 864e5); };
+const mondayOf = (d) => d - ((dayDate(d).getUTCDay() + 6) % 7);
+async function loadOrario() {
+  if (!session || !session.key) return;
+  try {
+    const r = await fetch(`${BASE}/orari/${session.code}?key=${cfg.apiKey}`, { cache: 'no-store' });
+    if (r.status === 404) { orario = { weeks: [] }; orarioAt = ''; orarioErr = ''; if (tab === 'turni') render(); return; }
+    if (!r.ok) throw new Error();
+    const f = (await r.json()).fields || {}, at = f.at && f.at.stringValue;
+    if (at && at === orarioAt) return; // niente di nuovo
+    orario = await TurniCripto.openSealed(session.key, { box: f.box.stringValue, iv: f.iv.stringValue }); orarioAt = at || ''; orarioErr = '';
+  } catch (e) { orarioErr = orario ? '' : 'Non riesco a caricare i turni (connessione?).'; }
+  if (tab === 'turni') render();
+}
+function weekCard(w, open) {
+  const t = todayDay();
+  const days = w.days.map((x) => { const l = dLabel(x.d);
+    return `<div class="day ${x.d === t ? 'today' : ''}"><div><div class="dn">${l.dn}${x.d === t ? ' · oggi' : ''}</div><div class="dd">${l.dd}</div></div><div>
+      ${x.sh.length ? x.sh.map((s) => `<div class="sh">${fmt(s.a)}–${fmt(s.b)}<span class="ar ar-${s.st}">${AREA[s.st] || s.st}</span>${s.dbl ? ' <span class="muted">(doppio)</span>' : ''}</div>`).join('') : `<div class="off">${esc(x.tag || 'Libero')}</div>`}
+      ${x.note ? `<div class="muted">${esc(x.note)}</div>` : ''}</div></div>`; }).join('');
+  const head = `<h2>Settimana ${wkLabel(w.ws)}</h2><div class="muted">Ore: <b>${dur(w.hours)}</b>${w.target ? ` su ${dur(w.target)} da contratto` : ''} · pubblicata il ${new Date(w.at).toLocaleDateString('it-IT')}</div>
+    ${w.note ? `<div class="notice info" style="margin:10px 0 0">📌 ${esc(w.note)}</div>` : ''}`;
+  return open ? `<div class="card wk">${head}<div style="margin-top:8px">${days}</div></div>`
+    : `<details class="card wk"><summary style="cursor:pointer;list-style:none">${head}</summary><div style="margin-top:8px">${days}</div></details>`;
+}
+function turniView() {
+  if (!session.key) return '<div class="card"><p style="margin-top:0">Per vedere i tuoi turni rientra una volta con nome utente e password.</p><button class="primary" onclick="session=null;localStorage.removeItem(SESS);render()">Rientra</button></div>';
+  if (!orario) return `<div class="card"><p class="muted" style="margin:0">${orarioErr || 'Caricamento dei turni…'}</p></div>`;
+  const mon = mondayOf(todayDay());
+  const next = orario.weeks.filter((w) => w.ws >= mon).sort((a, b) => a.ws - b.ws), past = orario.weeks.filter((w) => w.ws < mon).sort((a, b) => b.ws - a.ws);
+  return `${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}
+    ${next.length ? next.map((w) => weekCard(w, true)).join('') : '<div class="card"><p class="muted" style="margin:0">Il manager non ha ancora pubblicato l\'orario di questa settimana. Appena lo pubblica lo vedi qui.</p></div>'}
+    ${past.length ? `<h2 style="margin:18px 2px 8px;font-size:15px;color:var(--muted)">Settimane passate</h2>${past.map((w) => weekCard(w, false)).join('')}` : ''}`;
+}
+const tabsBar = () => `<div class="tabs"><button class="${tab === 'turni' ? 'on' : ''}" onclick="tab='turni';msg='';render();loadOrario()">📅 I miei turni</button><button class="${tab === 'richieste' ? 'on' : ''}" onclick="tab='richieste';msg='';render()">✉️ Richieste</button></div>`;
 
 function render() {
   const app = document.getElementById('app');
   document.getElementById('logout').style.display = session ? '' : 'none';
   if (!STORE) { app.innerHTML = '<div class="card"><div class="notice err">Manca il codice del locale.</div><p>Apri il link che ti ha mandato il tuo manager.</p></div>'; return; }
   if (!session) { document.getElementById('hello').textContent = role === 'dipendente' ? 'Richieste per i turni al tuo manager.' : 'App dei turni del locale.'; app.innerHTML = role === 'dipendente' ? loginView() : chooseView(); return; }
-  document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}! Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.` : 'Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.';
+  document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}!` : 'I tuoi turni e le tue richieste.';
+  if (tab === 'turni') { app.innerHTML = `${installBox()}${tabsBar()}${turniView()}`; return; }
   const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const list = mine().slice().reverse();
   app.innerHTML = `
-  ${msg}
   ${installBox()}
+  ${tabsBar()}
+  ${msg}
   <div class="card">
     <h2>Nuova richiesta</h2>
     <div class="kinds">
@@ -267,7 +326,11 @@ async function refresh() {
   saveMine(list); msg = ''; render();
 }
 render();
+if (session) loadOrario();
 if (session && mine().length) refresh();
+// i turni si aggiornano da soli: all'apertura dell'app e ogni minuto mentre è aperta
+setInterval(() => { if (session && document.visibilityState === 'visible') loadOrario(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (session && document.visibilityState === 'visible') loadOrario(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => null);
 </script>
 </body>
