@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 25;
+  const VERSION = 26;
 
   function emptyState() {
     return {
@@ -52,6 +52,14 @@
     if ((st.version || 1) < 22) {
       const fix = { c11: [1, 1, 1, 1, 1, 1, 1], c12: [1, 1, 1, 1, 2, 2, 2], c13: [2, 2, 2, 2, 3, 3, 3] };
       for (const r of st.coverage) if (fix[r.id]) r.min = [...fix[r.id]];
+    }
+    // v26: presidio delle postazioni 10:30–21:00 (1 MFY, 1 OA, 1 McCafé, 1 Sala), messo prima delle fasce hospitality
+    if ((st.version || 1) < 26) {
+      for (const id of ['p1', 'p2', 'p3', 'p4']) {
+        if (st.coverage.some((r) => r.id === id)) continue;
+        const d = T.DEFAULT_COVERAGE.find((r) => r.id === id), at = st.coverage.findIndex((r) => r.station === 'HOSPITALITY');
+        st.coverage.splice(at < 0 ? st.coverage.length : at, 0, { ...d, min: [...d.min] });
+      }
     }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
