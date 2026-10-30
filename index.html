@@ -235,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301307"></script>
-<script src="turni-core.js?v=202610301307"></script>
+<script src="turni-storico.js?v=202610301316"></script>
+<script src="turni-core.js?v=202610301316"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301307"></script>
-<script src="turni-cloud-config.js?v=202610301307"></script>
-<script src="turni-cloud.js?v=202610301307"></script>
-<script src="turni-cripto.js?v=202610301307"></script>
+<script src="turni-data.js?v=202610301316"></script>
+<script src="turni-cloud-config.js?v=202610301316"></script>
+<script src="turni-cloud.js?v=202610301316"></script>
+<script src="turni-cripto.js?v=202610301316"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -254,6 +254,11 @@ const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTION
 let storageOk = true;
 let state = loadState();
 const ui = { view: 'turni', ws: T.mondayOf(T.todayDay()), day: T.todayDay(), type: 'CREW', deleteMode: false, selected: new Set(), draft: null };
+// Aperta dall'app "Turni" (sezione Manager, ?s = locale) o installata: finché non si entra con la password
+// dei manager non si vede niente (né menu né dati), solo la schermata di accesso, che non si può chiudere.
+const APP_STORE = new URLSearchParams(location.search).get('s');
+const APP_MODE = !!APP_STORE || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+ui.locked = APP_MODE && TurniCloud.configured() && !TurniCloud.loggedIn();
 
 // Se il browser non permette di salvare (es. navigazione privata) l'app funziona lo stesso, ma senza memoria.
 function loadState() {
@@ -283,6 +288,7 @@ function renderBrand() {
 function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', document.querySelector('header').offsetHeight + 'px'); }
 window.addEventListener('resize', setHeaderHeight);
 function render() {
+  if (ui.locked) return renderGate();
   renderBrand(); renderSync();
   const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
   document.getElementById('nav').innerHTML = VIEWS.map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
@@ -1068,7 +1074,7 @@ async function cloudPush(base) {
 function cloudError(e) {
   if (e.code === 'OFFLINE') { setSync('offline', e.message); if (TurniCloud.session() && TurniCloud.session().dirty) sync.timer = setTimeout(() => cloudPush(), 30000); }
   else if (e.code === 'CONFLICT') cloudConflict();
-  else if (e.code === 'LOGGED_OUT') { setSync('off'); render(); askCloudLogin(e.message); }
+  else if (e.code === 'LOGGED_OUT') { setSync('off'); if (APP_MODE) { ui.locked = true; if (APP_STORE) loadGateLogin(APP_STORE); else { ui.gateLogin = ''; render(); } return; } render(); askCloudLogin(e.message); }
   else setSync('error', e.message);
 }
 /** Prende i dati online se sono cambiati (salvati da un altro dispositivo). */
@@ -1116,6 +1122,31 @@ function cloudLoginFields(msg) {
       <button class="btn primary" id="cl-btn" style="align-self:end" onclick="cloudLogin()">Accedi</button>
     </div><div id="cl-err" class="notice err" style="display:none"></div></div>`;
 }
+/** Schermata di accesso dei manager (al posto dell'app, finché non si entra). */
+function renderGate() {
+  document.getElementById('brand').textContent = '🗓 Turni · Area manager';
+  document.getElementById('nav').innerHTML = ''; document.getElementById('sync').innerHTML = '';
+  const back = APP_STORE ? `<p style="margin:14px 0 0;text-align:center"><a href="richieste.html?s=${encodeURIComponent(APP_STORE)}" style="color:var(--green);font-weight:600">← Sono un dipendente</a></p>` : '';
+  document.getElementById('app').innerHTML = `<div class="card section" style="max-width:420px;margin:30px auto">
+    <h3 style="margin-top:0">🔑 Area manager</h3>
+    ${ui.gateLogin ? `<p class="muted">Inserisci la password dei manager del locale.</p><input type="hidden" id="cl-email" value="${esc(ui.gateLogin)}">
+      <div class="form"><label class="f">Password manager<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')cloudLogin()"></label>
+      <div><button class="btn primary" id="cl-btn" onclick="cloudLogin()">Entra</button></div><div id="cl-err" class="notice err" style="display:none"></div></div>`
+      : ui.gateLogin === null ? '<p class="muted">Caricamento…</p>' : `<p class="muted">Accedi con nome utente (o email) e password dei manager.</p>${cloudLoginFields()}`}
+    ${back}</div>`;
+  setTimeout(() => { const i = document.getElementById('cl-pw'); if (i && !document.activeElement.matches('input')) i.focus(); }, 50);
+}
+/** Nome di accesso dei manager pubblicato dal locale (così basta la password). */
+async function loadGateLogin(s) {
+  ui.gateLogin = null; render();
+  let login = '';
+  try {
+    const c = window.TURNI_CLOUD_CONFIG;
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${c.projectId}/databases/(default)/documents/negozi/${encodeURIComponent(s)}?key=${c.apiKey}`, { cache: 'no-store' });
+    const j = await r.json(); login = (j.fields && j.fields.login && j.fields.login.stringValue) || '';
+  } catch (e) { /* senza rete o locale non attivo: si chiede anche il nome utente */ }
+  ui.gateLogin = login; render();
+}
 /** Dall'app "Turni" (sezione Manager): basta la password comune dei manager, il nome di accesso lo prende dal locale. */
 async function askManagerLogin(s) {
   let login = null;
@@ -1148,6 +1179,7 @@ async function cloudLogin() {
   try { r = await TurniCloud.login(email, pw); }
   catch (e) { btn.disabled = false; btn.textContent = 'Accedi'; err.style.display = 'block'; err.textContent = e.message; return; }
   ui.loginDoc = r;
+  ui.locked = false; // password giusta: si apre l'app
   if (!r.doc) {
     // primo accesso in assoluto: i dati di questo dispositivo diventano quelli online
     closeModal(); TurniCloud.setDirty(true); await cloudPush(null); render();
@@ -1175,7 +1207,9 @@ function cloudLogout() {
   const s = TurniCloud.session();
   if (s && s.dirty && !confirm('Ci sono modifiche non ancora salvate online: uscendo restano solo su questo dispositivo. Uscire lo stesso?')) return;
   if (!(s && s.dirty) && !confirm('Uscire dal salvataggio online su questo dispositivo? I dati restano qui, ma non si aggiornano più con gli altri dispositivi.')) return;
-  TurniCloud.logout(); setSync('off'); render();
+  TurniCloud.logout(); setSync('off');
+  if (APP_MODE) { ui.locked = true; ui.gateLogin = ''; if (APP_STORE) return loadGateLogin(APP_STORE); }
+  render();
 }
 function renderCloudBox() {
   if (!TurniCloud.configured()) return `<p style="margin:0"><b>☁️ Salvataggio online:</b> non ancora attivo.</p>`;
@@ -1549,7 +1583,8 @@ function saveConfig() {
 saveLocal();
 render();
 if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
-else if (TurniCloud.configured()) { const s = new URLSearchParams(location.search).get('s'); if (s) askManagerLogin(s); else if (!state.employees.length) askCloudLogin(); }
+else if (ui.locked) { if (APP_STORE) loadGateLogin(APP_STORE); else { ui.gateLogin = ''; render(); } }
+else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
 else loadFromSite(false);
 // installabile come app (schermata Home del telefono o del computer)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => null);
