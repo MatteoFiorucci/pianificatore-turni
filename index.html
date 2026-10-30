@@ -132,6 +132,10 @@
   .lbar.drag .hl::after, .lbar.drag .hr::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 6px; width: 3px; border-radius: 2px; background: rgba(255,255,255,.85); }
   .lbar.dragging { opacity: .85; outline: 2px solid #111; z-index: 3; cursor: grabbing; }
   .lsec.droptarget h4 { outline: 3px solid #111; }
+  .lrow.swaptarget { background: #fff3c4 !important; outline: 2px dashed #8a6100; outline-offset: -2px; }
+  .dropbar { position: fixed; left: 50%; transform: translateX(-50%); z-index: 26; display: flex; gap: 6px; background: #1d1d1f; padding: 8px; border-radius: 14px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+  .dropbar span { padding: 10px 14px; border-radius: 10px; color: #fff; font-weight: 700; font-size: 14px; border: 2px solid transparent; }
+  .dropbar span.on { border-color: #fff; transform: scale(1.06); }
   .dragtip { position: fixed; z-index: 30; background: #111; color: #fff; font-weight: 700; font-size: 14px; padding: 4px 10px; border-radius: 8px; pointer-events: none; transform: translate(-50%, -130%); white-space: nowrap; }
   #toast .bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 25; background: #1d1d1f; color: #fff; border-radius: 14px; padding: 10px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; box-shadow: 0 10px 30px rgba(0,0,0,.3); max-width: calc(100vw - 24px); font-size: 14px; }
   #toast .bar button { font: inherit; font-weight: 700; border: 0; border-radius: 9px; padding: 7px 12px; cursor: pointer; background: #fff; color: #111; }
@@ -260,14 +264,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610301629"></script>
-<script src="turni-core.js?v=202610301629"></script>
+<script src="turni-storico.js?v=202610301638"></script>
+<script src="turni-core.js?v=202610301638"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301629"></script>
-<script src="turni-cloud-config.js?v=202610301629"></script>
-<script src="turni-cloud.js?v=202610301629"></script>
-<script src="turni-cripto.js?v=202610301629"></script>
+<script src="turni-data.js?v=202610301638"></script>
+<script src="turni-cloud-config.js?v=202610301638"></script>
+<script src="turni-cloud.js?v=202610301638"></script>
+<script src="turni-cripto.js?v=202610301638"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -304,6 +308,12 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 
 // ---------- navigazione ----------
 function go(view) { ui.view = view; ui.deleteMode = false; ui.selected.clear(); render(); }
+// Telefono e tablet (schermo touch, senza mouse): solo il lineare e le richieste; il resto si fa dal PC.
+const COMPACT = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+const compactOn = () => COMPACT && !ui.showAll;
+const COMPACT_VIEWS = ['giornaliero', 'richieste'];
+if (COMPACT) { ui.view = 'giornaliero'; ui.dragEdit = true; try { ui.showAll = localStorage.getItem('turni-tutto') === '1'; } catch (e) { /* niente */ } }
+function setShowAll(v) { ui.showAll = v; try { localStorage.setItem('turni-tutto', v ? '1' : '0'); } catch (e) { /* niente */ } if (!v && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero'; render(); window.scrollTo(0, 0); }
 function renderBrand() {
   const n = (state.config && state.config.storeName) || '';
   document.getElementById('brand').textContent = n ? `🗓 Orari · ${n}` : '🗓 Orari';
@@ -316,11 +326,13 @@ function render() {
   if (ui.locked) return renderGate();
   renderBrand(); renderSync();
   const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
-  document.getElementById('nav').innerHTML = VIEWS.map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
+  if (compactOn() && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero';
+  document.getElementById('nav').innerHTML = VIEWS.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k)).map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
   const views = { turni: renderTurni, giornaliero: renderGiornaliero, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole };
   document.getElementById('app').innerHTML =
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
-    views[ui.view]();
+    views[ui.view]() +
+    (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
   setHeaderHeight();
 }
 function showModal(html) { document.getElementById('modal').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
@@ -641,7 +653,7 @@ function renderGiornaliero() {
     const e = ctx.byId.get(s.employeeId);
     const lim = T.limitOf(ctx, e.id, day);
     const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}${lim ? ` · richiesta accettata: ${lim.label}` : ''}`;
-    return `<div class="lrow ${editing ? '' : 'click'}" ${editing ? '' : `onclick="openDay(${e.id},${day})"`} title="${esc(tip)}">
+    return `<div class="lrow ${editing ? '' : 'click'}" ${editing ? `data-rsid="${s.id}"` : `onclick="openDay(${e.id},${day})"`} title="${esc(tip)}">
       <div class="lpos">${T.STATIONS[s.station].short}</div>
       <div class="lname">${bad.has(e.id) ? '<span style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
       <div class="ltime" data-t="a">${T.fmtTime(s.start)}</div><div class="ltime" data-t="b">${T.fmtTime(s.end)}</div>
@@ -684,15 +696,15 @@ function renderGiornaliero() {
     <div class="seg"><button class="${byArea ? '' : 'on'}" onclick="ui.groupBy='ruolo';render()">Per ruolo</button><button class="${byArea ? 'on' : ''}" onclick="ui.groupBy='area';render()">Per area</button></div>
     <button class="btn ${editing ? 'primary' : ''}" onclick="ui.dragEdit=!ui.dragEdit;render()" title="Sposta e allunga i turni trascinandoli (anche con il dito sul tablet)">${editing ? '✓ Fine modifica' : '✋ Modifica trascinando'}</button>
     <div class="spacer"></div>
-    <button class="btn" onclick="ui.ws=T.mondayOf(ui.day);go('turni')">Vai alla settimana</button>
-    <button class="btn primary" onclick="window.print()">🖨 Stampa</button>
+    ${compactOn() ? '' : `<button class="btn" onclick="ui.ws=T.mondayOf(ui.day);go('turni')">Vai alla settimana</button>
+    <button class="btn primary" onclick="window.print()">🖨 Stampa</button>`}
   </div>
   <div class="daily">
     <div class="card sheet ${editing ? 'editing' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>LINEARE GIORNALIERO</b><span><b>${T.DOW_LONG[T.dow(day)]}</b> ${T.itDate(day)}</span></div>
       ${body}${counts}
       <div class="legend" style="margin-top:10px">${legend}</div>
-      ${editing ? `<p class="notice info no-print" style="margin:10px 0 0">✋ <b>Modifica trascinando:</b> trascina una barra per spostare il turno, i suoi bordi per allungarlo o accorciarlo (a scatti di 15 minuti)${byArea ? ', oppure in un\'altra fascia per cambiare area' : ' (con "Per area" puoi anche cambiare area)'}. Tocca una barra senza trascinare per aprire il turno.</p>` : ''}
+      ${editing ? `<p class="notice info no-print" style="margin:10px 0 0">✋ <b>Modifica trascinando:</b> a destra/sinistra sposti il turno, dai bordi lo allunghi o accorci (scatti di 15 minuti). <b>In alto/basso:</b> lasciala sulla riga di un'altra persona per <b>scambiare</b> i turni, oppure su un'area della striscia che compare in alto per <b>cambiare area</b>. Tocca una barra senza trascinarla per aprire il turno.</p>` : ''}
       <p class="small muted no-print">Clicca una riga per modificare il turno. I numeri in fondo sono le ore lavorate in ogni fascia oraria (es. 2 persone per mezz'ora = 1).</p>
     </div>
     <div class="dayside">
@@ -1310,7 +1322,7 @@ function dragStart(ev) {
   const track = bar.parentElement, row = track.parentElement;
   const mode = ev.target.classList.contains('hl') ? 'left' : ev.target.classList.contains('hr') ? 'right' : 'move';
   drag = { s, bar, row, mode, x0: ev.clientX, y0: ev.clientY, a: s.start, b: s.end, st: s.station, moved: false,
-    pxPerMin: track.getBoundingClientRect().width / ui.dragGeo.span, tip: document.createElement('div'), target: null };
+    pxPerMin: track.getBoundingClientRect().width / ui.dragGeo.span, tip: document.createElement('div'), target: null, swap: null, bar2: null };
   drag.tip.className = 'dragtip'; document.body.appendChild(drag.tip);
   bar.classList.add('dragging');
   bar.addEventListener('pointermove', dragMove); bar.addEventListener('pointerup', dragEnd); bar.addEventListener('pointercancel', dragEnd);
@@ -1332,28 +1344,47 @@ function dragMove(ev) {
   drag.bar.style.width = (((b - a) / span) * 100).toFixed(3) + '%';
   const ta = drag.row.querySelector('[data-t="a"]'), tb = drag.row.querySelector('[data-t="b"]');
   if (ta) ta.textContent = T.fmtTime(a); if (tb) tb.textContent = T.fmtTime(b);
-  // vicino al bordo alto/basso dello schermo la pagina scorre da sola (per raggiungere le altre fasce)
-  if (drag.mode === 'move' && ui.groupBy === 'area') {
+  const vertical = drag.mode === 'move' && Math.abs(dy) > 18;
+  // spostandosi in verticale: niente cambio d'orario, si sceglie una persona (scambio) o un'area
+  if (vertical) { drag.a = drag.s.start; drag.b = drag.s.end; a = drag.a; b = drag.b; }
+  // vicino al bordo alto/basso dello schermo la pagina scorre da sola (per raggiungere le altre righe e fasce)
+  if (vertical) {
     const edge = 70;
     if (ev.clientY > window.innerHeight - edge) window.scrollBy(0, 18); else if (ev.clientY < edge) window.scrollBy(0, -18);
   }
-  // cambio area: trascinando su un'altra fascia (vista per area)
-  document.querySelectorAll('.lsec.droptarget').forEach((x) => x.classList.remove('droptarget'));
-  drag.target = null;
-  if (drag.mode === 'move' && ui.groupBy === 'area' && Math.abs(dy) > 20) {
-    const el = document.elementFromPoint(ev.clientX, ev.clientY), sec = el && el.closest('.lsec[data-st]');
-    if (sec && sec.dataset.st !== drag.s.station) { sec.classList.add('droptarget'); drag.target = sec.dataset.st; }
+  if (vertical) {
+    drag.bar.style.left = (((a - ui.dragGeo.H0 * 60) / ui.dragGeo.span) * 100).toFixed(3) + '%';
+    const ta2 = drag.row.querySelector('[data-t="a"]'), tb2 = drag.row.querySelector('[data-t="b"]');
+    if (ta2) ta2.textContent = T.fmtTime(a); if (tb2) tb2.textContent = T.fmtTime(b);
   }
-  drag.tip.textContent = `${T.fmtTime(a)}–${T.fmtTime(b)}${drag.target ? ' → ' + T.STATIONS[drag.target].short : ''}`;
+  // in verticale: striscia delle aree in alto + righe delle altre persone (scambio) + fasce (vista per area)
+  document.querySelectorAll('.lsec.droptarget, .lrow.swaptarget, .dropbar span.on').forEach((x) => x.classList.remove('droptarget', 'swaptarget', 'on'));
+  drag.target = null; drag.swap = null;
+  if (vertical) {
+    if (!drag.bar2) drag.bar2 = areaBar(drag.s);
+    const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    const chip = el && el.closest('.dropbar span'), row = el && el.closest('.lrow[data-rsid]'), sec = el && el.closest('.lsec[data-st]');
+    if (chip) { if (chip.dataset.st !== drag.s.station) { chip.classList.add('on'); drag.target = chip.dataset.st; } }
+    else if (row && +row.dataset.rsid !== drag.s.id) {
+      const o = state.shifts.find((x) => x.id === +row.dataset.rsid);
+      if (o && o.employeeId !== drag.s.employeeId && !o.doppio && !drag.s.doppio && !empById(o.employeeId).fixedShift && !empById(drag.s.employeeId).fixedShift) { row.classList.add('swaptarget'); drag.swap = o; } // chi ha l'orario fisso non si scambia
+    } else if (sec && ui.groupBy === 'area' && sec.dataset.st !== drag.s.station) { sec.classList.add('droptarget'); drag.target = sec.dataset.st; }
+  } else if (drag.bar2) { drag.bar2.remove(); drag.bar2 = null; }
+  drag.tip.textContent = drag.swap ? `↔ scambia con ${T.fullName(empById(drag.swap.employeeId))}` : `${T.fmtTime(a)}–${T.fmtTime(b)}${drag.target ? ' → ' + T.STATIONS[drag.target].short : ''}`;
   drag.tip.style.left = ev.clientX + 'px'; drag.tip.style.top = ev.clientY + 'px';
 }
 function dragEnd() {
   if (!drag) return;
   const d = drag; drag = null;
-  d.tip.remove(); d.bar.classList.remove('dragging');
-  document.querySelectorAll('.lsec.droptarget').forEach((x) => x.classList.remove('droptarget'));
+  d.tip.remove(); d.bar.classList.remove('dragging'); if (d.bar2) d.bar2.remove();
+  document.querySelectorAll('.lsec.droptarget, .lrow.swaptarget').forEach((x) => x.classList.remove('droptarget', 'swaptarget'));
   const s = d.s;
   if (!d.moved) return openDay(s.employeeId, s.day); // tocco senza trascinare: apre il turno
+  if (d.swap) { // scambio del turno tra due persone (ognuno prende orario e area dell'altro)
+    const o = d.swap, ea = s.employeeId, eb = o.employeeId;
+    s.employeeId = eb; o.employeeId = ea; save(); render();
+    return swapToast(s, o);
+  }
   const st = d.target || s.station;
   if (d.a === s.start && d.b === s.end && st === s.station) return render();
   const before = { start: s.start, end: s.end, station: s.station };
@@ -1369,6 +1400,22 @@ function shiftToast(s, before) {
   ui.toastUndo = () => { Object.assign(s, before); save(); render(); hideToast(); };
   ui.toastNotify = () => notifyShiftChange(s);
   document.getElementById('toast').innerHTML = `<div class="bar"><span>${txt}</span><button onclick="ui.toastUndo()">↩︎ Annulla</button>${published ? `<button class="go" onclick="ui.toastNotify()">📲 Aggiorna l'app di ${esc(e.firstName || T.fullName(e))}</button>` : ''}<button onclick="hideToast()" aria-label="chiudi">✕</button></div>`;
+  clearTimeout(ui.toastTimer); ui.toastTimer = setTimeout(hideToast, 20000);
+}
+/** Striscia delle aree mentre si trascina in verticale: si lascia la barra sull'area voluta. */
+function areaBar(s) {
+  const e = empById(s.employeeId), list = e.type === 'HOSPITALITY' ? ['HOSPITALITY', 'SERVIZIO'] : ['CUCINA', 'FRONT', 'MCCAFE', 'SERVIZIO'];
+  const div = document.createElement('div'); div.className = 'dropbar no-print';
+  div.style.top = (document.querySelector('header').getBoundingClientRect().bottom + 8) + 'px';
+  div.innerHTML = list.map((st) => `<span data-st="${st}" class="st-${st}" style="${st === s.station ? 'opacity:.45' : ''}">${T.STATIONS[st].short}</span>`).join('');
+  document.body.appendChild(div); return div;
+}
+function swapToast(s, o) {
+  const ea = empById(o.employeeId), eb = empById(s.employeeId), ws = T.mondayOf(s.day);
+  const published = pubOf(ws) && TurniCloud.loggedIn() && (state.reqCreds[ea.id] || state.reqCreds[eb.id]);
+  ui.toastUndo = () => { const x = s.employeeId; s.employeeId = o.employeeId; o.employeeId = x; save(); render(); hideToast(); };
+  ui.toastNotify = async () => { await notifyShiftChange(s); await notifyShiftChange(o); };
+  document.getElementById('toast').innerHTML = `<div class="bar"><span>↔ Scambiati: <b>${esc(T.fullName(ea))}</b> ${T.fmtTime(o.start)}–${T.fmtTime(o.end)} · <b>${esc(T.fullName(eb))}</b> ${T.fmtTime(s.start)}–${T.fmtTime(s.end)}</span><button onclick="ui.toastUndo()">↩︎ Annulla</button>${published ? '<button class="go" onclick="ui.toastNotify()">📲 Aggiorna le loro app</button>' : ''}<button onclick="hideToast()" aria-label="chiudi">✕</button></div>`;
   clearTimeout(ui.toastTimer); ui.toastTimer = setTimeout(hideToast, 20000);
 }
 function hideToast() { document.getElementById('toast').innerHTML = ''; }
