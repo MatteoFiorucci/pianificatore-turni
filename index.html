@@ -112,6 +112,8 @@
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
   .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
+  /* iPhone ingrandisce da solo la pagina quando si tocca un campo con testo sotto i 16px: su telefono/tablet si usano 16px */
+  @media (pointer: coarse), (max-width: 760px) { input, select, textarea { font-size: 16px !important; } }
   .sync { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .sync button { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .sync button.bad { background: #fde68a; color: #7c2d12; }
@@ -235,14 +237,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301417"></script>
-<script src="turni-core.js?v=202610301417"></script>
+<script src="turni-storico.js?v=202610301427"></script>
+<script src="turni-core.js?v=202610301427"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301417"></script>
-<script src="turni-cloud-config.js?v=202610301417"></script>
-<script src="turni-cloud.js?v=202610301417"></script>
-<script src="turni-cripto.js?v=202610301417"></script>
+<script src="turni-data.js?v=202610301427"></script>
+<script src="turni-cloud-config.js?v=202610301427"></script>
+<script src="turni-cloud.js?v=202610301427"></script>
+<script src="turni-cripto.js?v=202610301427"></script>
 <script>
 'use strict';
 const T = window.Turni;

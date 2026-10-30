@@ -24,7 +24,8 @@
   .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
   h2 { font-size: 17px; margin: 0 0 12px; }
   label.f { display: grid; gap: 6px; font-size: 14px; color: var(--muted); font-weight: 600; margin-bottom: 14px; }
-  input, select, textarea { font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); width: 100%; }
+  /* 16px: sotto questa misura iPhone ingrandisce da solo la pagina quando si tocca il campo */
+  input, select, textarea { font: inherit; font-size: 16px; font-weight: 400; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); width: 100%; }
   textarea { min-height: 70px; resize: vertical; }
   .kinds { display: grid; gap: 8px; margin-bottom: 14px; }
   .kinds label { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-weight: 600; }
@@ -59,8 +60,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301417"></script>
-<script src="turni-cripto.js?v=202610301417"></script>
+<script src="turni-cloud-config.js?v=202610301427"></script>
+<script src="turni-cripto.js?v=202610301427"></script>
 <script>
 'use strict';
 /*
