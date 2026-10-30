@@ -227,14 +227,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301144"></script>
-<script src="turni-core.js?v=202610301144"></script>
+<script src="turni-storico.js?v=202610301156"></script>
+<script src="turni-core.js?v=202610301156"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301144"></script>
-<script src="turni-cloud-config.js?v=202610301144"></script>
-<script src="turni-cloud.js?v=202610301144"></script>
-<script src="turni-cripto.js?v=202610301144"></script>
+<script src="turni-data.js?v=202610301156"></script>
+<script src="turni-cloud-config.js?v=202610301156"></script>
+<script src="turni-cloud.js?v=202610301156"></script>
+<script src="turni-cripto.js?v=202610301156"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1304,7 +1304,7 @@ function askAccept(id) {
     <p><b>${esc(T.fullName(empById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
     <div class="form">
       ${q.kind === 'impegno' ? `<label class="f">Deve finire il turno entro le${timeSel('acc-t', q.until, 360, 1380)}</label>` : ''}
-      ${q.kind === 'dalle' ? `<label class="f">Può iniziare dalle${timeSel('acc-t', q.from, 360, 1380)}</label>` : ''}
+      ${q.kind === 'dalle' ? `<label class="f">Può iniziare dalle${timeSel('acc-t', q.from, state.config.open ?? 450, (state.config.close ?? 1290) - (state.config.minShift ?? 120))}</label>` : ''}
       ${q.kind === 'libero' ? '<p style="margin:0">Quel giorno non avrà turni.</p>' : ''}
       ${weekHas && p && p.proposal && !p.currentOk ? `<label class="tg on" style="align-self:start"><input type="checkbox" id="acc-apply" checked style="display:inline"> Metti subito il turno proposto (${shiftTxt(p.proposal)}) al posto di quello attuale</label>` : ''}
       ${weekHas && p && p.currentOk ? '<p class="small muted" style="margin:0">Il turno attuale è già compatibile: non cambia niente.</p>' : ''}
