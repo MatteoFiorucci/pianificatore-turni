@@ -269,14 +269,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610302358"></script>
-<script src="turni-core.js?v=202610302358"></script>
+<script src="turni-storico.js?v=202610310021"></script>
+<script src="turni-core.js?v=202610310021"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610302358"></script>
-<script src="turni-cloud-config.js?v=202610302358"></script>
-<script src="turni-cloud.js?v=202610302358"></script>
-<script src="turni-cripto.js?v=202610302358"></script>
+<script src="turni-data.js?v=202610310021"></script>
+<script src="turni-cloud-config.js?v=202610310021"></script>
+<script src="turni-cloud.js?v=202610310021"></script>
+<script src="turni-cripto.js?v=202610310021"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -314,7 +314,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 // ---------- navigazione ----------
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.`],
-  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Le <b>Crew Hours</b> si inseriscono sempre a mano.`],
+  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Crew Hours</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 11,5 ore ogni 100 GC). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Crew Hours diventa precisa.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
@@ -767,9 +767,26 @@ function fcOf(ws) {
 const parseNum = (v) => (v === '' || v == null ? null : Math.max(0, +String(v).replace(',', '.')) || null);
 function setFc(k, field, v) {
   state.forecasts = state.forecasts || {};
-  const f = fcOf(ui.ws);
-  f.days[k][field] = parseNum(v);
+  const f = fcOf(ui.ws), d = f.days[k];
+  const chWasAuto = d.auto && d.crewHours != null && d.crewHours === d.auto.crewHours;
+  d[field] = parseNum(v);
+  // GC cambiati a mano: anche la stima delle Crew Hours si ricalcola (se non era stata scritta a mano)
+  if (field === 'gc' && chWasAuto && d.gc) { d.crewHours = Math.round(d.gc * chRatio()); d.auto.crewHours = d.crewHours; }
   state.forecasts[ui.ws] = f; save(); render();
+}
+/**
+ * Crew Hours per cliente, imparate dai giorni in cui il manager ha scritto a mano Crew Hours e GC
+ * (ultime 8 settimane con dati). Senza dati: 0,115 (circa 11,5 ore ogni 100 GC).
+ */
+function chRatio() {
+  let ch = 0, gc = 0, weeks = 0;
+  for (const ws of Object.keys(state.forecasts || {}).map(Number).sort((a, b) => b - a)) {
+    const days = fcOf(ws).days.filter((d) => d.crewHours > 0 && d.gc > 0 && !(d.auto && d.crewHours === d.auto.crewHours));
+    if (!days.length) continue;
+    days.forEach((d) => { ch += d.crewHours; gc += d.gc; });
+    if (++weeks >= 8) break;
+  }
+  return gc ? ch / gc : 0.115;
 }
 /** Copia lo stesso valore su più giorni (es. lun–gio uguali). */
 function fillFc(from, to) {
@@ -779,14 +796,16 @@ function fillFc(from, to) {
 }
 function copyFcPrev() { const p = (state.forecasts || {})[ui.ws - 7]; if (!p) return alert('La settimana precedente non ha previsioni.'); const f = fcOf(ui.ws - 7); f.days.forEach((d) => delete d.auto); state.forecasts[ui.ws] = f; save(); render(); }
 /**
- * Previsioni automatiche (calcolate sul Mac dallo storico SmartBusiness): riempie Vendite e GC giorno per giorno.
- * I valori cambiati a mano restano; le Crew Hours non vengono toccate.
+ * Previsioni automatiche (calcolate sul Mac dallo storico SmartBusiness): riempie Vendite e GC giorno per giorno
+ * e stima le Crew Hours dai GC (rapporto imparato dai valori scritti a mano, vedi chRatio).
+ * I valori cambiati a mano restano.
  * data = { tipo: 'previsioni-turni', creato, errori, giorni: { 'AAAA-MM-GG': { sales, gc, gcSB } } }
  */
 async function applyAutoForecasts(data) {
   if (!data || data.tipo !== 'previsioni-turni' || !data.giorni) throw new Error('Questo non è un file di previsioni automatiche.');
   if (TurniCloud.loggedIn()) await cloudPull(); // parte dai dati online più recenti
   state.forecasts = state.forecasts || {};
+  const ratio = chRatio();
   let n = 0, manual = 0;
   for (const [iso, p] of Object.entries(data.giorni)) {
     const day = Math.round(Date.parse(iso) / 864e5), ws = T.mondayOf(day), k = day - ws;
@@ -795,7 +814,10 @@ async function applyAutoForecasts(data) {
       if (d[fld] != null && d[fld] !== prev[fld]) manual++; // scritto a mano: non si tocca
       else d[fld] = p[fld] ?? null;
     }
-    d.auto = { sales: p.sales ?? null, gc: p.gc ?? null, gcSB: p.gcSB ?? null };
+    const ch = d.gc ? Math.round(d.gc * ratio) : null;
+    if (d.crewHours != null && d.crewHours !== prev.crewHours) manual++;
+    else d.crewHours = ch;
+    d.auto = { sales: p.sales ?? null, gc: p.gc ?? null, gcSB: p.gcSB ?? null, crewHours: ch };
     state.forecasts[ws] = f; n++;
   }
   state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {} };
@@ -817,13 +839,13 @@ function clearFc() { if (state.forecasts) delete state.forecasts[ui.ws]; save();
 function renderPrevisioni() {
   const f = fcOf(ui.ws);
   const num = (val, on, ph = '') => `<input type="number" min="0" step="any" value="${val ?? ''}" placeholder="${ph}" style="width:130px" onchange="${on}">`;
-  const tag = (d, fld) => (d.auto && d[fld] != null && d[fld] === d.auto[fld] ? ' <span class="autotag" title="Calcolata in automatico">auto</span>' : '');
+  const tag = (d, fld, word = 'auto') => (d.auto && d[fld] != null && d[fld] === d.auto[fld] ? ` <span class="autotag" title="Calcolata in automatico">${word}</span>` : '');
   const sbOf = (d) => (d.auto && d.auto.gcSB ? `<span class="muted small" title="Previsione di SmartBusiness">SB ${d.auto.gcSB}</span>` : '');
   const dayRows = DAYS7.map((k) => `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td><b>${T.shortDate(ui.ws + k)}</b></td>
       <td>${num(f.days[k].sales, `setFc(${k},'sales',this.value)`)}${tag(f.days[k], 'sales')}</td>
       <td>${num(f.days[k].gc, `setFc(${k},'gc',this.value)`)}${tag(f.days[k], 'gc')}</td>
       <td>${sbOf(f.days[k])}</td>
-      <td>${num(f.days[k].crewHours, `setFc(${k},'crewHours',this.value)`)}</td></tr>`).join('');
+      <td>${num(f.days[k].crewHours, `setFc(${k},'crewHours',this.value)`)}${tag(f.days[k], 'crewHours', 'stima')}</td></tr>`).join('');
   const af = state.autoForecast;
   const errs = af && af.err ? Object.entries(af.err).map(([k, v]) => `${esc(k)} ${String(v).replace('.', ',')}%`).join(' · ') : '';
   return `
