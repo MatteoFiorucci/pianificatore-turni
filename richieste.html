@@ -4,7 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Richieste turni</title>
+<title>Turni – Richieste</title>
+<link rel="manifest" href="app-personale.webmanifest">
+<meta name="theme-color" content="#1e5631">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Turni">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icone/icona-180.png">
+<link rel="icon" href="icone/icona-192.png">
 <style>
   :root { --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70; --line: #d9d9de; --bg: #f6f6f4; --err: #ffd3d6; --err-ink: #b3261e; --warn: #fff0c2; --warn-ink: #8a6100; --ok: #dcf0e1; }
   * { box-sizing: border-box; }
@@ -38,28 +46,32 @@
 </style>
 </head>
 <body>
-<header><h1>📅 Richieste turni</h1><p id="hello"></p></header>
+<header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301221"></script>
-<script src="turni-cripto.js?v=202610301221"></script>
+<script src="turni-cloud-config.js?v=202610301241"></script>
+<script src="turni-cripto.js?v=202610301241"></script>
 <script>
 'use strict';
 /*
- * Pagina per il personale: con il link personale (dato dal manager) si inviano richieste sui turni.
- * Le richieste sono cifrate sul telefono con la chiave pubblica del locale: le può leggere solo il manager.
- * Da qui non si vede niente dei dati del locale. Il link contiene: s = locale, e = dipendente, p = codice, n = nome.
+ * App del personale (installabile sul telefono): ci si entra con nome utente e password dati dal manager
+ * e si inviano richieste sui turni. Le richieste sono cifrate sul telefono con la chiave pubblica del locale:
+ * le può leggere solo il manager. Da qui non si vede niente dei dati del locale.
+ * Il link (uguale per tutti) contiene solo ?s = codice del locale.
  */
 const cfg = window.TURNI_CLOUD_CONFIG || {};
-const P = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
-const BASE = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/negozi/${P.s}`;
-const MINE = `richieste-mie-${P.s}-${P.e}`;
+const STORE = new URLSearchParams(location.search).get('s') || Object.fromEntries(new URLSearchParams(location.hash.slice(1))).s || localStorage.getItem('turni-locale') || '';
+if (STORE) try { localStorage.setItem('turni-locale', STORE); } catch (e) { /* niente */ }
+const BASE = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/negozi/${STORE}`;
+const SESS = `turni-accesso-${STORE}`;
+let session = (() => { try { return JSON.parse(localStorage.getItem(SESS)) || null; } catch (e) { return null; } })();
+const MINE = () => `richieste-mie-${STORE}-${session ? session.emp : ''}`;
 const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 const DOW = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
 const dateLabel = (iso) => { const d = new Date(iso + 'T12:00:00'); return `${DOW[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
 const times = (from, to, sel) => { let o = ''; for (let m = from; m <= to; m += 15) o += `<option value="${m}" ${m === sel ? 'selected' : ''}>${fmt(m)}</option>`; return o; };
-const mine = () => { try { return JSON.parse(localStorage.getItem(MINE)) || []; } catch (e) { return []; } };
-const saveMine = (l) => { try { localStorage.setItem(MINE, JSON.stringify(l)); } catch (e) { /* niente */ } };
+const mine = () => { try { return JSON.parse(localStorage.getItem(MINE())) || []; } catch (e) { return []; } };
+const saveMine = (l) => { try { localStorage.setItem(MINE(), JSON.stringify(l)); } catch (e) { /* niente */ } };
 let kind = 'impegno', pub = null, msg = '';
 // impegni fissi ogni settimana: righe giorno + dalle + alle (d: 1 = lunedì … 7 = domenica)
 let slots = [{ d: 1, a: 660, b: 960 }];
@@ -79,14 +91,55 @@ function slotRows() {
       ${slots.length > 1 ? `<button class="light" style="padding:8px 10px" onclick="keep();slots.splice(${i},1);render()" aria-label="togli">✕</button>` : '<span></span>'}
     </div>`).join('');
 }
+// ---- installazione come app ----
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; render(); });
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+function installBox() {
+  if (standalone()) return '';
+  if (installEvt) return '<div class="card"><b>📲 Installa l\'app sul telefono</b><p class="muted" style="margin:6px 0 10px">Così la apri dalla schermata Home, come le altre app.</p><button class="primary" onclick="installApp()">Installa l\'app</button></div>';
+  if (isIos()) return '<div class="card"><b>📲 Metti l\'app sulla schermata Home</b><p class="muted" style="margin:6px 0 0">In Safari tocca il tasto <b>Condividi</b> (il quadrato con la freccia in su), poi <b>"Aggiungi alla schermata Home"</b>. Dopo, apri l\'app dall\'icona e accedi.</p></div>';
+  return '';
+}
+async function installApp() { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { /* niente */ } installEvt = null; render(); }
+
+// ---- accesso con nome utente e password ----
+function loginView() {
+  return `${msg}${installBox()}<div class="card"><h2>Accedi</h2>
+    <p class="muted" style="margin-top:-6px">Usa il nome utente e la password che ti ha dato il tuo manager.</p>
+    <label class="f">Nome utente<input id="lu" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="es. mario.r"></label>
+    <label class="f">Password<input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></label>
+    <button class="primary" id="lb" onclick="login()">Entra</button></div>`;
+}
+async function login() {
+  const user = document.getElementById('lu').value.trim().toLowerCase(), pw = document.getElementById('lp').value.trim();
+  const show = (t) => { msg = `<div class="notice err">${t}</div>`; render(); };
+  if (!user || !pw) return show('Scrivi nome utente e password.');
+  const b = document.getElementById('lb'); b.disabled = true; b.textContent = 'Accesso…';
+  try {
+    const code = await TurniCripto.codeHash(STORE, user, pw);
+    const r = await fetch(`${BASE}/accessi/${code}?key=${cfg.apiKey}`, { cache: 'no-store' });
+    if (!r.ok) return show(r.status === 404 || r.status === 403 ? 'Nome utente o password sbagliati.' : 'Accesso non riuscito, riprova tra poco.');
+    const f = (await r.json()).fields || {};
+    session = { user, code, emp: f.emp && f.emp.stringValue, nome: (f.nome && f.nome.stringValue) || '' };
+    try { localStorage.setItem(SESS, JSON.stringify(session)); } catch (e) { /* niente */ }
+    msg = ''; render(); if (mine().length) refresh();
+  } catch (e) { show(e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Accesso non riuscito.'); }
+}
+function logout() { if (!confirm('Uscire? Per rientrare servono nome utente e password.')) return; session = null; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } msg = ''; render(); }
+
 function render() {
   const app = document.getElementById('app');
-  if (!P.s || !P.e || !P.p) { app.innerHTML = '<div class="card"><div class="notice err">Link non completo.</div><p>Apri il link personale che ti ha mandato il tuo manager.</p></div>'; return; }
-  document.getElementById('hello').textContent = P.n ? `Ciao ${P.n}! Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.` : 'Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.';
+  document.getElementById('logout').style.display = session ? '' : 'none';
+  if (!STORE) { app.innerHTML = '<div class="card"><div class="notice err">Manca il codice del locale.</div><p>Apri il link che ti ha mandato il tuo manager.</p></div>'; return; }
+  if (!session) { document.getElementById('hello').textContent = 'Richieste per i turni al tuo manager.'; app.innerHTML = loginView(); return; }
+  document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}! Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.` : 'Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.';
   const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const list = mine().slice().reverse();
   app.innerHTML = `
   ${msg}
+  ${installBox()}
   <div class="card">
     <h2>Nuova richiesta</h2>
     <div class="kinds">
@@ -142,12 +195,14 @@ async function send() {
   }
   try {
     const sealed = await TurniCripto.sealFor(await loadPub(), q);
-    const code = await TurniCripto.codeHash(P.s, P.e, P.p);
     const rid = Array.from(crypto.getRandomValues(new Uint8Array(15)), (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 24);
-    const fields = { emp: String(P.e), code, ...sealed, createdAt: new Date().toISOString(), status: 'in attesa' };
+    const fields = { emp: String(session.emp), code: session.code, ...sealed, createdAt: new Date().toISOString(), status: 'in attesa' };
     const r = await fetch(`${BASE}/richieste?documentId=${rid}&key=${cfg.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { stringValue: v }])) }) });
-    if (!r.ok) throw new Error(r.status === 403 ? 'Il tuo link non è più valido: chiedi al manager un link nuovo.' : 'Invio non riuscito, riprova tra poco.');
+    if (!r.ok) {
+      if (r.status === 403) { session = null; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } throw new Error('La tua password è stata cambiata dal manager: rientra con quella nuova.'); }
+      throw new Error('Invio non riuscito, riprova tra poco.');
+    }
     saveMine([...mine(), { rid, ...q, status: 'in attesa', sentAt: new Date().toISOString() }]);
     draft = {}; kind = 'impegno'; slots = [{ d: 1, a: 660, b: 960 }];
     show('ok', '✓ Richiesta inviata. Il manager la vedrà e ti risponderà qui.');
@@ -168,7 +223,8 @@ async function refresh() {
   saveMine(list); msg = ''; render();
 }
 render();
-if (P.s && mine().length) refresh();
+if (session && mine().length) refresh();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => null);
 </script>
 </body>
 </html>

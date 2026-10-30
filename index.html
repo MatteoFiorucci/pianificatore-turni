@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pianificatore turni</title>
+<link rel="manifest" href="app-manager.webmanifest">
+<meta name="theme-color" content="#1e5631">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Turni Manager">
+<link rel="apple-touch-icon" href="icone/manager-180.png">
+<link rel="icon" href="icone/manager-192.png">
 <style>
   :root {
     --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70;
@@ -228,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301221"></script>
-<script src="turni-core.js?v=202610301221"></script>
+<script src="turni-storico.js?v=202610301241"></script>
+<script src="turni-core.js?v=202610301241"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301221"></script>
-<script src="turni-cloud-config.js?v=202610301221"></script>
-<script src="turni-cloud.js?v=202610301221"></script>
-<script src="turni-cripto.js?v=202610301221"></script>
+<script src="turni-data.js?v=202610301241"></script>
+<script src="turni-cloud-config.js?v=202610301241"></script>
+<script src="turni-cloud.js?v=202610301241"></script>
+<script src="turni-cripto.js?v=202610301241"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1182,10 +1189,16 @@ const SLOTS_TXT = (q) => (q.slots || []).map((x) => `${DAYS_IT[x.d]} ${T.fmtTime
 const PERIOD_TXT = (q) => `dal ${T.itDate(q.day)}${q.to != null ? ` al ${T.itDate(q.to)}` : ' (senza data di fine)'}`;
 const KIND_TXT = (q) => q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
 const LIMIT_TXT = (q) => q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
-const reqLink = (e) => {
-  const base = location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/');
-  return `${base}richieste.html#s=${TurniCloud.uid()}&e=${e.id}&p=${state.reqCodes[e.id]}&n=${encodeURIComponent(e.firstName || '')}`;
-};
+// link unico dell'app per il personale (uguale per tutti): ?s = codice del locale (resta anche nell'app installata)
+const appLink = () => `${location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/')}richieste.html?s=${TurniCloud.uid()}`;
+const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+function newUser(e) {
+  const taken = new Set(Object.entries(state.reqCreds).filter(([id]) => +id !== e.id).map(([, c]) => c.user));
+  const base = `${slug((e.firstName || '').split(' ')[0]) || 'crew'}.${slug(e.lastName).slice(0, 1) || 'x'}`;
+  let u = base, n = 2; while (taken.has(u)) u = base + n++;
+  return u;
+}
+const newPassword = () => Array.from(crypto.getRandomValues(new Uint8Array(8)), (b) => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join('');
 let inboxBusy = false;
 /** Scarica le richieste nuove e le aggiunge (in attesa). Con notify mostra l'avviso se ne sono arrivate. */
 async function checkInbox(notify) {
@@ -1236,21 +1249,38 @@ async function enableRequests() {
     state.reqKeys = k; save(); render();
   } catch (e) { alert('Attivazione non riuscita: ' + e.message); }
 }
-async function makeCode(id) {
-  const e = empById(id); if (!e) return;
-  const pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+/** Crea (o rinnova) nome utente e password di un dipendente. La password vecchia smette di funzionare. */
+async function makeAccess(id, quiet) {
+  const e = empById(id); if (!e) return false;
+  const old = state.reqCreds[id];
+  const user = old ? old.user : newUser(e), pw = newPassword();
   try {
-    await TurniCloud.setCode(id, await TurniCripto.codeHash(TurniCloud.uid(), id, pin));
-    state.reqCodes[id] = pin; save(); render(); shareLink(id);
-  } catch (err) { alert('Non riuscito: ' + err.message); }
+    const code = await TurniCripto.codeHash(TurniCloud.uid(), user, pw);
+    await TurniCloud.setAccess(code, e.id, e.firstName || '');
+    if (old && old.code) await TurniCloud.deleteAccess(old.code);
+    state.reqCreds[id] = { user, pw, code }; save();
+    if (!quiet) { render(); shareAccess(id); }
+    return true;
+  } catch (err) { if (!quiet) alert('Non riuscito: ' + err.message); return false; }
 }
-async function shareLink(id) {
-  const e = empById(id), link = reqLink(e);
-  const text = `Ciao ${e.firstName || ''}! Da questo link puoi chiedere un turno compatibile con i tuoi impegni (es. un concerto la sera). Il link è personale: non condividerlo.\n${link}`;
-  if (navigator.share) { try { await navigator.share({ title: 'Richieste turni', text }); return; } catch (err) { if (err && err.name === 'AbortError') return; } }
-  showModal(`<h3>🔗 Link personale di ${esc(T.fullName(e))}</h3><p class="muted">Mandalo solo a questa persona (es. su WhatsApp). Chi ha il link può inviare richieste a suo nome, ma non vede nessun dato del locale.</p>
-    <textarea id="lnk" style="width:100%;min-height:90px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px" readonly>${esc(text)}</textarea>
+async function makeAllAccess() {
+  const todo = state.employees.filter((e) => e.active && !state.reqCreds[e.id]);
+  let ok = 0; for (const e of todo) if (await makeAccess(e.id, true)) ok++;
+  render();
+  if (ok < todo.length) alert(`Creati ${ok} accessi su ${todo.length}: riprova per gli altri (connessione?).`);
+}
+async function share(title, text) {
+  if (navigator.share) { try { await navigator.share({ title, text }); return; } catch (err) { if (err && err.name === 'AbortError') return; } }
+  showModal(`<h3>${esc(title)}</h3><p class="muted">Copia il messaggio e mandalo (es. su WhatsApp).</p>
+    <textarea id="lnk" style="width:100%;min-height:130px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px" readonly>${esc(text)}</textarea>
     <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="copyLink()">Copia</button></div>`);
+}
+/** Messaggio unico per tutti (es. gruppo WhatsApp): link dell'app, senza credenziali. */
+const shareAppLink = () => share('Link dell\'app per il personale', `Ciao a tutti! Da quest'app potete chiedere un turno compatibile con i vostri impegni (concerti, università, allenamenti…).\nScaricatela da qui: ${appLink()}\nSu iPhone: tasto Condividi → "Aggiungi alla schermata Home". Su Android: "Installa app".\nNome utente e password ve li mando in privato.`);
+/** Credenziali personali (in privato). */
+function shareAccess(id) {
+  const e = empById(id), c = state.reqCreds[id];
+  share(`Accesso di ${T.fullName(e)}`, `Ciao ${e.firstName || ''}! Ecco i tuoi dati per l'app dei turni:\nNome utente: ${c.user}\nPassword: ${c.pw}\nApp: ${appLink()}\nSono personali: non darli a nessuno.`);
 }
 function copyLink() { const t = document.getElementById('lnk'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); } closeModal(); }
 function proposalOf(q) {
@@ -1309,11 +1339,14 @@ function renderRichieste() {
   ${done.length ? `<details style="margin-top:18px" ${ui.showDone ? 'open' : ''} ontoggle="ui.showDone=this.open"><summary style="cursor:pointer;font-weight:700;font-size:15px;margin-bottom:8px">Già decise (${reqs.length - pend.length})</summary>
     <div style="margin:4px 0 10px"><button class="btn" style="color:var(--err-ink)" onclick="deleteRequests(state.requests.filter((q)=>q.status!=='in attesa').map((q)=>q.id))">🗑 Elimina tutte le decise</button></div>
     ${done.map(card).join('')}</details>` : ''}
-  ${logged && state.reqKeys ? `<h3 style="margin:22px 0 8px">Link personali del personale</h3>
-  <p class="muted">Ogni persona ha il suo link con un codice. Se un link finisce in mani sbagliate, premi "Nuovo link": quello vecchio smette di funzionare.</p>
-  <div class="card"><table class="list"><thead><tr><th>Nome</th><th>Link</th><th></th></tr></thead><tbody>
-    ${people.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${state.reqCodes[e.id] ? '<span class="pill on">creato</span>' : '<span class="muted small">non ancora</span>'}</td>
-      <td style="text-align:right;white-space:nowrap">${state.reqCodes[e.id] ? `<button class="btn" onclick="shareLink(${e.id})">📤 Invia</button> <button class="link" onclick="if(confirm('Creare un link nuovo? Quello vecchio non funzionerà più.'))makeCode(${e.id})">Nuovo link</button>` : `<button class="btn" onclick="makeCode(${e.id})">Crea link</button>`}</td></tr>`).join('')}
+  ${logged && state.reqKeys ? `<h3 style="margin:22px 0 8px">App del personale e accessi</h3>
+  <div class="card section"><p style="margin-top:0"><b>1. Un solo link per tutti</b> (es. nel gruppo WhatsApp): da lì scaricano l'app sul telefono.</p>
+    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
+    <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
+  <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
+  <div class="card"><table class="list"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
+    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? `<code>${esc(c.pw)}</code>` : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${c ? `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> <button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
   </tbody></table></div>` : ''}`;
 }
 function askAccept(id) {
@@ -1475,6 +1508,8 @@ render();
 if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
 else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
 else loadFromSite(false);
+// installabile come app (schermata Home del telefono o del computer)
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => null);
 </script>
 </body>
 </html>
