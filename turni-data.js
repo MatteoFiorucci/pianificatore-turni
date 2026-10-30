@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 24;
+  const VERSION = 25;
 
   function emptyState() {
     return {
@@ -36,6 +36,8 @@
     st.reqCodes = st.reqCodes || {};
     // v24: accessi del personale all'app Richieste (nome utente, password, impronta)
     st.reqCreds = st.reqCreds || {};
+    // v25: settimane pubblicate per i dipendenti (copia fissata al momento della pubblicazione)
+    st.publishedWeeks = st.publishedWeeks || {};
     for (const e of st.employees || []) {
       for (const [k, v] of Object.entries({ trainings: [], openings: [], closings: [], restDays: [], doubleDays: 0, fixedShift: null, trainee: false, traineeUntil: null, startDate: null, active: true })) {
         if (e[k] === undefined) e[k] = Array.isArray(v) ? [] : v;

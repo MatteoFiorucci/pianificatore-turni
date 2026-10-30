@@ -228,12 +228,15 @@
    */
   const setAccess = (code, emp, nome) => api(storeUrl(`/accessi/${code}`), { method: 'PATCH', body: JSON.stringify({ fields: str({ emp, nome }) }) });
   const deleteAccess = (code) => api(storeUrl(`/accessi/${code}`), { method: 'DELETE' }).catch(() => null);
+  /** Orario pubblicato di un dipendente (cifrato con la sua chiave personale): negozi/{uid}/orari/{impronta accesso}. */
+  const setOrario = (code, sealed) => api(storeUrl(`/orari/${code}`), { method: 'PATCH', body: JSON.stringify({ fields: str({ ...sealed, at: new Date().toISOString() }) }) });
+  const deleteOrario = (code) => api(storeUrl(`/orari/${code}`), { method: 'DELETE' }).catch(() => null);
   /** Cancella una richiesta (il dipendente la vedrà come "cancellata dal manager"). */
   const deleteRequest = (rid) => api(storeUrl(`/richieste/${rid}`), { method: 'DELETE' });
 
   root.TurniCloud = {
     configured, loggedIn, session, login, logout, push, pull, deviceName,
-    uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, listRequests, answerRequest, deleteRequest,
+    uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, setOrario, deleteOrario, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
     setLastUpdate: (t) => patch({ lastUpdate: t }),
   };

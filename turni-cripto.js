@@ -59,6 +59,21 @@
     return Array.from(new Uint8Array(h)).map((b) => b.toString(16).padStart(2, '0')).join('');
   }
 
-  root.TurniCripto = { encrypt, decrypt, newKeyPair, sealFor, openWith, codeHash, supported: () => !!subtle() && typeof TextEncoder !== 'undefined' };
+  // ---- orario personale pubblicato: cifrato con una chiave che deriva da nome utente + password del dipendente ----
+  // (la conoscono solo lui e il manager, che ha creato le credenziali)
+  async function personalKey(store, user, pw) {
+    return toB64(await subtle().digest('SHA-256', enc.encode(`turni-orario|${store}|${user}|${pw}`)));
+  }
+  async function sealWith(keyB64, obj) {
+    const k = await subtle().importKey('raw', fromB64(keyB64), 'AES-GCM', false, ['encrypt']);
+    const iv = root.crypto.getRandomValues(new Uint8Array(12));
+    return { box: toB64(await subtle().encrypt({ name: 'AES-GCM', iv }, k, enc.encode(JSON.stringify(obj)))), iv: toB64(iv) };
+  }
+  async function openSealed(keyB64, sealed) {
+    const k = await subtle().importKey('raw', fromB64(keyB64), 'AES-GCM', false, ['decrypt']);
+    return JSON.parse(dec.decode(await subtle().decrypt({ name: 'AES-GCM', iv: fromB64(sealed.iv) }, k, fromB64(sealed.box))));
+  }
+
+  root.TurniCripto = { encrypt, decrypt, newKeyPair, sealFor, openWith, codeHash, personalKey, sealWith, openSealed, supported: () => !!subtle() && typeof TextEncoder !== 'undefined' };
   if (typeof module !== 'undefined') module.exports = root.TurniCripto;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -235,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301323"></script>
-<script src="turni-core.js?v=202610301323"></script>
+<script src="turni-storico.js?v=202610301329"></script>
+<script src="turni-core.js?v=202610301329"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301323"></script>
-<script src="turni-cloud-config.js?v=202610301323"></script>
-<script src="turni-cloud.js?v=202610301323"></script>
-<script src="turni-cripto.js?v=202610301323"></script>
+<script src="turni-data.js?v=202610301329"></script>
+<script src="turni-cloud-config.js?v=202610301329"></script>
+<script src="turni-cloud.js?v=202610301329"></script>
+<script src="turni-cripto.js?v=202610301329"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -337,6 +337,7 @@ function renderTurni() {
     <div class="seg">${Object.entries(T.TYPES).map(([k, l]) => `<button class="${ui.type === k ? 'on' : ''}" onclick="ui.type='${k}';render()">${l} (${ctx.employees.filter((e) => e.type === k).length})</button>`).join('')}</div>
     <div class="spacer"></div>
     <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
+    ${publishChip()}
     <button class="btn" onclick="askClearWeek()">Svuota settimana</button>
     <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">🛠 Risolvi problemi</button>
     <button class="btn primary" onclick="askGenerate()">⚙ Genera turni</button>
@@ -1242,6 +1243,72 @@ setInterval(() => {
   if (document.visibilityState === 'visible' && !modalOpen() && !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) cloudPull().then(() => checkInbox(true));
 }, 60000);
 
+// ================= ORARIO PUBBLICATO PER IL PERSONALE =================
+// "Pubblica settimana": si fissa una copia dell'orario della settimana (quella che vedono i dipendenti) e per ogni
+// dipendente con un accesso si manda online il suo orario, cifrato con la sua chiave personale (nome utente + password).
+// Se dopo si modificano i turni, i dipendenti vedono la versione nuova solo quando si ripubblica.
+function weekSnapshot(ws) {
+  const ctx = T.makeCtx(state, ws), out = {};
+  for (const e of ctx.employees) {
+    const days = ctx.days.map((d) => {
+      const sh = T.shiftsOf(ctx, e.id, d).map((s) => ({ a: s.start, b: s.end, st: s.station, dbl: !!s.doppio }));
+      const ab = T.absenceOn(ctx, e.id, d), lim = T.limitOf(ctx, e.id, d);
+      const tag = sh.length ? '' : !T.started(e, d) ? 'Non ancora in servizio' : ab ? T.absenceInfo(ab.type).label : T.isRest(e, d) ? 'Riposo' : 'Libero';
+      return { d, sh, tag, note: lim ? 'Richiesta accettata: ' + lim.label : '' };
+    });
+    out[e.id] = { days, hours: T.worked(ctx, e.id) + T.doubleWorked(ctx, e.id), target: T.target(ctx, e) };
+  }
+  return out;
+}
+const pubOf = (ws) => (state.publishedWeeks || {})[ws];
+const changedSincePublish = (ws) => { const p = pubOf(ws); return !!p && JSON.stringify(p.emp) !== JSON.stringify(weekSnapshot(ws)); };
+function publishChip() {
+  if (!TurniCloud.loggedIn()) return '';
+  const p = pubOf(ui.ws);
+  if (!p) return '<button class="btn" onclick="askPublish()">📢 Pubblica settimana</button>';
+  return changedSincePublish(ui.ws)
+    ? '<button class="btn" style="border-color:var(--warn-ink);color:var(--warn-ink)" onclick="askPublish()" title="I dipendenti vedono ancora la versione pubblicata prima">📢 Modificata: ripubblica</button>'
+    : `<span class="chip ok" title="I dipendenti la vedono nell'app">📢 Pubblicata ${fmtWhen(p.at)}</span>`;
+}
+function askPublish() {
+  const ctx = T.makeCtx(state, ui.ws), nErr = T.validate(ctx).filter((v) => v.sev === 'ERROR').length;
+  const withAccess = state.employees.filter((e) => e.active && state.reqCreds[e.id]).length, total = state.employees.filter((e) => e.active).length;
+  const p = pubOf(ui.ws);
+  showModal(`<h3>📢 Pubblica la settimana ${T.weekLabel(ui.ws)}</h3>
+    <p>I dipendenti la vedranno nell'app, nella scheda <b>"I miei turni"</b>: ognuno solo i suoi turni.</p>
+    ${nErr ? `<p class="notice warn">Ci sono ancora <b>${nErr} errori</b> nella settimana: puoi pubblicare lo stesso, ma conviene sistemarli prima.</p>` : ''}
+    ${withAccess < total ? `<p class="notice info">${withAccess} dipendenti su ${total} hanno l'accesso all'app: gli altri la vedranno quando creerai il loro accesso (sezione Richieste).</p>` : ''}
+    <div class="form"><label class="f">Nota per tutti (facoltativa)<input type="text" id="pub-note" maxlength="300" value="${esc((p && p.note) || '')}" placeholder="es. riunione martedì alle 15"></label></div>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="doPublish()">Pubblica</button></div>`);
+}
+async function doPublish() {
+  const note = (document.getElementById('pub-note').value || '').trim();
+  state.publishedWeeks = state.publishedWeeks || {};
+  state.publishedWeeks[ui.ws] = { at: new Date().toISOString(), note, emp: weekSnapshot(ui.ws) };
+  // si tengono le ultime 16 settimane pubblicate
+  for (const k of Object.keys(state.publishedWeeks).map(Number).sort((a, b) => b - a).slice(16)) delete state.publishedWeeks[k];
+  closeModal(); save(); render();
+  const r = await pushOrari();
+  showModal(`<h3>${r.fail ? '⚠️' : '✅'} Settimana pubblicata</h3><p>${r.ok} dipendenti la vedono nell'app.${r.fail ? ` Per ${r.fail} l'invio non è riuscito (connessione?): ripubblica tra poco.` : ''}</p>
+    <div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+}
+/** Manda online l'orario pubblicato di ogni dipendente con accesso (o solo di quelli indicati). */
+async function pushOrari(ids) {
+  const res = { ok: 0, fail: 0 };
+  if (!TurniCloud.loggedIn()) return res;
+  const weeks = Object.entries(state.publishedWeeks || {}).map(([k, w]) => [+k, w]).sort((a, b) => b[0] - a[0]).slice(0, 12);
+  for (const e of state.employees.filter((x) => x.active && state.reqCreds[x.id] && (!ids || ids.includes(x.id)))) {
+    const c = state.reqCreds[e.id];
+    const mine = weeks.filter(([, w]) => w.emp[e.id]).map(([ws, w]) => ({ ws, at: w.at, note: w.note || '', ...w.emp[e.id] }));
+    try {
+      const key = await TurniCripto.personalKey(TurniCloud.uid(), c.user, c.pw);
+      await TurniCloud.setOrario(c.code, await TurniCripto.sealWith(key, { nome: e.firstName || '', weeks: mine }));
+      res.ok++;
+    } catch (err) { res.fail++; }
+  }
+  return res;
+}
+
 // ================= RICHIESTE DEL PERSONALE =================
 // I dipendenti inviano richieste dal loro link personale (richieste.html): arrivano cifrate, le apre solo il manager.
 // Niente va nei turni finché il manager non accetta. Le accettate diventano vincoli per il generatore.
@@ -1345,8 +1412,9 @@ async function makeAccess(id, quiet) {
   try {
     const code = await TurniCripto.codeHash(TurniCloud.uid(), user, pw);
     await TurniCloud.setAccess(code, e.id, e.firstName || '');
-    if (old && old.code) await TurniCloud.deleteAccess(old.code);
+    if (old && old.code) { await TurniCloud.deleteAccess(old.code); await TurniCloud.deleteOrario(old.code); }
     state.reqCreds[id] = { user, pw, code }; save();
+    pushOrari([id]).catch(() => null); // con la password nuova serve di nuovo il suo orario pubblicato
     if (!quiet) { render(); shareAccess(id); }
     return true;
   } catch (err) { if (!quiet) alert('Non riuscito: ' + err.message); return false; }
