@@ -54,6 +54,12 @@
     { id: 'c11', name: 'Chiusura McCafé', start: 1110, end: 1290, min: all(1), station: 'MCCAFE', exact: true, closing: true },
     { id: 'c12', name: 'Chiusura Sala', start: 1110, end: 1290, min: [1, 1, 1, 1, 2, 2, 2], station: 'SERVIZIO', exact: true, closing: true },
     { id: 'c13', name: 'Chiusura MFY', start: 1110, end: 1290, min: [2, 2, 2, 2, 3, 3, 3], station: 'CUCINA', exact: true, closing: true },
+    // presidio delle postazioni (manager, 30/10/2026): dopo l'apertura e fino alle 21:00 sempre almeno 1 MFY, 1 OA,
+    // 1 McCafé e 1 Sala (la Sala la può coprire un'hospitality). All'apertura solo McCafé + MFY, dalle 21 la squadra di chiusura.
+    { id: 'p1', name: 'Presidio MFY', start: 630, end: 1260, min: all(1), station: 'CUCINA' },
+    { id: 'p2', name: 'Presidio OA', start: 630, end: 1260, min: all(1), station: 'FRONT' },
+    { id: 'p3', name: 'Presidio McCafé', start: 630, end: 1260, min: all(1), station: 'MCCAFE' },
+    { id: 'p4', name: 'Presidio Sala', start: 630, end: 1260, min: all(1), station: 'SERVIZIO' },
     // hospitality in sala (dallo storico: sempre presenti a pranzo e a cena, il pomeriggio varia; 2 nei rush del weekend)
     { id: 'h2', name: 'Hospitality pranzo', start: 750, end: 870, min: [1, 1, 1, 1, 2, 2, 2], station: 'HOSPITALITY' },
     { id: 'h3', name: 'Hospitality cena', start: 1050, end: 1290, min: [1, 1, 1, 1, 1, 2, 1], station: 'HOSPITALITY' },
