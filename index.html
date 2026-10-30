@@ -112,7 +112,7 @@
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
   .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
-  .sync { margin-left: auto; }
+  .sync { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .sync button { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .sync button.bad { background: #fde68a; color: #7c2d12; }
   .notice { padding: 8px 10px; border-radius: 8px; font-size: 13px; }
@@ -235,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301410"></script>
-<script src="turni-core.js?v=202610301410"></script>
+<script src="turni-storico.js?v=202610301417"></script>
+<script src="turni-core.js?v=202610301417"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301410"></script>
-<script src="turni-cloud-config.js?v=202610301410"></script>
-<script src="turni-cloud.js?v=202610301410"></script>
-<script src="turni-cripto.js?v=202610301410"></script>
+<script src="turni-data.js?v=202610301417"></script>
+<script src="turni-cloud-config.js?v=202610301417"></script>
+<script src="turni-cloud.js?v=202610301417"></script>
+<script src="turni-cripto.js?v=202610301417"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1048,11 +1048,14 @@ const sync = { status: 'off', msg: '', timer: null, busy: false, seq: 0, pending
 const modalOpen = () => !!document.getElementById('modal').innerHTML;
 const fmtWhen = (iso) => { if (!iso) return '—'; const d = new Date(iso); return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short' }) + ' alle ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
 function setSync(status, msg) { sync.status = status; sync.msg = msg || ''; renderSync(); }
+// codice del locale per tornare all'app dei dipendenti (anche dall'app installata, dove non c'è il tasto "indietro")
+const storeCode = () => APP_STORE || TurniCloud.uid() || (() => { try { return localStorage.getItem('turni-locale'); } catch (e) { return null; } })();
 function renderSync() {
   const el = document.getElementById('sync'); if (!el) return;
-  if (!TurniCloud.loggedIn()) { el.innerHTML = ''; return; }
+  const back = APP_MODE && storeCode() ? `<button onclick="location.href='richieste.html?s=' + encodeURIComponent(storeCode())" title="Torna all'app dei dipendenti">← Dipendenti</button>` : '';
+  if (!TurniCloud.loggedIn()) { el.innerHTML = back; return; }
   const t = { ok: '☁️ Salvato online', saving: '⏳ Salvataggio…', offline: '⚠️ Offline: salvo appena torna la rete', error: '⚠️ Non salvato online', conflict: '⚠️ Scegli quali dati tenere' }[sync.status] || '☁️ Online';
-  el.innerHTML = `<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button>`;
+  el.innerHTML = `${back}<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button><button onclick="cloudLogout()" title="Esci dall'area manager su questo dispositivo">Esci</button>`;
 }
 function cloudTouch() {
   if (!TurniCloud.loggedIn()) return;
@@ -1126,7 +1129,7 @@ function cloudLoginFields(msg) {
 /** Schermata di accesso dei manager (al posto dell'app, finché non si entra). */
 function renderGate() {
   document.getElementById('brand').textContent = '🗓 Turni · Area manager';
-  document.getElementById('nav').innerHTML = ''; document.getElementById('sync').innerHTML = '';
+  document.getElementById('nav').innerHTML = ''; renderSync();
   const back = APP_STORE ? `<p style="margin:14px 0 0;text-align:center"><a href="richieste.html?s=${encodeURIComponent(APP_STORE)}" style="color:var(--green);font-weight:600">← Sono un dipendente</a></p>` : '';
   document.getElementById('app').innerHTML = `<div class="card section" style="max-width:420px;margin:30px auto">
     <h3 style="margin-top:0">🔑 Area manager</h3>
@@ -1218,9 +1221,10 @@ function loginKeepLocal() {
 function cloudLogout() {
   const s = TurniCloud.session();
   if (s && s.dirty && !confirm('Ci sono modifiche non ancora salvate online: uscendo restano solo su questo dispositivo. Uscire lo stesso?')) return;
-  if (!(s && s.dirty) && !confirm('Uscire dal salvataggio online su questo dispositivo? I dati restano qui, ma non si aggiornano più con gli altri dispositivi.')) return;
+  if (!(s && s.dirty) && !confirm(APP_MODE ? 'Uscire dall\'area manager? Per rientrare servono nome utente e password.' : 'Uscire dal salvataggio online su questo dispositivo? I dati restano qui, ma non si aggiornano più con gli altri dispositivi.')) return;
+  const sc = storeCode();
   TurniCloud.logout(); setSync('off');
-  if (APP_MODE) { ui.locked = true; ui.gateLogin = ''; if (APP_STORE) return loadGateLogin(APP_STORE); }
+  if (APP_MODE) { ui.locked = true; ui.gateLogin = ''; if (sc) return loadGateLogin(sc); }
   render();
 }
 function renderCloudBox() {
@@ -1670,7 +1674,7 @@ function saveConfig() {
 saveLocal();
 render();
 if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
-else if (ui.locked) { if (APP_STORE) loadGateLogin(APP_STORE); else { ui.gateLogin = ''; render(); } }
+else if (ui.locked) { if (storeCode()) loadGateLogin(storeCode()); else { ui.gateLogin = ''; render(); } }
 else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
 else loadFromSite(false);
 // installabile come app (schermata Home del telefono o del computer)
