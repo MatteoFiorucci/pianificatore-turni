@@ -54,12 +54,13 @@
     { id: 'c11', name: 'Chiusura McCafé', start: 1110, end: 1290, min: all(1), station: 'MCCAFE', exact: true, closing: true },
     { id: 'c12', name: 'Chiusura Sala', start: 1110, end: 1290, min: [1, 1, 1, 1, 2, 2, 2], station: 'SERVIZIO', exact: true, closing: true },
     { id: 'c13', name: 'Chiusura MFY', start: 1110, end: 1290, min: [2, 2, 2, 2, 3, 3, 3], station: 'CUCINA', exact: true, closing: true },
-    // presidio delle postazioni (manager, 30/10/2026): dopo l'apertura e fino alle 21:00 sempre almeno 1 MFY, 1 OA,
-    // 1 McCafé e 1 Sala (la Sala la può coprire un'hospitality). All'apertura solo McCafé + MFY, dalle 21 la squadra di chiusura.
-    { id: 'p1', name: 'Presidio MFY', start: 630, end: 1260, min: all(1), station: 'CUCINA' },
-    { id: 'p2', name: 'Presidio OA', start: 630, end: 1260, min: all(1), station: 'FRONT' },
-    { id: 'p3', name: 'Presidio McCafé', start: 630, end: 1260, min: all(1), station: 'MCCAFE' },
-    { id: 'p4', name: 'Presidio Sala', start: 630, end: 1260, min: all(1), station: 'SERVIZIO' },
+    // postazioni coperte (consiglio del manager, 30/10/2026): dopo l'apertura e fino alle 21:00 almeno 1 MFY, 1 OA,
+    // 1 McCafé e 1 Sala (la Sala la può coprire un'hospitality). soft = consiglio: il generatore ci prova, i controlli
+    // la segnalano come avviso (giallo) e non come errore. All'apertura solo McCafé + MFY, dalle 21 la squadra di chiusura.
+    { id: 'p1', name: 'Postazione MFY', start: 630, end: 1260, min: all(1), station: 'CUCINA', soft: true },
+    { id: 'p2', name: 'Postazione OA', start: 630, end: 1260, min: all(1), station: 'FRONT', soft: true },
+    { id: 'p3', name: 'Postazione McCafé', start: 630, end: 1260, min: all(1), station: 'MCCAFE', soft: true },
+    { id: 'p4', name: 'Postazione Sala', start: 630, end: 1260, min: all(1), station: 'SERVIZIO', soft: true },
     // hospitality in sala (dallo storico: sempre presenti a pranzo e a cena, il pomeriggio varia; 2 nei rush del weekend)
     { id: 'h2', name: 'Hospitality pranzo', start: 750, end: 870, min: [1, 1, 1, 1, 2, 2, 2], station: 'HOSPITALITY' },
     { id: 'h3', name: 'Hospitality cena', start: 1050, end: 1290, min: [1, 1, 1, 1, 1, 2, 1], station: 'HOSPITALITY' },
@@ -478,7 +479,7 @@
         if (runStart === null) return;
         const who = req.station ? `${req.opening ? 'formati apertura' : req.closing ? 'formati chiusura' : 'crew'} ${STATIONS[req.station].label}` : 'crew';
         const p = parts(d);
-        out.push(V('COVERAGE', 'ERROR', `${DOW_LONG[dow(d)]} ${p.d}/${p.m} · ${req.name}: ${runMin}/${reqMin(req, d)} ${who} dalle ${fmtTime(runStart)} alle ${fmtTime(end)}`, null, d));
+        out.push(V('COVERAGE', req.soft ? 'WARNING' : 'ERROR', `${req.soft ? 'Consiglio · ' : ''}${DOW_LONG[dow(d)]} ${p.d}/${p.m} · ${req.name}: ${runMin}/${reqMin(req, d)} ${who} dalle ${fmtTime(runStart)} alle ${fmtTime(end)}`, null, d));
         runStart = null; runMin = Infinity;
       };
       const endC = covEnd(ctx.cfg, req);
