@@ -60,6 +60,7 @@
   .grid tr.cov .c { text-align: center; font-weight: 700; padding: 4px; }
   .grid tr.cov .c.okc { color: var(--green); background: var(--ok); }
   .grid tr.cov .c.bad { color: var(--err-ink); background: var(--err); }
+  .grid tr.cov .c.soft { color: var(--warn-ink); background: var(--warn); }
   td.cell { min-width: 96px; height: 50px; text-align: center; cursor: pointer; font-variant-numeric: tabular-nums; font-size: 13px; }
   td.cell:hover { outline: 2px solid var(--green); outline-offset: -2px; }
   td.cell.err { background: var(--err); }
@@ -264,14 +265,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610302059"></script>
-<script src="turni-core.js?v=202610302059"></script>
+<script src="turni-storico.js?v=202610302105"></script>
+<script src="turni-core.js?v=202610302105"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610302059"></script>
-<script src="turni-cloud-config.js?v=202610302059"></script>
-<script src="turni-cloud.js?v=202610302059"></script>
-<script src="turni-cripto.js?v=202610302059"></script>
+<script src="turni-data.js?v=202610302105"></script>
+<script src="turni-cloud-config.js?v=202610302105"></script>
+<script src="turni-cloud.js?v=202610302105"></script>
+<script src="turni-cripto.js?v=202610302105"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -352,8 +353,8 @@ function renderTurni() {
 
   const head = `<tr><th class="name">Dipendente</th>${ctx.days.map((d) => `<th><button class="link" title="Apri il lineare di questo giorno" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button></th>`).join('')}<th>Ore</th></tr>`;
   const covList = state.coverage.filter((r) => (ui.type === 'HOSPITALITY') === (r.station === 'HOSPITALITY'));
-  const cov = covList.map((req) => `<tr class="cov"><td class="name">${esc(req.name)} <span class="small">(${T.fmtTime(req.start)}–${T.fmtTime(req.end)})</span></td>${
-    ctx.days.map((d) => { const need = T.reqMin(req, d); if (!need) return '<td class="c">—</td>'; const c = T.coverageMin(ctx, d, req); return `<td class="c ${c >= need ? 'okc' : 'bad'}" title="Presenti nel momento più scoperto / minimo richiesto (gli ultimi minuti prima della chiusura non contano)">${c}/${need}</td>`; }).join('')}<td></td></tr>`).join('');
+  const cov = covList.map((req) => `<tr class="cov"><td class="name">${esc(req.name)}${req.soft ? ' <span class="small">· consiglio</span>' : ''} <span class="small">(${T.fmtTime(req.start)}–${T.fmtTime(req.end)})</span></td>${
+    ctx.days.map((d) => { const need = T.reqMin(req, d); if (!need) return '<td class="c">—</td>'; const c = T.coverageMin(ctx, d, req); return `<td class="c ${c >= need ? 'okc' : req.soft ? 'soft' : 'bad'}" title="Presenti nel momento più scoperto / minimo richiesto (gli ultimi minuti prima della chiusura non contano)">${c}/${need}</td>`; }).join('')}<td></td></tr>`).join('');
   const rows = emps.map((e) => {
     const w = T.worked(ctx, e.id), t = T.target(ctx, e), dw = T.doubleWorked(ctx, e.id);
     return `<tr><td class="name" title="${esc(T.TYPES[e.type])} · ${T.fmtDur(e.weeklyMinutes)}/sett.${e.trainee ? ' · in formazione' : ''}">${esc(T.fullName(e))}${ctx.days.some((d) => T.isTrainee(e, d)) ? ' 🎓' : ''}</td>${ctx.days.map((d) => cellHtml(ctx, e, d, cellV.get(e.id + '|' + d))).join('')}
@@ -683,7 +684,7 @@ function renderGiornaliero() {
   const resting = sortByName(ctx.employees.filter((e) => T.started(e, day) && T.isRest(e, day) && !day_.some((s) => s.employeeId === e.id)));
   const away = ctx.employees.map((e) => ({ e, a: T.absenceOn(ctx, e.id, day) })).filter((x) => x.a);
   const cov = state.coverage.filter((r) => T.reqMin(r, day)).map((r) => { const c = T.coverageMin(ctx, day, r), need = T.reqMin(r, day);
-    return `<li><span class="chip ${c >= need ? 'ok' : 'err'}" style="padding:1px 8px">${c}/${need}</span> ${esc(r.name)} <span class="muted small">${T.fmtTime(r.start)}–${T.fmtTime(r.end)}</span></li>`; }).join('');
+    return `<li><span class="chip ${c >= need ? 'ok' : r.soft ? 'warn' : 'err'}" style="padding:1px 8px">${c}/${need}</span> ${esc(r.name)}${r.soft ? ' <span class="muted small">(consiglio)</span>' : ''} <span class="muted small">${T.fmtTime(r.start)}–${T.fmtTime(r.end)}</span></li>`; }).join('');
   const legend = [...T.CREW_STATIONS, 'HOSPITALITY'].map((st) => `<span><i class="sw st-${st}"></i>${T.STATIONS[st].short} = ${T.STATIONS[st].label}</span>`).join('');
 
   return `

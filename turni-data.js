@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 26;
+  const VERSION = 27;
 
   function emptyState() {
     return {
@@ -61,6 +61,8 @@
         st.coverage.splice(at < 0 ? st.coverage.length : at, 0, { ...d, min: [...d.min] });
       }
     }
+    // v27: le postazioni coperte sono un consiglio (non un obbligo) e non si chiamano più "Presidio"
+    if ((st.version || 1) < 27) for (const r of st.coverage) if (['p1', 'p2', 'p3', 'p4'].includes(r.id)) { r.soft = true; r.name = r.name.replace(/^Presidio /, 'Postazione '); }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
     return st;
