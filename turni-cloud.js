@@ -201,7 +201,12 @@
   const str = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { stringValue: String(v) }]));
   const unstr = (f = {}) => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.stringValue ?? v.integerValue]));
   /** Pubblica la chiave pubblica del locale (serve alla pagina dei dipendenti per cifrare le richieste). */
-  const publishKey = (pub) => api(storeUrl(), { method: 'PATCH', body: JSON.stringify({ fields: str({ pub }) }) });
+  const publishKey = (pub) => setStoreInfo({ pub });
+  /**
+   * Scheda pubblica del locale (leggibile da chi ha il link dell'app): chiave pubblica, canale delle notifiche (ntfy),
+   * nome di accesso dei manager. Aggiorna solo i campi indicati.
+   */
+  const setStoreInfo = (o) => api(storeUrl('?' + Object.keys(o).map((k) => 'updateMask.fieldPaths=' + k).join('&')), { method: 'PATCH', body: JSON.stringify({ fields: str(o) }) });
   /** Salva l'impronta del codice personale di un dipendente (il codice vero resta nei dati cifrati del manager). */
   const setCode = (emp, code) => api(storeUrl(`/codici/${emp}`), { method: 'PATCH', body: JSON.stringify({ fields: str({ code }) }) });
   /** Tutte le richieste arrivate (ancora cifrate). */
@@ -228,7 +233,7 @@
 
   root.TurniCloud = {
     configured, loggedIn, session, login, logout, push, pull, deviceName,
-    uid: () => (read() || {}).uid, publishKey, setCode, setAccess, deleteAccess, listRequests, answerRequest, deleteRequest,
+    uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
     setLastUpdate: (t) => patch({ lastUpdate: t }),
   };

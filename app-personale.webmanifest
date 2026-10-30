@@ -1,7 +1,7 @@
 {
-  "name": "Turni – Richieste",
+  "name": "Turni",
   "short_name": "Turni",
-  "description": "Richieste di turno al manager",
+  "description": "Turni del locale: dipendenti e manager",
   "id": "./richieste.html",
   "scope": "./",
   "display": "standalone",
