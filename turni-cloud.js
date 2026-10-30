@@ -226,7 +226,17 @@
    * Accesso di un dipendente all'app Richieste: il documento si chiama come l'impronta di nome utente + password,
    * quindi lo può leggere solo chi conosce entrambi (nessun elenco pubblico). Dentro: id del dipendente e nome.
    */
-  const setAccess = (code, emp, nome) => api(storeUrl(`/accessi/${code}`), { method: 'PATCH', body: JSON.stringify({ fields: str({ emp, nome }) }) });
+  const setAccess = (code, fields) => api(storeUrl(`/accessi/${code}`), { method: 'PATCH', body: JSON.stringify({ fields: str(fields) }) });
+  /** Tutti gli accessi (solo il manager): servono per togliere quelli vecchi di un dipendente che ha cambiato password. */
+  async function listAccess() {
+    const j = await api(storeUrl('/accessi?pageSize=300'));
+    return (j.documents || []).map((d) => ({ code: d.name.split('/').pop(), ...unstr(d.fields) }));
+  }
+  /** L'accesso esiste ancora? (se il dipendente ha cambiato password, quello che conosce il manager non c'è più) */
+  async function accessExists(code) {
+    const r = await fetch(storeUrl(`/accessi/${code}`) + `?key=${cfg().apiKey}`, { cache: 'no-store' });
+    return r.status !== 404;
+  }
   const deleteAccess = (code) => api(storeUrl(`/accessi/${code}`), { method: 'DELETE' }).catch(() => null);
   /** Orario pubblicato di un dipendente (cifrato con la sua chiave personale): negozi/{uid}/orari/{impronta accesso}. */
   const setOrario = (code, sealed) => api(storeUrl(`/orari/${code}`), { method: 'PATCH', body: JSON.stringify({ fields: str({ ...sealed, at: new Date().toISOString() }) }) });
@@ -236,7 +246,7 @@
 
   root.TurniCloud = {
     configured, loggedIn, session, login, logout, push, pull, deviceName,
-    uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, setOrario, deleteOrario, listRequests, answerRequest, deleteRequest,
+    uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, listAccess, accessExists, setOrario, deleteOrario, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
     setLastUpdate: (t) => patch({ lastUpdate: t }),
   };

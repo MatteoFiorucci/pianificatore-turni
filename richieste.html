@@ -58,10 +58,10 @@
 </style>
 </head>
 <body>
-<header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
+<header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301432"></script>
-<script src="turni-cripto.js?v=202610301432"></script>
+<script src="turni-cloud-config.js?v=202610301440"></script>
+<script src="turni-cripto.js?v=202610301440"></script>
 <script>
 'use strict';
 /*
@@ -175,9 +175,11 @@ async function login() {
     const code = await TurniCripto.codeHash(STORE, user, pw);
     const r = await fetch(`${BASE}/accessi/${code}?key=${cfg.apiKey}`, { cache: 'no-store' });
     if (!r.ok) return show(r.status === 404 || r.status === 403 ? 'Nome utente o password sbagliati.' : 'Accesso non riuscito, riprova tra poco.');
-    const f = (await r.json()).fields || {};
-    // chiave per aprire il proprio orario pubblicato (deriva da nome utente + password: la password non viene salvata)
-    session = { user, code, emp: f.emp && f.emp.stringValue, nome: (f.nome && f.nome.stringValue) || '', key: await TurniCripto.personalKey(STORE, user, pw) };
+    const f = (await r.json()).fields || {}, v = (k) => f[k] && f[k].stringValue;
+    // la "chiave dei turni" è custodita nell'accesso sotto la password: si apre qui (la password non viene salvata)
+    const kek = await TurniCripto.personalKey(STORE, user, pw);
+    session = { user, code, emp: v('emp'), nome: v('nome') || '', key: kek, oid: code, v: 1 };
+    if (v('kw')) session = { ...session, key: (await TurniCripto.openSealed(kek, { box: v('kw'), iv: v('kiv') })).k, oid: v('oid'), v: 2 };
     try { localStorage.setItem(SESS, JSON.stringify(session)); } catch (e) { /* niente */ }
     msg = ''; tab = 'turni'; render(); loadOrario(); if (mine().length) refresh();
   } catch (e) { show(e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Accesso non riuscito.'); }
@@ -198,7 +200,8 @@ const mondayOf = (d) => d - ((dayDate(d).getUTCDay() + 6) % 7);
 async function loadOrario() {
   if (!session || !session.key) return;
   try {
-    const r = await fetch(`${BASE}/orari/${session.code}?key=${cfg.apiKey}`, { cache: 'no-store' });
+    const r = await fetch(`${BASE}/orari/${session.oid || session.code}?key=${cfg.apiKey}`, { cache: 'no-store' });
+    if (r.status === 404 && session.v !== 2) { orario = null; orarioErr = 'relogin'; render(); return; }
     if (r.status === 404) { orario = { weeks: [], requests: [] }; orarioAt = ''; orarioErr = ''; render(); return; }
     if (!r.ok) throw new Error();
     const f = (await r.json()).fields || {}, at = f.at && f.at.stringValue;
@@ -221,7 +224,7 @@ function weekCard(w, open) {
     : `<details class="card wk"><summary style="cursor:pointer;list-style:none">${head}</summary><div style="margin-top:8px">${days}</div></details>`;
 }
 function turniView() {
-  if (!session.key) return '<div class="card"><p style="margin-top:0">Per vedere i tuoi turni rientra una volta con nome utente e password.</p><button class="primary" onclick="session=null;localStorage.removeItem(SESS);render()">Rientra</button></div>';
+  if (!session.key || orarioErr === 'relogin') return '<div class="card"><p style="margin-top:0">L\'app è stata aggiornata: per vedere i tuoi turni rientra una volta con nome utente e password.</p><button class="primary" onclick="session=null;orarioErr=\'\';localStorage.removeItem(SESS);render()">Rientra</button></div>';
   if (!orario) return `<div class="card"><p class="muted" style="margin:0">${orarioErr || 'Caricamento dei turni…'}</p></div>`;
   const mon = mondayOf(todayDay());
   const next = orario.weeks.filter((w) => w.ws >= mon).sort((a, b) => a.ws - b.ws), past = orario.weeks.filter((w) => w.ws < mon).sort((a, b) => b.ws - a.ws);
@@ -230,15 +233,50 @@ function turniView() {
     ${next.length ? next.map((w) => weekCard(w, true)).join('') : '<div class="card"><p class="muted" style="margin:0">Il manager non ha ancora pubblicato l\'orario di questa settimana. Appena lo pubblica lo vedi qui.</p></div>'}
     ${past.length ? `<h2 style="margin:18px 2px 8px;font-size:15px;color:var(--muted)">Settimane passate</h2>${past.map((w) => weekCard(w, false)).join('')}` : ''}`;
 }
+// ---- cambio password in autonomia ----
+function passwordView() {
+  return `${msg}<div class="card"><h2>🔑 Cambia password</h2>
+    <p class="muted" style="margin-top:-6px">Il nome utente resta <b>${esc(session.user)}</b>. La password vecchia smetterà subito di funzionare, anche sugli altri telefoni.</p>
+    <label class="f">Password attuale<input id="pa" type="password" autocomplete="current-password"></label>
+    <label class="f">Nuova password (almeno 6 caratteri)<input id="pn" type="password" autocomplete="new-password"></label>
+    <label class="f">Ripeti la nuova password<input id="pr" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')changePassword()"></label>
+    <button class="primary" id="pb" onclick="changePassword()">Cambia password</button>
+    <p style="margin:12px 0 0;text-align:center"><a href="#" onclick="tab='turni';msg='';render();return false" style="color:var(--green)">← Indietro</a></p></div>`;
+}
+async function changePassword() {
+  const pa = document.getElementById('pa').value, pn = document.getElementById('pn').value, pr = document.getElementById('pr').value;
+  const show = (cls, t) => { msg = `<div class="notice ${cls}">${t}</div>`; render(); window.scrollTo(0, 0); };
+  if (session.v !== 2) return show('err', 'Prima tocca "Esci" e rientra una volta con la password attuale, poi potrai cambiarla.');
+  if (!pa || !pn) return show('err', 'Compila tutti i campi.');
+  if (pn.length < 6) return show('err', 'La nuova password deve avere almeno 6 caratteri.');
+  if (pn !== pr) return show('err', 'Le due password nuove non coincidono.');
+  if (pn === pa) return show('err', 'La nuova password è uguale a quella attuale.');
+  const b = document.getElementById('pb'); b.disabled = true; b.textContent = 'Salvataggio…';
+  try {
+    const oldCode = await TurniCripto.codeHash(STORE, session.user, pa);
+    if (oldCode !== session.code) return show('err', 'La password attuale è sbagliata.');
+    const newCode = await TurniCripto.codeHash(STORE, session.user, pn);
+    // la chiave dei turni resta la stessa: cambia solo il "lucchetto" (la password) che la protegge
+    const w = await TurniCripto.sealWith(await TurniCripto.personalKey(STORE, session.user, pn), { k: session.key });
+    const fields = { emp: String(session.emp), nome: session.nome || '', kw: w.box, kiv: w.iv, oid: session.oid, old: oldCode };
+    const r = await fetch(`${BASE}/accessi?documentId=${newCode}&key=${cfg.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { stringValue: v }])) }) });
+    if (!r.ok) return show('err', r.status === 403 ? 'Non è stato possibile cambiarla: forse il manager ti ha appena dato una password nuova. Esci e rientra.' : 'Non riuscito, riprova tra poco.');
+    await fetch(`${BASE}/accessi/${oldCode}?key=${cfg.apiKey}`, { method: 'DELETE' }).catch(() => null);
+    session.code = newCode; try { localStorage.setItem(SESS, JSON.stringify(session)); } catch (e) { /* niente */ }
+    tab = 'turni'; show('ok', '✓ Password cambiata. Da adesso entra con quella nuova.');
+  } catch (e) { show('err', e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Non riuscito, riprova.'); }
+}
 const tabsBar = () => `<div class="tabs"><button class="${tab === 'turni' ? 'on' : ''}" onclick="tab='turni';msg='';render();loadOrario()">📅 I miei turni</button><button class="${tab === 'richieste' ? 'on' : ''}" onclick="tab='richieste';msg='';render()">✉️ Richieste</button></div>`;
 
 function render() {
   const app = document.getElementById('app');
-  document.getElementById('logout').style.display = session ? '' : 'none';
+  document.getElementById('hdrbtn').style.display = session ? 'flex' : 'none';
   if (!STORE) { app.innerHTML = '<div class="card"><div class="notice err">Manca il codice del locale.</div><p>Apri il link che ti ha mandato il tuo manager.</p></div>'; return; }
   if (!session) { document.getElementById('hello').textContent = role === 'dipendente' ? 'Richieste per i turni al tuo manager.' : 'App dei turni del locale.'; app.innerHTML = role === 'dipendente' ? loginView() : chooseView(); return; }
   document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}!` : 'I tuoi turni e le tue richieste.';
-  if (tab === 'turni') { app.innerHTML = `${installBox()}${tabsBar()}${turniView()}`; return; }
+  if (tab === 'turni') { app.innerHTML = `${installBox()}${tabsBar()}${msg}${turniView()}`; return; }
+  if (tab === 'password') { app.innerHTML = passwordView(); return; }
   const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const list = allMine();
   app.innerHTML = `
