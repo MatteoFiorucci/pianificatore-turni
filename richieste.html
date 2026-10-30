@@ -40,8 +40,8 @@
 <body>
 <header><h1>📅 Richieste turni</h1><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301144"></script>
-<script src="turni-cripto.js?v=202610301144"></script>
+<script src="turni-cloud-config.js?v=202610301156"></script>
+<script src="turni-cripto.js?v=202610301156"></script>
 <script>
 'use strict';
 /*
@@ -77,11 +77,11 @@ function render() {
     <h2>Nuova richiesta</h2>
     <label class="f">Giorno<input type="date" id="date" min="${iso}"></label>
     <div class="kinds">
-      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. ho lezione la mattina'], ['libero', 'Non posso lavorare quel giorno', '']].map(([k, t, h]) =>
+      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. ho lezione la mattina']].map(([k, t, h]) =>
         `<label class="${kind === k ? 'on' : ''}"><input type="radio" name="k" value="${k}" ${kind === k ? 'checked' : ''} onchange="kind=this.value;keep();render()"><span>${t}${h ? `<br><span class="muted" style="font-weight:400">${h}</span>` : ''}</span></label>`).join('')}
     </div>
     ${kind === 'impegno' ? `<label class="f">A che ora è l'impegno?<select id="time">${times(480, 1440, 1260)}</select></label>` : ''}
-    ${kind === 'dalle' ? `<label class="f">Da che ora puoi lavorare?<select id="from">${times(480, 1260, 900)}</select></label>` : ''}
+    ${kind === 'dalle' ? `<label class="f">Da che ora puoi lavorare?<select id="from">${times(450, 1170, 900)}</select></label>` : ''}
     <label class="f">Nota (facoltativa)<textarea id="note" maxlength="300" placeholder="es. concerto a Roma"></textarea></label>
     <button class="primary" id="send" onclick="send()">Invia la richiesta</button>
     <p class="muted" style="margin:10px 0 0">La richiesta va al tuo manager, che decide il turno. Finché non risponde resta "in attesa".</p>
