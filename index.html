@@ -100,6 +100,7 @@
   .modal h3 { margin: 0 0 4px; }
   .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
   .shiftbox { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+  .reqtag { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #e8eefc; color: #1e40af; font-size: 9.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; vertical-align: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; line-height: 18px; text-align: center; margin-left: 2px; }
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
@@ -227,14 +228,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301204"></script>
-<script src="turni-core.js?v=202610301204"></script>
+<script src="turni-storico.js?v=202610301207"></script>
+<script src="turni-core.js?v=202610301207"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301204"></script>
-<script src="turni-cloud-config.js?v=202610301204"></script>
-<script src="turni-cloud.js?v=202610301204"></script>
-<script src="turni-cripto.js?v=202610301204"></script>
+<script src="turni-data.js?v=202610301207"></script>
+<script src="turni-cloud-config.js?v=202610301207"></script>
+<script src="turni-cloud.js?v=202610301207"></script>
+<script src="turni-cripto.js?v=202610301207"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -588,10 +589,11 @@ function renderGiornaliero() {
   const bad = new Set(vs.filter((v) => v.emp != null).map((v) => v.emp));
   const row = (s) => {
     const e = ctx.byId.get(s.employeeId);
-    const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}`;
+    const lim = T.limitOf(ctx, e.id, day);
+    const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}${lim ? ` · richiesta accettata: ${lim.label}` : ''}`;
     return `<div class="lrow click" onclick="openDay(${e.id},${day})" title="${esc(tip)}">
       <div class="lpos">${T.STATIONS[s.station].short}</div>
-      <div class="lname">${bad.has(e.id) ? '<span style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}</div>
+      <div class="lname">${bad.has(e.id) ? '<span style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
       <div class="ltime">${T.fmtTime(s.start)}</div><div class="ltime">${T.fmtTime(s.end)}</div>
       <div class="ltrack" style="--hw:${hw}"><div class="lbar st-${s.station}" style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%"></div></div>
     </div>`;
@@ -1271,7 +1273,7 @@ function renderRichieste() {
       const cur = p.current.filter((x) => !x.doppio);
       prop = `<div class="prop">${cur.length ? `Turno attuale: <b>${cur.map(shiftTxt).join(', ')}</b> ${p.currentOk ? '✅ già compatibile' : '⚠️ non compatibile'}<br>` : ''}
         ${p.swaps ? `🔄 Cambio turno proposto: ${swapTxt(q, p.swaps[0])}<br>${newsTxt(p.swaps[0])}${p.swaps.length > 1 ? ` <span class="muted">· altre ${p.swaps.length - 1} possibilità in "Accetta"</span>` : ''}`
-        : p.currentOk && cur.length ? '' : `🤖 Proposta del generatore${cur.length ? '' : ' (settimana non ancora pianificata)'}: ${p.proposal ? `<b>${shiftTxt(p.proposal)}</b>${cur.length ? ' <span style="color:var(--warn-ink)">⚠️ nessun collega può scambiare: il suo turno attuale resterebbe da coprire</span>' : ''}` : '<b>nessun turno compatibile trovato</b> (prova a cambiare l\'orario o a rigenerare la settimana)'}`}</div>`;
+        : p.currentOk && cur.length ? '' : `🤖 Proposta del generatore${cur.length ? '' : ' (settimana non ancora pianificata)'}: ${p.proposal ? `<b>${shiftTxt(p.proposal)}</b>${cur.length ? ' <span style="color:var(--warn-ink)">⚠️ nessuno scambio con un collega rispetta tutte le regole (stacchi, aperture e chiusure, ore): il suo turno attuale resterebbe da coprire</span>' : ''}` : '<b>nessun turno compatibile trovato</b> (prova a cambiare l\'orario o a rigenerare la settimana)'}`}</div>`;
     }
     const st = q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : q.status === 'rifiutata' ? '<span class="chip err">Rifiutata</span>' : '<span class="chip warn">In attesa</span>';
     return `<div class="card reqcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div>

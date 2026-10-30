@@ -179,6 +179,8 @@
       byId: new Map(employees.map((e) => [e.id, e])),
       shifts: state.shifts.filter((s) => s.day >= ws && s.day <= ws + 6),
       prev: state.shifts.filter((s) => s.day >= ws - 2 && s.day < ws),
+      // primi giorni della settimana dopo, se già pianificati: chi chiude domenica non può aprire lunedì
+      next: state.shifts.filter((s) => s.day > ws + 6 && s.day <= ws + 8),
       absences: state.absences,
       coverage: state.coverage,
       cfg: state.config,
@@ -711,7 +713,8 @@
     const a = ctx0.shifts.find((x) => x.employeeId === q.employeeId && x.day === q.day && !x.doppio);
     if (!a || fitsLimit(ctx0, a)) return null;
     const me = ctx0.byId.get(q.employeeId);
-    const check = (list) => validate(makeCtx({ ...st2, shifts: list }, ws));
+    // controlla la settimana e anche la successiva (stacchi tra domenica e lunedì)
+    const check = (list) => [...validate(makeCtx({ ...st2, shifts: list }, ws)), ...validate(makeCtx({ ...st2, shifts: list }, ws + 7)).filter((v) => v.rule === 'REST_11H' || v.rule === 'REST_36H')];
     const baseMsgs = new Set(check(state.shifts).map((v) => v.msg));
     const opts = [];
     for (const b of ctx0.shifts) {
@@ -732,9 +735,11 @@
         const news = check(list).filter((v) => !baseMsgs.has(v.msg));
         const nErr = news.filter((v) => v.sev === 'ERROR').length;
         const key = nErr * 100 + (news.length - nErr) * 3 + Math.abs(dur(a) - dur(b)) / 60 + (sm !== b.station) * 0.2 + (sp !== a.station) * 0.2;
+        // solo scambi che non violano nessuna regola (stacchi 11h/36h, aperture e chiusure, ore, doppi…): al massimo avvisi
+        if (nErr) continue;
         if (!bestHere || key < bestHere.key) bestHere = { key, partner: other.id, mine, theirs, from: a, with: b, news: news.map((v) => ({ sev: v.sev, msg: v.msg })) };
       }
-      opts.push(bestHere);
+      if (bestHere) opts.push(bestHere);
     }
     opts.sort((x, y) => x.key - y.key);
     return opts.length ? opts.slice(0, 3) : null;
@@ -771,7 +776,7 @@
 
     const pairOk = (a, b) => absEnd(a) <= absStart(b) && absStart(b) - absEnd(a) >= requiredGap(a, b, cfg);
     function restOk(e, cand, replacing) {
-      const all = [...ctx.prev.filter((s) => s.employeeId === e.id), ...shifts.filter((s) => s.employeeId === e.id && s !== replacing), cand]
+      const all = [...ctx.prev.filter((s) => s.employeeId === e.id), ...(ctx.next || []).filter((s) => s.employeeId === e.id), ...shifts.filter((s) => s.employeeId === e.id && s !== replacing), cand]
         .sort((a, b) => absStart(a) - absStart(b));
       const i = all.indexOf(cand);
       // i doppi dello stesso giorno sono controllati a parte (pausa minima); qui gli stacchi tra giorni diversi
