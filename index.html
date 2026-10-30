@@ -227,7 +227,7 @@
     body { background: #fff; } main { padding: 0; }
     .daily { grid-template-columns: 1fr 230px; gap: 8px; } .card { border: 0; }
     .lrow { grid-template-columns: 50px 150px 40px 40px 1fr; font-size: 10px; min-height: 16px; }
-    .lbar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .lbar, .lrow .ltrack { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .lcount.total, .lsec h4 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
   /* ---- tabelle: la riga dei titoli resta visibile scorrendo ---- */
@@ -260,14 +260,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610301619"></script>
-<script src="turni-core.js?v=202610301619"></script>
+<script src="turni-storico.js?v=202610301629"></script>
+<script src="turni-core.js?v=202610301629"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301619"></script>
-<script src="turni-cloud-config.js?v=202610301619"></script>
-<script src="turni-cloud.js?v=202610301619"></script>
-<script src="turni-cripto.js?v=202610301619"></script>
+<script src="turni-data.js?v=202610301629"></script>
+<script src="turni-cloud-config.js?v=202610301629"></script>
+<script src="turni-cloud.js?v=202610301629"></script>
+<script src="turni-cripto.js?v=202610301629"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -617,6 +617,12 @@ function renderGiornaliero() {
   const hours = []; for (let h = H0; h < H1; h++) hours.push(h);
   const span = (H1 - H0) * 60, pct = (m) => (((m - H0 * 60) / span) * 100).toFixed(3) + '%';
   const hw = `calc(100% / ${hours.length})`;
+  // griglia disegnata linea per linea nella posizione esatta (un motivo ripetuto si sposta di frazioni di pixel):
+  // linea marcata a ogni ora, linee chiare ogni 15 minuti (4 quadratini per ora)
+  const gx = (m) => (((m - H0 * 60) / span) * 100).toFixed(4);
+  let gl = '';
+  for (let m = H0 * 60; m <= H1 * 60; m += 15) gl += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='${m % 60 ? '%23e3e3e8' : '%23a9a9b2'}' stroke-width='1' shape-rendering='crispEdges'/>`;
+  const grid = `background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'>${gl}</svg>&quot;);background-size:100% 100%;background-repeat:no-repeat`;
   const day_ = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
   const typeOf = (s) => ctx.byId.get(s.employeeId).type;
   const sections = [
@@ -639,11 +645,11 @@ function renderGiornaliero() {
       <div class="lpos">${T.STATIONS[s.station].short}</div>
       <div class="lname">${bad.has(e.id) ? '<span style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
       <div class="ltime" data-t="a">${T.fmtTime(s.start)}</div><div class="ltime" data-t="b">${T.fmtTime(s.end)}</div>
-      <div class="ltrack" style="--hw:${hw}"><div class="lbar st-${s.station}${editing ? ' drag' : ''}" ${editing ? `data-sid="${s.id}" onpointerdown="dragStart(event)"` : ''} style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%">${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div>
+      <div class="ltrack" style="${grid}"><div class="lbar st-${s.station}${editing ? ' drag' : ''}" ${editing ? `data-sid="${s.id}" onpointerdown="dragStart(event)"` : ''} style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%">${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div>
     </div>`;
   };
   const head = `<div class="lrow lhead"><div class="lpos">Post.</div><div class="lname">Nome</div><div class="ltime">Dalle</div><div class="ltime">Alle</div>
-    <div class="ltrack" style="--hw:${hw}">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60 + 30)}">${h}</span>`).join('')}</div></div>`;
+    <div class="ltrack" style="${grid};background-color:#fafafa">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60)}">${h}</span>`).join('')}</div></div>`;
   ui.dragGeo = { H0, span };
   const body = shown.map(([title, list, st]) => `<div class="lsec" ${st ? `data-st="${st}"` : ''}><h4>${title} (${list.length})</h4>${head}${
     list.sort((a, b) => a.start - b.start || a.end - b.end).map(row).join('') || '<div class="lrow"><div></div><div class="lname muted">nessuno</div></div>'}</div>`).join('');
