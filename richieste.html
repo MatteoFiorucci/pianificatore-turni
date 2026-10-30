@@ -59,8 +59,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301405"></script>
-<script src="turni-cripto.js?v=202610301405"></script>
+<script src="turni-cloud-config.js?v=202610301410"></script>
+<script src="turni-cripto.js?v=202610301410"></script>
 <script>
 'use strict';
 /*
@@ -197,13 +197,15 @@ async function loadOrario() {
   if (!session || !session.key) return;
   try {
     const r = await fetch(`${BASE}/orari/${session.code}?key=${cfg.apiKey}`, { cache: 'no-store' });
-    if (r.status === 404) { orario = { weeks: [] }; orarioAt = ''; orarioErr = ''; if (tab === 'turni') render(); return; }
+    if (r.status === 404) { orario = { weeks: [], requests: [] }; orarioAt = ''; orarioErr = ''; render(); return; }
     if (!r.ok) throw new Error();
     const f = (await r.json()).fields || {}, at = f.at && f.at.stringValue;
     if (at && at === orarioAt) return; // niente di nuovo
     orario = await TurniCripto.openSealed(session.key, { box: f.box.stringValue, iv: f.iv.stringValue }); orarioAt = at || ''; orarioErr = '';
   } catch (e) { orarioErr = orario ? '' : 'Non riesco a caricare i turni (connessione?).'; }
-  if (tab === 'turni') render();
+  // non disturbare chi sta scrivendo una richiesta: si aggiorna solo se non sta usando un campo, e si tiene quanto scritto
+  const a = document.activeElement;
+  if (tab === 'turni' || !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) { if (tab === 'richieste') keep(); render(); }
 }
 function weekCard(w, open) {
   const t = todayDay();
@@ -236,7 +238,7 @@ function render() {
   document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}!` : 'I tuoi turni e le tue richieste.';
   if (tab === 'turni') { app.innerHTML = `${installBox()}${tabsBar()}${turniView()}`; return; }
   const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-  const list = mine().slice().reverse();
+  const list = allMine();
   app.innerHTML = `
   ${installBox()}
   ${tabsBar()}
@@ -314,7 +316,14 @@ async function send() {
     show('err', e instanceof TypeError ? 'Nessuna connessione a internet.' : esc(e.message));
   }
 }
+/** Le mie richieste: quelle che il manager ha già ricevuto (da qualunque telefono) + quelle appena inviate da qui. */
+function allMine() {
+  const server = (orario && orario.requests) || [], seen = new Set(server.map((q) => q.rid));
+  const local = mine().filter((q) => !seen.has(q.rid));
+  return [...local.slice().reverse(), ...server];
+}
 async function refresh() {
+  orarioAt = ''; await loadOrario();
   const list = mine();
   for (const q of list) {
     try {
@@ -325,11 +334,13 @@ async function refresh() {
       q.status = (f.status && f.status.stringValue) || q.status; q.risposta = (f.risposta && f.risposta.stringValue) || '';
     } catch (e) { /* senza rete: resta com'era */ }
   }
-  saveMine(list.filter((q) => !q.gone)); msg = ''; render();
+  // quelle che il manager ha già ricevuto si tengono dal suo elenco; qui restano solo quelle non ancora viste
+  const seen = new Set(((orario && orario.requests) || []).map((q) => q.rid));
+  saveMine(list.filter((q) => !q.gone && !seen.has(q.rid))); msg = ''; render();
 }
 render();
 if (session) loadOrario();
-if (session && mine().length) refresh();
+if (session) refresh();
 // i turni si aggiornano da soli: all'apertura dell'app e ogni minuto mentre è aperta
 setInterval(() => { if (session && document.visibilityState === 'visible') loadOrario(); }, 60000);
 document.addEventListener('visibilitychange', () => { if (session && document.visibilityState === 'visible') loadOrario(); });
