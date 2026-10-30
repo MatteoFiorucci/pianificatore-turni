@@ -40,8 +40,8 @@
 <body>
 <header><h1>📅 Richieste turni</h1><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301207"></script>
-<script src="turni-cripto.js?v=202610301207"></script>
+<script src="turni-cloud-config.js?v=202610301221"></script>
+<script src="turni-cripto.js?v=202610301221"></script>
 <script>
 'use strict';
 /*
@@ -61,9 +61,23 @@ const times = (from, to, sel) => { let o = ''; for (let m = from; m <= to; m += 
 const mine = () => { try { return JSON.parse(localStorage.getItem(MINE)) || []; } catch (e) { return []; } };
 const saveMine = (l) => { try { localStorage.setItem(MINE, JSON.stringify(l)); } catch (e) { /* niente */ } };
 let kind = 'impegno', pub = null, msg = '';
+// impegni fissi ogni settimana: righe giorno + dalle + alle (d: 1 = lunedì … 7 = domenica)
+let slots = [{ d: 1, a: 660, b: 960 }];
+const DAYS = ['', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
+const shortDate = (iso) => { const d = new Date(iso + 'T12:00:00'); return `${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
 
 function describe(q) {
+  if (q.kind === 'fisso') return `Impegni fissi ogni settimana: ${(q.slots || []).map((x) => `${DAYS[x.d].toLowerCase()} ${fmt(x.a)}–${fmt(x.b)}`).join(', ')}${q.to ? ` (fino al ${shortDate(q.to)})` : ''}`;
   return q.kind === 'impegno' ? `Ho un impegno alle ${fmt(q.time)}` : q.kind === 'dalle' ? `Posso lavorare solo dalle ${fmt(q.from)}` : 'Non posso lavorare';
+}
+const setSlot = (i, k, v) => { slots[i][k] = +v; };
+function slotRows() {
+  return slots.map((x, i) => `<div style="display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:6px;align-items:center;margin-bottom:8px">
+      <select onchange="setSlot(${i},'d',this.value)">${DAYS.slice(1).map((n, k) => `<option value="${k + 1}" ${x.d === k + 1 ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <select onchange="setSlot(${i},'a',this.value)" aria-label="dalle">${times(360, 1410, x.a)}</select>
+      <select onchange="setSlot(${i},'b',this.value)" aria-label="alle">${times(390, 1440, x.b)}</select>
+      ${slots.length > 1 ? `<button class="light" style="padding:8px 10px" onclick="keep();slots.splice(${i},1);render()" aria-label="togli">✕</button>` : '<span></span>'}
+    </div>`).join('');
 }
 function render() {
   const app = document.getElementById('app');
@@ -75,11 +89,16 @@ function render() {
   ${msg}
   <div class="card">
     <h2>Nuova richiesta</h2>
-    <label class="f">Giorno<input type="date" id="date" min="${iso}"></label>
     <div class="kinds">
-      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. ho lezione la mattina']].map(([k, t, h]) =>
+      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. quel giorno ho lezione la mattina'], ['fisso', 'Ho impegni fissi ogni settimana', 'es. università o allenamenti: lunedì 11–16, martedì 7–12…']].map(([k, t, h]) =>
         `<label class="${kind === k ? 'on' : ''}"><input type="radio" name="k" value="${k}" ${kind === k ? 'checked' : ''} onchange="kind=this.value;keep();render()"><span>${t}${h ? `<br><span class="muted" style="font-weight:400">${h}</span>` : ''}</span></label>`).join('')}
     </div>
+    ${kind !== 'fisso' ? `<label class="f">Giorno<input type="date" id="date" min="${iso}"></label>` : `
+      <p style="margin:0 0 8px;font-weight:600;color:var(--muted);font-size:14px">Quando sei impegnato/a? <span style="font-weight:400">(giorno · dalle · alle, compreso il tempo per arrivare)</span></p>
+      ${slotRows()}
+      <button class="light" style="margin-bottom:14px" onclick="keep();slots.push({ d: Math.min(7, (slots[slots.length - 1] || { d: 0 }).d + 1), a: 660, b: 960 });render()">+ Aggiungi un altro giorno</button>
+      <label class="f">Valido dal<input type="date" id="date" min="${iso}" value="${iso}"></label>
+      <label class="f">Fino al (se non lo sai, lascia vuoto)<input type="date" id="to" min="${iso}"></label>`}
     ${kind === 'impegno' ? `<label class="f">A che ora è l'impegno?<select id="time">${times(480, 1440, 1260)}</select></label>` : ''}
     ${kind === 'dalle' ? `<label class="f">Da che ora puoi lavorare?<select id="from">${times(450, 1170, 900)}</select></label>` : ''}
     <label class="f">Nota (facoltativa)<textarea id="note" maxlength="300" placeholder="es. concerto a Roma"></textarea></label>
@@ -88,15 +107,15 @@ function render() {
   </div>
   <div class="card">
     <div class="row"><h2 style="margin:0">Le mie richieste</h2>${list.length ? '<button class="light" onclick="refresh()">🔄 Aggiorna</button>' : ''}</div>
-    ${list.map((q) => `<div class="req"><b>${dateLabel(q.date)}</b>${esc(describe(q))}${q.note ? ` <span class="muted">· ${esc(q.note)}</span>` : ''}<br>
-      <span class="pill ${q.status === 'accettata' ? 'yes' : q.status === 'rifiutata' ? 'no' : 'wait'}">${q.status === 'accettata' ? '✓ Accettata' : q.status === 'rifiutata' ? '✕ Rifiutata' : '⏳ In attesa'}</span>
+    ${list.map((q) => `<div class="req"><b>${q.kind === 'fisso' ? `Dal ${shortDate(q.date)}` : dateLabel(q.date)}</b>${esc(describe(q))}${q.note ? ` <span class="muted">· ${esc(q.note)}</span>` : ''}<br>
+      <span class="pill ${q.status === 'accettata' ? 'yes' : q.status === 'rifiutata' || q.status === 'cancellata' ? 'no' : 'wait'}">${q.status === 'accettata' ? '✓ Accettata' : q.status === 'rifiutata' ? '✕ Rifiutata' : q.status === 'cancellata' ? 'Cancellata dal manager' : '⏳ In attesa'}</span>
       ${q.risposta ? `<div class="muted" style="margin-top:4px">Risposta: ${esc(q.risposta)}</div>` : ''}</div>`).join('') || '<p class="muted" style="margin:0">Ancora nessuna richiesta da questo telefono.</p>'}
   </div>`;
   restore();
 }
 // mantiene i campi compilati quando si cambia tipo di richiesta
 let draft = {};
-function keep() { for (const id of ['date', 'note', 'time', 'from']) { const el = document.getElementById(id); if (el) draft[id] = el.value; } }
+function keep() { for (const id of ['date', 'note', 'time', 'from', 'to']) { const el = document.getElementById(id); if (el) draft[id] = el.value; } }
 function restore() { for (const [id, v] of Object.entries(draft)) { const el = document.getElementById(id); if (el && v) el.value = v; } }
 
 async function loadPub() {
@@ -116,6 +135,11 @@ async function send() {
   const q = { date, kind, note };
   if (kind === 'impegno') q.time = +draft.time;
   if (kind === 'dalle') q.from = +draft.from;
+  if (kind === 'fisso') {
+    if (!slots.length || slots.some((x) => x.b <= x.a)) { const btn2 = document.getElementById('send'); btn2.disabled = false; btn2.textContent = 'Invia la richiesta'; return show('err', 'Controlla gli orari: "alle" deve essere dopo "dalle".'); }
+    q.slots = slots.map((x) => ({ ...x })); if (draft.to) q.to = draft.to;
+    if (q.to && q.to < date) { const btn2 = document.getElementById('send'); btn2.disabled = false; btn2.textContent = 'Invia la richiesta'; return show('err', '"Fino al" deve essere dopo "Valido dal".'); }
+  }
   try {
     const sealed = await TurniCripto.sealFor(await loadPub(), q);
     const code = await TurniCripto.codeHash(P.s, P.e, P.p);
@@ -125,7 +149,7 @@ async function send() {
       body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { stringValue: v }])) }) });
     if (!r.ok) throw new Error(r.status === 403 ? 'Il tuo link non è più valido: chiedi al manager un link nuovo.' : 'Invio non riuscito, riprova tra poco.');
     saveMine([...mine(), { rid, ...q, status: 'in attesa', sentAt: new Date().toISOString() }]);
-    draft = {}; kind = 'impegno';
+    draft = {}; kind = 'impegno'; slots = [{ d: 1, a: 660, b: 960 }];
     show('ok', '✓ Richiesta inviata. Il manager la vedrà e ti risponderà qui.');
   } catch (e) {
     show('err', e instanceof TypeError ? 'Nessuna connessione a internet.' : esc(e.message));
@@ -136,7 +160,7 @@ async function refresh() {
   for (const q of list) {
     try {
       const r = await fetch(`${BASE}/richieste/${q.rid}?key=${cfg.apiKey}`, { cache: 'no-store' });
-      if (r.status === 404) { q.status = 'rifiutata'; q.risposta = q.risposta || 'Richiesta cancellata dal manager'; continue; }
+      if (r.status === 404) { q.status = 'cancellata'; continue; }
       const j = await r.json(); const f = j.fields || {};
       q.status = (f.status && f.status.stringValue) || q.status; q.risposta = (f.risposta && f.risposta.stringValue) || '';
     } catch (e) { /* senza rete: resta com'era */ }

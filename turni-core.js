@@ -154,7 +154,22 @@
   function limitsFrom(requests, ws) {
     const m = new Map();
     for (const q of requests || []) {
-      if (q.status !== 'accettata' || q.day < ws - 2 || q.day > ws + 6) continue;
+      if (q.status !== 'accettata') continue;
+      // impegni fissi ogni settimana (università, allenamenti…): fasce occupate in certi giorni, dal giorno q.day al q.to
+      if (q.kind === 'fisso') {
+        for (let d = ws - 2; d <= ws + 8; d++) {
+          if (d < q.day || (q.to != null && d > q.to)) continue;
+          for (const sl of q.slots || []) {
+            if (sl.d !== dow(d)) continue;
+            const k = q.employeeId + '|' + d, cur = m.get(k) || {};
+            (cur.busy = cur.busy || []).push([sl.a, sl.b]);
+            cur.label = [cur.label, `impegno fisso ${fmtTime(sl.a)}–${fmtTime(sl.b)}`].filter(Boolean).join(', ');
+            m.set(k, cur);
+          }
+        }
+        continue;
+      }
+      if (q.day < ws - 2 || q.day > ws + 8) continue;
       const k = q.employeeId + '|' + q.day, cur = m.get(k) || {};
       if (q.kind === 'libero') cur.off = true;
       if (q.until != null) cur.until = Math.min(cur.until ?? 1440, q.until);
@@ -166,7 +181,7 @@
   }
   const limitOf = (ctx, id, day) => (ctx.limits ? ctx.limits.get(id + '|' + day) : null);
   /** Il turno rispetta la richiesta accettata di quella persona per quel giorno? */
-  const fitsLimit = (ctx, s) => { const l = limitOf(ctx, s.employeeId, s.day); return !l || (!l.off && (l.until == null || s.end <= l.until) && (l.from == null || s.start >= l.from)); };
+  const fitsLimit = (ctx, s) => { const l = limitOf(ctx, s.employeeId, s.day); return !l || (!l.off && (l.until == null || s.end <= l.until) && (l.from == null || s.start >= l.from) && !(l.busy || []).some(([a, b]) => s.start < b && a < s.end)); };
   function makeCtx(state, ws) {
     const employees = state.employees.filter((e) => e.active);
     // postazioni per cui qualcuno è segnato come formato alla chiusura (se nessuno: chiudono tutti i formati)
