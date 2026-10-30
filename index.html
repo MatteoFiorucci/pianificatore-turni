@@ -227,14 +227,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301156"></script>
-<script src="turni-core.js?v=202610301156"></script>
+<script src="turni-storico.js?v=202610301204"></script>
+<script src="turni-core.js?v=202610301204"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301156"></script>
-<script src="turni-cloud-config.js?v=202610301156"></script>
-<script src="turni-cloud.js?v=202610301156"></script>
-<script src="turni-cripto.js?v=202610301156"></script>
+<script src="turni-data.js?v=202610301204"></script>
+<script src="turni-cloud-config.js?v=202610301204"></script>
+<script src="turni-cloud.js?v=202610301204"></script>
+<script src="turni-cripto.js?v=202610301204"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1249,9 +1249,14 @@ function proposalOf(q) {
   const c = ui.propCache.get(q.id);
   if (c && c.key === key) return c.res;
   let res; try { res = T.proposeFor(state, q); } catch (e) { res = { proposal: null, current: [], currentOk: true }; }
+  // settimana già pianificata e turno non compatibile: scambio con un collega, così il turno resta coperto
+  try { res.swaps = !res.currentOk ? T.proposeSwap(state, q) : null; } catch (e) { res.swaps = null; }
   ui.propCache.set(q.id, { key, res });
   return res;
 }
+const swapTxt = (q, sw) => { const me = T.fullName(empById(q.employeeId)), other = T.fullName(empById(sw.partner));
+  return `${esc(me)} prende <b>${shiftTxt(sw.mine)}</b> (era di ${esc(other)}); ${esc(other)} prende <b>${shiftTxt(sw.theirs)}</b>`; };
+const newsTxt = (sw) => (sw.news.length ? `<span style="color:var(--warn-ink)">⚠️ crea ${sw.news.length === 1 ? 'un problema' : sw.news.length + ' problemi'}: ${sw.news.map((v) => esc(v.msg)).join(' · ')}</span>` : '<span style="color:var(--green)">✅ nessun problema nuovo</span>');
 const shiftTxt = (x) => `${T.fmtTime(x.start)}–${T.fmtTime(x.end)} ${T.STATIONS[x.station] ? T.STATIONS[x.station].short : ''}${x.start <= state.config.open ? ' (apertura)' : ''}`;
 function renderRichieste() {
   const logged = TurniCloud.loggedIn();
@@ -1265,7 +1270,8 @@ function renderRichieste() {
       const p = proposalOf(q);
       const cur = p.current.filter((x) => !x.doppio);
       prop = `<div class="prop">${cur.length ? `Turno attuale: <b>${cur.map(shiftTxt).join(', ')}</b> ${p.currentOk ? '✅ già compatibile' : '⚠️ non compatibile'}<br>` : ''}
-        🤖 Proposta del generatore: ${p.proposal ? `<b>${shiftTxt(p.proposal)}</b>` : '<b>nessun turno compatibile trovato</b> (prova a cambiare l\'orario o a rigenerare la settimana)'}</div>`;
+        ${p.swaps ? `🔄 Cambio turno proposto: ${swapTxt(q, p.swaps[0])}<br>${newsTxt(p.swaps[0])}${p.swaps.length > 1 ? ` <span class="muted">· altre ${p.swaps.length - 1} possibilità in "Accetta"</span>` : ''}`
+        : p.currentOk && cur.length ? '' : `🤖 Proposta del generatore${cur.length ? '' : ' (settimana non ancora pianificata)'}: ${p.proposal ? `<b>${shiftTxt(p.proposal)}</b>${cur.length ? ' <span style="color:var(--warn-ink)">⚠️ nessun collega può scambiare: il suo turno attuale resterebbe da coprire</span>' : ''}` : '<b>nessun turno compatibile trovato</b> (prova a cambiare l\'orario o a rigenerare la settimana)'}`}</div>`;
     }
     const st = q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : q.status === 'rifiutata' ? '<span class="chip err">Rifiutata</span>' : '<span class="chip warn">In attesa</span>';
     return `<div class="card reqcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div>
@@ -1306,7 +1312,10 @@ function askAccept(id) {
       ${q.kind === 'impegno' ? `<label class="f">Deve finire il turno entro le${timeSel('acc-t', q.until, 360, 1380)}</label>` : ''}
       ${q.kind === 'dalle' ? `<label class="f">Può iniziare dalle${timeSel('acc-t', q.from, state.config.open ?? 450, (state.config.close ?? 1290) - (state.config.minShift ?? 120))}</label>` : ''}
       ${q.kind === 'libero' ? '<p style="margin:0">Quel giorno non avrà turni.</p>' : ''}
-      ${weekHas && p && p.proposal && !p.currentOk ? `<label class="tg on" style="align-self:start"><input type="checkbox" id="acc-apply" checked style="display:inline"> Metti subito il turno proposto (${shiftTxt(p.proposal)}) al posto di quello attuale</label>` : ''}
+      ${weekHas && p && !p.currentOk ? `<div><b style="font-size:13px">Cosa fare con i turni di quel giorno?</b>
+        ${(p.swaps || []).map((sw, i) => `<label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;cursor:pointer"><input type="radio" name="acc-how" value="swap${i}" ${i === 0 ? 'checked' : ''} style="margin-top:3px"><span>🔄 ${i === 0 ? '<b>Consigliato:</b> ' : ''}${swapTxt(q, sw)}<br><span class="small">${newsTxt(sw)}</span></span></label>`).join('')}
+        ${p.proposal ? `<label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;cursor:pointer"><input type="radio" name="acc-how" value="new" ${p.swaps ? '' : 'checked'} style="margin-top:3px"><span>Solo nuovo turno per lui/lei: <b>${shiftTxt(p.proposal)}</b><br><span class="small" style="color:var(--warn-ink)">⚠️ il turno di ora (${p.current.filter((x) => !x.doppio).map(shiftTxt).join(', ')}) resta da coprire</span></span></label>` : ''}
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;cursor:pointer"><input type="radio" name="acc-how" value="none" ${!p.swaps && !p.proposal ? 'checked' : ''} style="margin-top:3px"><span>Non toccare i turni adesso (li sistemo io; i controlli segnaleranno il turno non compatibile)</span></label></div>` : ''}
       ${weekHas && p && p.currentOk ? '<p class="small muted" style="margin:0">Il turno attuale è già compatibile: non cambia niente.</p>' : ''}
       ${!weekHas ? '<p class="small muted" style="margin:0">La settimana non è ancora pianificata: "Genera turni" terrà conto della richiesta.</p>' : ''}
       <label class="f">Messaggio per il dipendente (facoltativo)<input type="text" id="acc-msg" maxlength="200" placeholder="es. ok, ti metto in apertura"></label>
@@ -1318,8 +1327,17 @@ async function doAccept(id) {
   const t = document.getElementById('acc-t');
   if (t && q.kind === 'impegno') q.until = +t.value;
   if (t && q.kind === 'dalle') q.from = +t.value;
-  const apply = document.getElementById('acc-apply') && document.getElementById('acc-apply').checked;
-  let applied = null;
+  const how = (document.querySelector('input[name="acc-how"]:checked') || {}).value || 'none';
+  const apply = how === 'new';
+  let applied = null, swapped = null;
+  if (how.startsWith('swap')) {
+    const sws = T.proposeSwap(state, { ...q, status: 'accettata' }) || [];
+    const sw = sws[+how.slice(4)] || sws[0];
+    if (sw) {
+      state.shifts = state.shifts.map((x) => (x === sw.from ? sw.theirs : x === sw.with ? sw.mine : x));
+      applied = sw.mine; swapped = sw;
+    }
+  }
   if (apply) {
     const p = T.proposeFor(state, q);
     if (p.proposal) {
@@ -1333,6 +1351,11 @@ async function doAccept(id) {
   q.status = 'accettata';
   q.reply = msg || (q.kind === 'libero' ? 'Ok, quel giorno sei libero/a.' : applied ? `Ok: il tuo turno è ${T.fmtTime(applied.start)}–${T.fmtTime(applied.end)}.` : `Ok: il turno sarà compatibile (${LIMIT_TXT(q)}).`);
   closeModal(); save(); render();
+  if (swapped) {
+    const other = empById(swapped.partner);
+    showModal(`<h3>✅ Richiesta accettata e turni scambiati</h3><p>${esc(T.fullName(empById(q.employeeId)))}: <b>${shiftTxt(swapped.mine)}</b><br>${esc(T.fullName(other))}: <b>${shiftTxt(swapped.theirs)}</b></p>
+      <p class="notice warn">Ricordati di avvisare <b>${esc(T.fullName(other))}</b> che il suo turno di ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)} è cambiato.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+  }
   try { await TurniCloud.answerRequest(q.rid, 'accettata', q.reply); } catch (e) { alert('Accettata qui, ma la risposta al dipendente non è partita (connessione?). Riprova più tardi da "Rimetti in attesa" → Accetta.'); }
 }
 function askReject(id) {

@@ -697,6 +697,49 @@
     return { proposal, current, currentOk: current.every((x) => fitsLimit(ctx, x)) };
   }
 
+  /**
+   * Cambio turno per una richiesta in una settimana già pianificata: la persona prende il turno (compatibile) di un collega
+   * e il collega prende il suo, così il locale resta coperto. Prova tutti i colleghi dello stesso ruolo che quel giorno
+   * lavorano e sceglie lo scambio con meno problemi (tutte le regole: postazioni, aperture/chiusure, stacchi, ore).
+   * Restituisce null se non serve o non è possibile, altrimenti fino a 3 scambi { partner, mine, theirs, from, with, news } ordinati
+   * dal migliore: mine = turno che prende la persona, theirs = turno che prende il collega, news = problemi nuovi che crea.
+   */
+  function proposeSwap(state, q) {
+    const ws = mondayOf(q.day);
+    const st2 = { ...state, requests: [...(state.requests || []).filter((x) => x.id !== q.id), { ...q, status: 'accettata' }] };
+    const ctx0 = makeCtx(st2, ws);
+    const a = ctx0.shifts.find((x) => x.employeeId === q.employeeId && x.day === q.day && !x.doppio);
+    if (!a || fitsLimit(ctx0, a)) return null;
+    const me = ctx0.byId.get(q.employeeId);
+    const check = (list) => validate(makeCtx({ ...st2, shifts: list }, ws));
+    const baseMsgs = new Set(check(state.shifts).map((v) => v.msg));
+    const opts = [];
+    for (const b of ctx0.shifts) {
+      if (b === a || b.day !== q.day || b.doppio || b.employeeId === q.employeeId) continue;
+      const other = ctx0.byId.get(b.employeeId);
+      if (!other || other.type !== me.type || other.fixedShift) continue;
+      if (!fitsLimit(ctx0, { ...b, employeeId: me.id }) || !fitsLimit(ctx0, { ...a, employeeId: other.id })) continue;
+      // niente scambi che finiscono sopra un altro turno (es. un doppio) della stessa giornata
+      const clash = (x, id, skip) => ctx0.shifts.some((y) => y !== skip && y.employeeId === id && y.day === q.day && y.start < x.end && x.start < y.end);
+      if (clash(b, me.id, a) || clash(a, other.id, b)) continue;
+      // postazione: se la persona non è formata in quella del turno che prende, prova le sue (non per apertura/chiusura)
+      const team = (x) => x.start <= (ctx0.cfg.open ?? 450) || x.end >= (ctx0.cfg.close ?? 1290);
+      const stOpts = (x, e) => (e.type === 'HOSPITALITY' || team(x) || e.trainings.includes(x.station) || !e.trainings.length ? [x.station] : [x.station, ...e.trainings.filter((t) => t !== x.station)]);
+      let bestHere = null;
+      for (const sm of stOpts(b, me)) for (const sp of stOpts(a, other)) {
+        const mine = { ...b, employeeId: me.id, station: sm }, theirs = { ...a, employeeId: other.id, station: sp };
+        const list = state.shifts.map((x) => (x === a ? theirs : x === b ? mine : x));
+        const news = check(list).filter((v) => !baseMsgs.has(v.msg));
+        const nErr = news.filter((v) => v.sev === 'ERROR').length;
+        const key = nErr * 100 + (news.length - nErr) * 3 + Math.abs(dur(a) - dur(b)) / 60 + (sm !== b.station) * 0.2 + (sp !== a.station) * 0.2;
+        if (!bestHere || key < bestHere.key) bestHere = { key, partner: other.id, mine, theirs, from: a, with: b, news: news.map((v) => ({ sev: v.sev, msg: v.msg })) };
+      }
+      opts.push(bestHere);
+    }
+    opts.sort((x, y) => x.key - y.key);
+    return opts.length ? opts.slice(0, 3) : null;
+  }
+
   // ---------- generatore ----------
   /**
    * 0. Orari fissi (es. 9:00–12:30 tutti i giorni lavorativi).
@@ -1203,7 +1246,7 @@
     ABSENCE_TYPES, absenceInfo,
     STATIONS, CREW_STATIONS, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
-    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
+    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
   };
   if (typeof module !== 'undefined') module.exports = root.Turni;
 })(typeof window !== 'undefined' ? window : globalThis);
