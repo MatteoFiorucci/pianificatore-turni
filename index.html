@@ -264,14 +264,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610301644"></script>
-<script src="turni-core.js?v=202610301644"></script>
+<script src="turni-storico.js?v=202610302048"></script>
+<script src="turni-core.js?v=202610302048"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301644"></script>
-<script src="turni-cloud-config.js?v=202610301644"></script>
-<script src="turni-cloud.js?v=202610301644"></script>
-<script src="turni-cripto.js?v=202610301644"></script>
+<script src="turni-data.js?v=202610302048"></script>
+<script src="turni-cloud-config.js?v=202610302048"></script>
+<script src="turni-cloud.js?v=202610302048"></script>
+<script src="turni-cripto.js?v=202610302048"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1260,6 +1260,7 @@ async function cloudLogin() {
   catch (e) { btn.disabled = false; btn.textContent = 'Accedi'; err.style.display = 'block'; err.textContent = e.message; return; }
   ui.loginDoc = r;
   ui.locked = false; // password giusta: si apre l'app
+  ui.dragEdit = false; // si riparte sempre con la modifica trascinando spenta
   if (!r.doc) {
     // primo accesso in assoluto: i dati di questo dispositivo diventano quelli online
     closeModal(); TurniCloud.setDirty(true); await cloudPush(null); render();
@@ -1269,8 +1270,9 @@ async function cloudLogin() {
     showModal(`<h3>⚠️ Password diversa</h3><p>I dati online sono cifrati con una password diversa da quella con cui hai appena fatto l'accesso (forse l'hai cambiata), quindi non si possono leggere.</p>
       <p>Puoi sostituirli con i dati di questo dispositivo (${state.employees.length} dipendenti, ${state.shifts.length} turni), cifrati con la password nuova.</p>
       <div class="actions"><button class="btn" onclick="TurniCloud.logout();closeModal();render()">Annulla</button><button class="btn danger" onclick="closeModal();TurniCloud.setDirty(true);cloudPush('force').then(render)">Sostituisci i dati online</button></div>`);
-  } else if (!state.employees.length) {
-    closeModal(); applyRemote(r.data.state, r.doc.updateTime); setSync('ok'); go('turni');
+  } else if (!state.employees.length || APP_MODE) {
+    // nell'app (telefono/tablet) si usano sempre i dati online, senza chiedere
+    closeModal(); applyRemote(r.data.state, r.doc.updateTime); setSync('ok'); go(compactOn() ? 'giornaliero' : 'turni');
   } else {
     showModal(`<h3>☁️ Online ci sono già dei dati</h3>
       <p>Online: <b>${r.data.state.employees.length} dipendenti, ${r.data.state.shifts.length} turni</b> (salvati da ${esc(r.doc.device || '—')}, ${fmtWhen(r.doc.savedAt)}).<br>Su questo dispositivo: ${state.employees.length} dipendenti, ${state.shifts.length} turni.</p>
@@ -1289,6 +1291,7 @@ function cloudLogout() {
   if (!(s && s.dirty) && !confirm(APP_MODE ? 'Uscire dall\'area manager? Per rientrare servono nome utente e password.' : 'Uscire dal salvataggio online su questo dispositivo? I dati restano qui, ma non si aggiornano più con gli altri dispositivi.')) return;
   const sc = storeCode();
   TurniCloud.logout(); setSync('off');
+  ui.dragEdit = false; hideToast(); // uscendo si spegne la modifica trascinando
   if (APP_MODE) { ui.locked = true; ui.gateLogin = ''; if (sc) return loadGateLogin(sc); }
   render();
 }
