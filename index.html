@@ -100,6 +100,10 @@
   .modal h3 { margin: 0 0 4px; }
   .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
   .shiftbox { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+  .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; line-height: 18px; text-align: center; margin-left: 2px; }
+  .reqcard { padding: 14px 16px; margin-bottom: 12px; }
+  .reqcard .when { font-weight: 700; font-size: 15px; }
+  .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
   .sync { margin-left: auto; }
   .sync button { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .sync button.bad { background: #fde68a; color: #7c2d12; }
@@ -223,19 +227,19 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610282326"></script>
-<script src="turni-core.js?v=202610282326"></script>
+<script src="turni-storico.js?v=202610301144"></script>
+<script src="turni-core.js?v=202610301144"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610282326"></script>
-<script src="turni-cloud-config.js?v=202610282326"></script>
-<script src="turni-cloud.js?v=202610282326"></script>
-<script src="turni-cripto.js?v=202610282326"></script>
+<script src="turni-data.js?v=202610301144"></script>
+<script src="turni-cloud-config.js?v=202610301144"></script>
+<script src="turni-cloud.js?v=202610301144"></script>
+<script src="turni-cripto.js?v=202610301144"></script>
 <script>
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
-const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['regole', 'Regole']];
+const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['richieste', 'Richieste'], ['regole', 'Regole']];
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
 
 // ---------- stato (salvato nel browser) ----------
@@ -272,8 +276,9 @@ function setHeaderHeight() { document.documentElement.style.setProperty('--hdr',
 window.addEventListener('resize', setHeaderHeight);
 function render() {
   renderBrand(); renderSync();
-  document.getElementById('nav').innerHTML = VIEWS.map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}</button>`).join('');
-  const views = { turni: renderTurni, giornaliero: renderGiornaliero, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, regole: renderRegole };
+  const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
+  document.getElementById('nav').innerHTML = VIEWS.map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
+  const views = { turni: renderTurni, giornaliero: renderGiornaliero, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole };
   document.getElementById('app').innerHTML =
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
     views[ui.view]();
@@ -925,7 +930,7 @@ function renderRegole() {
     <div class="form">
       <div class="row">${field('crewMaxWeekday', 'Max ore turno Crew lun–gio (standard)')}${field('crewMax', 'Max ore turno Crew (turni lunghi e ven–dom)')}${field('hospMax', 'Max ore turno Hospitality')}${field('minShift', 'Turno minimo (ore)')}${field('rest11', 'Stacco tra giorni consecutivi (ore)')}${field('rest36', 'Stacco con riposo in mezzo (ore)')}</div>
       <div class="row"><label class="f">Turni lunghi lun–gio a testa a settimana (a rotazione)<input type="number" min="0" max="4" id="cfg-longpw" value="${c.weekdayLongPerWeek ?? 1}" style="width:110px"></label></div>
-      <div class="row">${field('doubleMax', 'Durata massima doppio (ore)')}${field('doubleGap', 'Pausa minima turno–doppio (ore)')}${field('closeGrace', 'Ultimi minuti non controllati prima della chiusura (ore)')}</div>
+      <div class="row">${field('doubleMax', 'Durata massima doppio (ore)')}${field('doubleGap', 'Pausa minima turno–doppio (ore)')}${field('closeGrace', 'Ultimi minuti non controllati prima della chiusura (ore)')}${field('requestMargin', 'Richieste: fine turno prima di un impegno (ore)')}</div>
       <div class="row"><label class="f">Post-rush pomeriggio: dalle${timeSelect(c.afternoonStart ?? 870, '').replace('<select', '<select id="cfg-aft0"')}</label><label class="f">alle${timeSelect(c.afternoonEnd ?? 1140, '').replace('<select', '<select id="cfg-aft1"')}</label>
         <label class="f">Chi fa la cena entra dalle${timeSelect(c.dinnerPreStart ?? 990, '').replace('<select', '<select id="cfg-pre"')}</label>
         <span class="small muted" style="align-self:end">Niente turni tutti nel post-rush (es. 14:30–19:30) né ibridi (es. 15:30–20:30): turni sfalsati che si agganciano ai rush (13:00–17:00 → 17:00–21:00). I turni oltre 4h devono coprire il picco del pranzo o della cena.</span></div>
@@ -1159,13 +1164,192 @@ function renderCloudBox() {
 document.addEventListener('visibilitychange', () => {
   if (!TurniCloud.loggedIn()) return;
   if (document.visibilityState === 'hidden') { if (TurniCloud.session().dirty) cloudPush(); }
-  else cloudPull();
+  else cloudPull().then(() => checkInbox(true));
 });
 window.addEventListener('online', () => { if (TurniCloud.loggedIn()) cloudPull(); });
 setInterval(() => {
   const a = document.activeElement;
-  if (document.visibilityState === 'visible' && !modalOpen() && !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) cloudPull();
+  if (document.visibilityState === 'visible' && !modalOpen() && !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) cloudPull().then(() => checkInbox(true));
 }, 60000);
+
+// ================= RICHIESTE DEL PERSONALE =================
+// I dipendenti inviano richieste dal loro link personale (richieste.html): arrivano cifrate, le apre solo il manager.
+// Niente va nei turni finché il manager non accetta. Le accettate diventano vincoli per il generatore.
+const KIND_TXT = (q) => q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
+const LIMIT_TXT = (q) => q.kind === 'libero' ? 'giorno libero' : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
+const reqLink = (e) => {
+  const base = location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/');
+  return `${base}richieste.html#s=${TurniCloud.uid()}&e=${e.id}&p=${state.reqCodes[e.id]}&n=${encodeURIComponent(e.firstName || '')}`;
+};
+let inboxBusy = false;
+/** Scarica le richieste nuove e le aggiunge (in attesa). Con notify mostra l'avviso se ne sono arrivate. */
+async function checkInbox(notify) {
+  if (inboxBusy || !TurniCloud.loggedIn() || !state.reqKeys) return 0;
+  inboxBusy = true;
+  try {
+    const list = await TurniCloud.listRequests();
+    const known = new Set((state.requests || []).map((q) => q.rid));
+    const fresh = [];
+    for (const d of list) {
+      if (known.has(d.rid)) continue;
+      let x;
+      try { x = await TurniCripto.openWith(state.reqKeys.priv, d); } catch (e) { continue; }
+      const e = empById(+d.emp);
+      if (!e || !x || !x.date) continue;
+      const day = T.toDay(x.date), margin = state.config.requestMargin ?? 120;
+      const q = { id: newId(), rid: d.rid, employeeId: e.id, day, kind: x.kind, note: String(x.note || '').slice(0, 300), status: 'in attesa', createdAt: d.createdAt };
+      if (x.kind === 'impegno') { q.time = +x.time; q.until = Math.max(0, q.time - margin); }
+      if (x.kind === 'dalle') q.from = +x.from;
+      fresh.push(q);
+    }
+    if (fresh.length) {
+      state.requests.push(...fresh); save();
+      if (modalOpen()) sync.pendingRender = true; else render();
+      if (notify) notifyRequests(fresh);
+    }
+    return fresh.length;
+  } catch (e) { return 0; } finally { inboxBusy = false; }
+}
+function notifyRequests(fresh) {
+  const txt = fresh.map((q) => `${T.fullName(empById(q.employeeId))} · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${KIND_TXT(q)}`);
+  try { if (window.Notification && Notification.permission === 'granted') new Notification('📩 Nuove richieste turni', { body: txt.join('\n') }); } catch (e) { /* niente */ }
+  if (!modalOpen()) showModal(`<h3>📩 ${fresh.length === 1 ? 'Nuova richiesta' : fresh.length + ' nuove richieste'} dal personale</h3>
+    <ul style="padding-left:18px">${txt.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+    <p class="muted">Non cambia niente nei turni finché non la accetti.</p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Dopo</button><button class="btn primary" onclick="closeModal();go('richieste')">Vedi le richieste</button></div>`);
+}
+async function enableRequests() {
+  if (!TurniCloud.loggedIn()) return;
+  try {
+    const k = await TurniCripto.newKeyPair();
+    await TurniCloud.publishKey(k.pub);
+    state.reqKeys = k; save(); render();
+  } catch (e) { alert('Attivazione non riuscita: ' + e.message); }
+}
+async function makeCode(id) {
+  const e = empById(id); if (!e) return;
+  const pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0');
+  try {
+    await TurniCloud.setCode(id, await TurniCripto.codeHash(TurniCloud.uid(), id, pin));
+    state.reqCodes[id] = pin; save(); render(); shareLink(id);
+  } catch (err) { alert('Non riuscito: ' + err.message); }
+}
+async function shareLink(id) {
+  const e = empById(id), link = reqLink(e);
+  const text = `Ciao ${e.firstName || ''}! Da questo link puoi chiedere un turno compatibile con i tuoi impegni (es. un concerto la sera). Il link è personale: non condividerlo.\n${link}`;
+  if (navigator.share) { try { await navigator.share({ title: 'Richieste turni', text }); return; } catch (err) { if (err && err.name === 'AbortError') return; } }
+  showModal(`<h3>🔗 Link personale di ${esc(T.fullName(e))}</h3><p class="muted">Mandalo solo a questa persona (es. su WhatsApp). Chi ha il link può inviare richieste a suo nome, ma non vede nessun dato del locale.</p>
+    <textarea id="lnk" style="width:100%;min-height:90px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px" readonly>${esc(text)}</textarea>
+    <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="copyLink()">Copia</button></div>`);
+}
+function copyLink() { const t = document.getElementById('lnk'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); } closeModal(); }
+function proposalOf(q) {
+  ui.propCache = ui.propCache || new Map();
+  const key = [state.shifts.length, q.until, q.from, q.kind, state.shifts.filter((x) => x.day === q.day).map((x) => x.employeeId + ':' + x.start + '-' + x.end).join(',')].join('|');
+  const c = ui.propCache.get(q.id);
+  if (c && c.key === key) return c.res;
+  let res; try { res = T.proposeFor(state, q); } catch (e) { res = { proposal: null, current: [], currentOk: true }; }
+  ui.propCache.set(q.id, { key, res });
+  return res;
+}
+const shiftTxt = (x) => `${T.fmtTime(x.start)}–${T.fmtTime(x.end)} ${T.STATIONS[x.station] ? T.STATIONS[x.station].short : ''}${x.start <= state.config.open ? ' (apertura)' : ''}`;
+function renderRichieste() {
+  const logged = TurniCloud.loggedIn();
+  const reqs = state.requests || [];
+  const pend = reqs.filter((q) => q.status === 'in attesa').sort((a, b) => a.day - b.day);
+  const done = reqs.filter((q) => q.status !== 'in attesa').sort((a, b) => b.day - a.day).slice(0, 40);
+  const card = (q) => {
+    const e = empById(q.employeeId), name = e ? T.fullName(e) : '?';
+    let prop = '';
+    if (q.status === 'in attesa' && q.kind !== 'libero') {
+      const p = proposalOf(q);
+      const cur = p.current.filter((x) => !x.doppio);
+      prop = `<div class="prop">${cur.length ? `Turno attuale: <b>${cur.map(shiftTxt).join(', ')}</b> ${p.currentOk ? '✅ già compatibile' : '⚠️ non compatibile'}<br>` : ''}
+        🤖 Proposta del generatore: ${p.proposal ? `<b>${shiftTxt(p.proposal)}</b>` : '<b>nessun turno compatibile trovato</b> (prova a cambiare l\'orario o a rigenerare la settimana)'}</div>`;
+    }
+    const st = q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : q.status === 'rifiutata' ? '<span class="chip err">Rifiutata</span>' : '<span class="chip warn">In attesa</span>';
+    return `<div class="card reqcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div>
+      <div class="when">${esc(name)} · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}</div>
+      <div>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.note ? ` <span class="muted">· "${esc(q.note)}"</span>` : ''}</div>
+      ${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</div>${st}</div>
+      ${prop}
+      ${q.status === 'in attesa' ? `<div class="row" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="askAccept(${q.id})">✓ Accetta / modifica</button><button class="btn" onclick="askReject(${q.id})">✕ Rifiuta</button></div>`
+        : `<div style="margin-top:8px"><button class="link" onclick="reopenRequest(${q.id})">Rimetti in attesa</button></div>`}
+    </div>`;
+  };
+  const people = sortByName(state.employees.filter((e) => e.active));
+  return `
+  <h2>Richieste del personale</h2>
+  <p class="muted">I dipendenti, dal loro link personale, chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.</p>
+  ${!logged ? '<div class="notice warn">Per ricevere le richieste serve il salvataggio online: accedi in Regole → Dati.</div>'
+    : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>`
+    : `<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
+        ${window.Notification && Notification.permission !== 'granted' ? '<button class="btn" onclick="Notification.requestPermission().then(()=>render())">🔔 Avvisami anche con le notifiche del browser</button>' : ''}</div>`}
+  <h3 style="margin:18px 0 8px">Da decidere (${pend.length})</h3>
+  ${pend.map(card).join('') || '<p class="muted">Nessuna richiesta in attesa.</p>'}
+  ${done.length ? `<h3 style="margin:18px 0 8px">Già decise</h3>${done.map(card).join('')}` : ''}
+  ${logged && state.reqKeys ? `<h3 style="margin:22px 0 8px">Link personali del personale</h3>
+  <p class="muted">Ogni persona ha il suo link con un codice. Se un link finisce in mani sbagliate, premi "Nuovo link": quello vecchio smette di funzionare.</p>
+  <div class="card"><table class="list"><thead><tr><th>Nome</th><th>Link</th><th></th></tr></thead><tbody>
+    ${people.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${state.reqCodes[e.id] ? '<span class="pill on">creato</span>' : '<span class="muted small">non ancora</span>'}</td>
+      <td style="text-align:right;white-space:nowrap">${state.reqCodes[e.id] ? `<button class="btn" onclick="shareLink(${e.id})">📤 Invia</button> <button class="link" onclick="if(confirm('Creare un link nuovo? Quello vecchio non funzionerà più.'))makeCode(${e.id})">Nuovo link</button>` : `<button class="btn" onclick="makeCode(${e.id})">Crea link</button>`}</td></tr>`).join('')}
+  </tbody></table></div>` : ''}`;
+}
+function askAccept(id) {
+  const q = state.requests.find((x) => x.id === id); if (!q) return;
+  const p = q.kind === 'libero' ? null : proposalOf(q);
+  const weekHas = state.shifts.some((x) => x.day >= T.mondayOf(q.day) && x.day <= T.mondayOf(q.day) + 6);
+  const timeSel = (idn, v, from, to) => `<select id="${idn}">${TIME_OPTIONS.filter((t) => t >= from && t <= to).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+  showModal(`<h3>Accetta la richiesta</h3>
+    <p><b>${esc(T.fullName(empById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
+    <div class="form">
+      ${q.kind === 'impegno' ? `<label class="f">Deve finire il turno entro le${timeSel('acc-t', q.until, 360, 1380)}</label>` : ''}
+      ${q.kind === 'dalle' ? `<label class="f">Può iniziare dalle${timeSel('acc-t', q.from, 360, 1380)}</label>` : ''}
+      ${q.kind === 'libero' ? '<p style="margin:0">Quel giorno non avrà turni.</p>' : ''}
+      ${weekHas && p && p.proposal && !p.currentOk ? `<label class="tg on" style="align-self:start"><input type="checkbox" id="acc-apply" checked style="display:inline"> Metti subito il turno proposto (${shiftTxt(p.proposal)}) al posto di quello attuale</label>` : ''}
+      ${weekHas && p && p.currentOk ? '<p class="small muted" style="margin:0">Il turno attuale è già compatibile: non cambia niente.</p>' : ''}
+      ${!weekHas ? '<p class="small muted" style="margin:0">La settimana non è ancora pianificata: "Genera turni" terrà conto della richiesta.</p>' : ''}
+      <label class="f">Messaggio per il dipendente (facoltativo)<input type="text" id="acc-msg" maxlength="200" placeholder="es. ok, ti metto in apertura"></label>
+    </div>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="doAccept(${id})">Accetta</button></div>`);
+}
+async function doAccept(id) {
+  const q = state.requests.find((x) => x.id === id); if (!q) return;
+  const t = document.getElementById('acc-t');
+  if (t && q.kind === 'impegno') q.until = +t.value;
+  if (t && q.kind === 'dalle') q.from = +t.value;
+  const apply = document.getElementById('acc-apply') && document.getElementById('acc-apply').checked;
+  let applied = null;
+  if (apply) {
+    const p = T.proposeFor(state, q);
+    if (p.proposal) {
+      state.shifts = state.shifts.filter((x) => !(x.employeeId === q.employeeId && x.day === q.day && !x.doppio));
+      applied = { ...p.proposal, id: newId() }; state.shifts.push(applied);
+      // un doppio che non rispetta più la richiesta va tolto
+      state.shifts = state.shifts.filter((x) => !(x.employeeId === q.employeeId && x.day === q.day && x.doppio && ((q.until != null && x.end > q.until) || (q.from != null && x.start < q.from))));
+    }
+  }
+  const msg = (document.getElementById('acc-msg').value || '').trim();
+  q.status = 'accettata';
+  q.reply = msg || (q.kind === 'libero' ? 'Ok, quel giorno sei libero/a.' : applied ? `Ok: il tuo turno è ${T.fmtTime(applied.start)}–${T.fmtTime(applied.end)}.` : `Ok: il turno sarà compatibile (${LIMIT_TXT(q)}).`);
+  closeModal(); save(); render();
+  try { await TurniCloud.answerRequest(q.rid, 'accettata', q.reply); } catch (e) { alert('Accettata qui, ma la risposta al dipendente non è partita (connessione?). Riprova più tardi da "Rimetti in attesa" → Accetta.'); }
+}
+function askReject(id) {
+  showModal(`<h3>Rifiuta la richiesta</h3><div class="form"><label class="f">Motivo per il dipendente (facoltativo)<input type="text" id="rej-msg" maxlength="200" placeholder="es. quel giorno siamo scoperti, ne parliamo"></label></div>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="doReject(${id})">Rifiuta</button></div>`);
+}
+async function doReject(id) {
+  const q = state.requests.find((x) => x.id === id); if (!q) return;
+  q.status = 'rifiutata'; q.reply = (document.getElementById('rej-msg').value || '').trim() || 'Non è possibile, parliamone.';
+  closeModal(); save(); render();
+  try { await TurniCloud.answerRequest(q.rid, 'rifiutata', q.reply); } catch (e) { alert('Rifiutata qui, ma la risposta al dipendente non è partita (connessione?).'); }
+}
+async function reopenRequest(id) {
+  const q = state.requests.find((x) => x.id === id); if (!q) return;
+  q.status = 'in attesa'; q.reply = ''; save(); render();
+  try { await TurniCloud.answerRequest(q.rid, 'in attesa', ''); } catch (e) { /* riprova alla prossima risposta */ }
+}
 
 // --- esporta / importa ---
 function exportData() {
@@ -1197,9 +1381,9 @@ function setCovMin(i, k, v) {
   save();
 }
 function saveConfig() {
-  const keys = ['crewMaxWeekday', 'crewMax', 'hospMax', 'minShift', 'rest11', 'rest36', 'doubleMax', 'doubleGap', 'closeGrace'];
+  const keys = ['crewMaxWeekday', 'crewMax', 'hospMax', 'minShift', 'rest11', 'rest36', 'doubleMax', 'doubleGap', 'closeGrace', 'requestMargin'];
   const vals = keys.map((k) => T.parseHours(document.getElementById('cfg-' + k).value));
-  if (vals.some((v, i) => v == null || (keys[i] === 'closeGrace' ? v < 0 : v <= 0))) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = 'Valori non validi: usa numeri di ore, es. 4 o 4,5.'; return; }
+  if (vals.some((v, i) => v == null || (['closeGrace', 'requestMargin'].includes(keys[i]) ? v < 0 : v <= 0))) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = 'Valori non validi: usa numeri di ore, es. 4 o 4,5.'; return; }
   const open = +document.getElementById('cfg-open').value, close = +document.getElementById('cfg-close').value;
   if (close <= open) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = "La chiusura deve essere dopo l'apertura."; return; }
   keys.forEach((k, i) => (state.config[k] = vals[i]));
@@ -1213,7 +1397,7 @@ function saveConfig() {
 
 saveLocal();
 render();
-if (TurniCloud.loggedIn()) cloudPull();
+if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
 else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
 else loadFromSite(false);
 </script>

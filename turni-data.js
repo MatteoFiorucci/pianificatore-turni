@@ -6,13 +6,13 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 22;
+  const VERSION = 23;
 
   function emptyState() {
     return {
       version: VERSION, employees: [], shifts: [], absences: [],
       coverage: T.DEFAULT_COVERAGE.map((c) => ({ ...c, min: [...c.min] })),
-      config: { ...T.DEFAULT_CONFIG }, forecasts: {}, targets: {}, nextId: 1,
+      config: { ...T.DEFAULT_CONFIG }, forecasts: {}, targets: {}, nextId: 1, requests: [], reqCodes: {},
     };
   }
 
@@ -31,6 +31,9 @@
     st.targets = st.targets || {};
     st.absences = st.absences || [];
     st.shifts = st.shifts || [];
+    // v23: richieste del personale (portale), codici personali per i link, chiavi del locale
+    st.requests = st.requests || [];
+    st.reqCodes = st.reqCodes || {};
     for (const e of st.employees || []) {
       for (const [k, v] of Object.entries({ trainings: [], openings: [], closings: [], restDays: [], doubleDays: 0, fixedShift: null, trainee: false, traineeUntil: null, startDate: null, active: true })) {
         if (e[k] === undefined) e[k] = Array.isArray(v) ? [] : v;
