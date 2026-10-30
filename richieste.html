@@ -60,8 +60,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301427"></script>
-<script src="turni-cripto.js?v=202610301427"></script>
+<script src="turni-cloud-config.js?v=202610301432"></script>
+<script src="turni-cripto.js?v=202610301432"></script>
 <script>
 'use strict';
 /*
@@ -163,6 +163,7 @@ function loginView() {
     <label class="f">Nome utente<input id="lu" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="es. mario.r"></label>
     <label class="f">Password<input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></label>
     <button class="primary" id="lb" onclick="login()">Entra</button>
+    <p class="muted" style="margin:10px 0 0">Password dimenticata? Chiedila al tuo manager: te ne crea una nuova.</p>
     <p style="margin:12px 0 0;text-align:center"><a href="#" onclick="setRole('');return false" style="color:var(--green)">← Torna alla scelta (dipendente o manager)</a></p></div>`;
 }
 async function login() {
