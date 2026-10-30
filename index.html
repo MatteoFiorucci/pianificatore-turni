@@ -114,6 +114,15 @@
   .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
   /* iPhone ingrandisce da solo la pagina quando si tocca un campo con testo sotto i 16px: su telefono/tablet si usano 16px */
   @media (pointer: coarse), (max-width: 760px) { input, select, textarea { font-size: 16px !important; } }
+  @media (max-width: 760px) {
+    /* accessi del personale su telefono: una scheda per persona, con i pulsanti sotto */
+    .card:has(> table.acc) { max-height: none !important; overflow: visible !important; position: static !important; }
+    table.acc thead { display: none; }
+    table.acc tr { display: block; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    table.acc td { display: inline-block; border: 0 !important; padding: 2px 8px 2px 0 !important; position: static !important; box-shadow: none !important; background: none !important; }
+    table.acc td:first-child { display: block; }
+    table.acc td:last-child { display: block; text-align: left !important; margin-top: 6px; }
+  }
   .sync { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .sync button { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .sync button.bad { background: #fde68a; color: #7c2d12; }
@@ -237,14 +246,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301427"></script>
-<script src="turni-core.js?v=202610301427"></script>
+<script src="turni-storico.js?v=202610301432"></script>
+<script src="turni-core.js?v=202610301432"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301427"></script>
-<script src="turni-cloud-config.js?v=202610301427"></script>
-<script src="turni-cloud.js?v=202610301427"></script>
-<script src="turni-cripto.js?v=202610301427"></script>
+<script src="turni-data.js?v=202610301432"></script>
+<script src="turni-cloud-config.js?v=202610301432"></script>
+<script src="turni-cloud.js?v=202610301432"></script>
+<script src="turni-cripto.js?v=202610301432"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -763,6 +772,18 @@ function deleteSelected() {
   ui.selected = new Set(); ui.deleteMode = false;
   save(); closeModal(); render();
 }
+/** Accesso all'app del personale (nome utente e password) dentro la scheda della persona. */
+function accessBox(e) {
+  const head = '<div class="small muted" style="font-weight:600;margin-bottom:6px">📱 Accesso all\'app del personale</div>';
+  if (!TurniCloud.loggedIn()) return `<div class="shiftbox">${head}<div class="small muted">Serve il salvataggio online (Regole → Dati).</div></div>`;
+  if (!state.reqKeys) return `<div class="shiftbox">${head}<div class="small muted">Prima attiva l'app del personale nella sezione Richieste.</div></div>`;
+  const c = state.reqCreds[e.id];
+  if (!c) return `<div class="shiftbox">${head}<div class="small muted" style="margin-bottom:6px">Non ha ancora l'accesso.</div><div><button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button></div></div>`;
+  return `<div class="shiftbox">${head}
+    <div>Nome utente: <code>${esc(c.user)}</code> · Password: <code>${esc(c.pw)}</code></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="shareAccess(${e.id})">📤 Invia le credenziali</button><button class="btn" onclick="if(confirm('Creare una password nuova per ${esc(T.fullName(e))}? Quella vecchia smette subito di funzionare.'))makeAccess(${e.id})">🔑 Nuova password</button></div>
+    <div class="small muted">Se l'ha dimenticata o l'ha data a qualcun altro, crea una password nuova e mandagliela.</div></div>`;
+}
 function editEmployee(id) {
   const e = id ? empById(id) : { id: null, lastName: '', firstName: '', type: 'CREW', weeklyMinutes: 1080, restDays: [], trainings: [], active: true, fixedShift: null, doubleDays: 0 };
   const fx = e.fixedShift || { start: 540, end: 750 };
@@ -789,6 +810,7 @@ function editEmployee(id) {
         <div class="small muted">Lavora sempre e solo in quest'orario, in tutti i giorni che non sono di riposo. Le ore settimanali si calcolano da sole.</div>
       </div>
       <label class="tg ${e.active ? 'on' : ''}" style="width:max-content"><input type="checkbox" id="f-active" ${e.active ? 'checked' : ''} onchange="this.parentNode.classList.toggle('on',this.checked)">Attivo (incluso nei turni)</label>
+      ${id ? accessBox(e) : ''}
       <div id="f-error" class="notice err" style="display:none"></div>
     </div>
     <div class="actions">
@@ -1497,7 +1519,7 @@ function renderRichieste() {
   const people = sortByName(state.employees.filter((e) => e.active));
   return `
   <h2>Richieste del personale</h2>
-  <p class="muted">I dipendenti, dal loro link personale, chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.</p>
+  <p class="muted">I dipendenti, dall'app del personale (con il loro nome utente e password), chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.</p>
   ${!logged ? '<div class="notice warn">Per ricevere le richieste serve il salvataggio online: accedi in Regole → Dati.</div>'
     : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>`
     : `${ntfyBox()}<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
@@ -1512,7 +1534,7 @@ function renderRichieste() {
     <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
     <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
   <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
-  <div class="card"><table class="list"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
+  <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
     ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? `<code>${esc(c.pw)}</code>` : ''}</td>
       <td style="text-align:right;white-space:nowrap">${c ? `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> <button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
   </tbody></table></div>` : ''}`;
