@@ -48,8 +48,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301316"></script>
-<script src="turni-cripto.js?v=202610301316"></script>
+<script src="turni-cloud-config.js?v=202610301320"></script>
+<script src="turni-cripto.js?v=202610301320"></script>
 <script>
 'use strict';
 /*
@@ -96,12 +96,43 @@ let installEvt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; render(); });
 const standalone = () => window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+// Istruzioni per mettere l'app sulla schermata Home, a seconda del telefono e del browser
+const INSTALL = {
+  android: [
+    ['Chrome', 'tocca i tre puntini <b>⋮</b> in alto a destra → <b>"Installa app"</b> (o "Aggiungi a schermata Home")'],
+    ['Samsung Internet', 'tocca il menu <b>≡</b> in basso a destra → <b>"Aggiungi pagina a"</b> → <b>"Schermata Home"</b> (oppure l\'icona di installazione nella barra dell\'indirizzo)'],
+    ['Firefox', 'tocca i tre puntini <b>⋮</b> → <b>"Installa"</b> (o "Aggiungi alla schermata principale")'],
+    ['Edge', 'tocca i tre puntini <b>…</b> in basso → <b>"Aggiungi al telefono"</b> (o "Installa app")'],
+    ['Opera', 'tocca i tre puntini <b>⋮</b> → <b>"Schermata Home"</b> (o "Aggiungi a…" → "Schermata Home")'],
+    ['Brave', 'tocca i tre puntini <b>⋮</b> → <b>"Installa app"</b> (o "Aggiungi a schermata Home")'],
+  ],
+  ios: [
+    ['Safari', 'tocca <b>Condividi</b> (il quadrato con la freccia in su) → <b>"Aggiungi alla schermata Home"</b>'],
+    ['Chrome', 'tocca <b>Condividi</b> (il quadrato con la freccia, in alto a destra nella barra) → <b>"Aggiungi alla schermata Home"</b>'],
+    ['Firefox', 'tocca il menu <b>≡</b> → <b>Condividi</b> → <b>"Aggiungi alla schermata Home"</b>'],
+    ['Edge', 'tocca i tre puntini <b>…</b> → <b>Condividi</b> → <b>"Aggiungi alla schermata Home"</b>'],
+  ],
+};
+function whichBrowser() {
+  const ua = navigator.userAgent;
+  if (/FBAN|FBAV|Instagram|Telegram|Line\//i.test(ua)) return 'app';
+  if (isIos()) return /CriOS/.test(ua) ? 'Chrome' : /FxiOS/.test(ua) ? 'Firefox' : /EdgiOS/.test(ua) ? 'Edge' : 'Safari';
+  return /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /Firefox/.test(ua) ? 'Firefox' : /EdgA/.test(ua) ? 'Edge' : /OPR|OPT\//.test(ua) ? 'Opera' : /Brave/.test(ua) ? 'Brave' : 'Chrome';
+}
 function installBox() {
   if (standalone()) return '';
-  if (installEvt) return '<div class="card"><b>📲 Installa l\'app sul telefono</b><p class="muted" style="margin:6px 0 10px">Così la apri dalla schermata Home, come le altre app.</p><button class="primary" onclick="installApp()">Installa l\'app</button></div>';
-  if (isIos()) return '<div class="card"><b>📲 Metti l\'app sulla schermata Home</b><p class="muted" style="margin:6px 0 0">Apri questa pagina in <b>Safari</b>, tocca il tasto <b>Condividi</b> (il quadrato con la freccia in su), poi <b>"Aggiungi alla schermata Home"</b>. Dopo, apri l\'app dall\'icona e accedi.</p></div>';
-  if (/android/i.test(navigator.userAgent)) return '<div class="card"><b>📲 Installa l\'app sul telefono</b><p class="muted" style="margin:6px 0 0">Se hai aperto il link da <b>WhatsApp</b>, prima tocca i <b>tre puntini ⋮</b> in alto a destra → <b>"Apri in Chrome"</b>.<br>Poi in Chrome tocca i <b>tre puntini ⋮</b> → <b>"Installa app"</b> (o "Aggiungi a schermata Home"). Dopo, apri l\'app dall\'icona "Turni".</p></div>';
-  return '';
+  const android = /android/i.test(navigator.userAgent), ios = isIos();
+  const button = installEvt ? '<button class="primary" style="margin:8px 0 4px" onclick="installApp()">Installa l\'app</button>' : '';
+  if (!android && !ios) return button ? `<div class="card"><b>📲 Installa l'app</b>${button}</div>` : '';
+  const list = INSTALL[ios ? 'ios' : 'android'], b = whichBrowser();
+  const mine = list.find(([n]) => n === b);
+  const fromApp = '<p class="muted" style="margin:6px 0 0">Se hai aperto il link da <b>WhatsApp, Instagram, Facebook o Telegram</b>, prima aprilo nel browser: tocca i tre puntini (o "…") e scegli <b>"Apri nel browser"</b> / <b>"Apri in Chrome"</b>' + (ios ? ' / <b>"Apri in Safari"</b>' : '') + '.</p>';
+  return `<div class="card"><b>📲 Metti l'app "Turni" sulla schermata Home</b>
+    ${button}
+    ${b === 'app' ? fromApp : mine ? `<p class="muted" style="margin:6px 0 0">Stai usando <b>${b}</b>: ${mine[1]}.</p>${fromApp}` : fromApp}
+    <details style="margin-top:8px"><summary class="muted" style="cursor:pointer">Usi un altro browser?</summary>
+      <ul class="muted" style="margin:6px 0 0;padding-left:18px">${list.map(([n, t]) => `<li style="margin:4px 0"><b>${n}</b>: ${t}</li>`).join('')}</ul></details>
+    <p class="muted" style="margin:8px 0 0">Dopo, apri l'app dall'icona verde "Turni" e accedi.</p></div>`;
 }
 async function installApp() { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { /* niente */ } installEvt = null; render(); }
 

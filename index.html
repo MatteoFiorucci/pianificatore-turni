@@ -235,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301316"></script>
-<script src="turni-core.js?v=202610301316"></script>
+<script src="turni-storico.js?v=202610301320"></script>
+<script src="turni-core.js?v=202610301320"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301316"></script>
-<script src="turni-cloud-config.js?v=202610301316"></script>
-<script src="turni-cloud.js?v=202610301316"></script>
-<script src="turni-cripto.js?v=202610301316"></script>
+<script src="turni-data.js?v=202610301320"></script>
+<script src="turni-cloud-config.js?v=202610301320"></script>
+<script src="turni-cloud.js?v=202610301320"></script>
+<script src="turni-cripto.js?v=202610301320"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1353,7 +1353,7 @@ async function share(title, text) {
     <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="copyLink()">Copia</button></div>`);
 }
 /** Messaggio unico per tutti (es. gruppo WhatsApp): link dell'app, senza credenziali. */
-const shareAppLink = () => share('Link dell\'app per il personale', `Ciao a tutti! Da quest'app potete chiedere un turno compatibile con i vostri impegni (concerti, università, allenamenti…).\nScaricatela da qui: ${appLink()}\nSu iPhone: tasto Condividi → "Aggiungi alla schermata Home". Su Android: "Installa app".\nNome utente e password ve li mando in privato.`);
+const shareAppLink = () => share('Link dell\'app per il personale', `Ciao a tutti! Da quest'app potete chiedere un turno compatibile con i vostri impegni (concerti, università, allenamenti…).\nScaricatela da qui: ${appLink()}\nAprite il link nel browser del telefono (non dentro WhatsApp): la pagina vi spiega come installare l'app, per qualsiasi telefono e browser.\nNome utente e password ve li mando in privato.`);
 /** Credenziali personali (in privato). */
 function shareAccess(id) {
   const e = empById(id), c = state.reqCreds[id];
