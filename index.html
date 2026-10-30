@@ -109,6 +109,9 @@
   .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
   .shiftbox { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
   .reqtag { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #e8eefc; color: #1e40af; font-size: 9.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; vertical-align: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  button.ib { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; background: none; color: var(--green); font: 700 12px/1 -apple-system, sans-serif; cursor: pointer; padding: 0; margin-left: 4px; vertical-align: 2px; text-transform: none; letter-spacing: 0; }
+  button.ib:hover { background: var(--green); color: #fff; }
+  th button.ib { width: 18px; height: 18px; font-size: 11px; }
   .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; line-height: 18px; text-align: center; margin-left: 2px; }
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
@@ -265,14 +268,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610302105"></script>
-<script src="turni-core.js?v=202610302105"></script>
+<script src="turni-storico.js?v=202610302137"></script>
+<script src="turni-core.js?v=202610302137"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610302105"></script>
-<script src="turni-cloud-config.js?v=202610302105"></script>
-<script src="turni-cloud.js?v=202610302105"></script>
-<script src="turni-cripto.js?v=202610302105"></script>
+<script src="turni-data.js?v=202610302137"></script>
+<script src="turni-cloud-config.js?v=202610302137"></script>
+<script src="turni-cloud.js?v=202610302137"></script>
+<script src="turni-cripto.js?v=202610302137"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -308,6 +311,39 @@ const timeSelect = (value, onchange) =>
 const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompare(T.fullName(b), 'it'));
 
 // ---------- navigazione ----------
+const INFO = {
+  'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.`],
+  'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
+  'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
+  'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
+  I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica. <b>Chi apre</b> (turno delle 7:30) quel giorno non fa il doppio.`],
+  'ferie': [`Ferie e malattie`, `Inserisci ferie, malattie, infortuni e assenze. In quei giorni la persona non può avere turni (il generatore non la usa) e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno). Una malattia o un infortunio in corso si può inserire anche a settimana già fatta: i suoi turni di quei giorni diventano errori da coprire (usa 🛠 Risolvi problemi).`],
+  'fasce': [`Fasce di copertura`, `Numero minimo di persone presenti per tutta la durata della fascia, giorno per giorno (0 = nessun minimo). Nei giorni con le Crew Hours (sezione Previsioni), i minimi delle fasce senza postazione (rush, picchi, intermedi) vengono ricavati dalle Crew Hours. I valori iniziali vengono dagli orari reali delle settimane 39–44. Contano crew e hospitality messe in una postazione crew (non quelle in sala). Con una postazione indicata contano solo i presenti in quella postazione; con "Solo formati apertura" solo chi è segnato nella sezione Aperture.<br><br>Le fasce segnate <b>"consiglio"</b> (es. Postazione MFY) non sono obbligatorie: il generatore cerca di rispettarle, ma se mancano compaiono in <b>giallo</b> tra gli avvisi, non in rosso tra gli errori.`],
+  'richieste': [`Richieste del personale`, `I dipendenti, dall'app del personale (con il loro nome utente e password), chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.`],
+  'cfg-crewMaxWeekday': [`Max ore turno Crew lun–gio`, `Durata massima di un turno normale di un crew da <b>lunedì a giovedì</b> (di solito 4h). Ognuno può fare ogni tanto un turno più lungo: vedi "Turni lunghi lun–gio a testa a settimana". Il doppio non conta: ha il suo limite.`],
+  'cfg-crewMax': [`Max ore turno Crew (turni lunghi e ven–dom)`, `Durata massima di un turno di un crew da <b>venerdì a domenica</b> e dei <b>turni lunghi</b> da lunedì a giovedì (di solito 5h). Il doppio non conta: ha il suo limite.`],
+  'cfg-hospMax': [`Max ore turno Hospitality`, `Durata massima di un turno di un'hospitality, tutti i giorni.`],
+  'cfg-minShift': [`Turno minimo`, `Un turno più corto di così viene segnalato tra gli avvisi (es. 2h: un turno 12:00–13:30 dà un avviso). Il generatore non crea turni più corti.`],
+  'cfg-rest11': [`Stacco tra giorni consecutivi`, `Ore minime tra la fine di un turno e l'inizio del turno del <b>giorno dopo</b>. Con 11h: chi chiude alle 21:30 il giorno dopo non può entrare prima delle 8:30, quindi non può aprire alle 7:30.`],
+  'cfg-rest36': [`Stacco con riposo in mezzo`, `Se tra due turni c'è un <b>giorno di riposo</b>, tra la fine del primo e l'inizio del secondo servono almeno queste ore. Con 36h: chi chiude martedì alle 21:30 e riposa mercoledì, giovedì può entrare dalle 9:30 (non aprire alle 7:30).`],
+  'cfg-longpw': [`Turni lunghi lun–gio a testa a settimana`, `Quanti turni più lunghi del massimo standard (es. 5h invece di 4h) può fare ogni crew da lunedì a giovedì. Vanno <b>a rotazione</b>: il generatore li dà prima a chi ne ha fatti meno nelle 4 settimane precedenti. I turni lunghi devono coprire il picco del pranzo o della cena.`],
+  'cfg-doubleMax': [`Durata massima doppio`, `Il doppio è un secondo turno nello stesso giorno (ore in più rispetto al contratto). Questa è la sua durata massima (es. 3h). Chi fa i doppi e quanti si decide nella sezione Doppi.`],
+  'cfg-doubleGap': [`Pausa minima turno–doppio`, `Ore minime di pausa tra il turno normale e il doppio dello stesso giorno (es. 2h: turno 7:30–11:00 e doppio non prima delle 13:00). Chi apre non fa il doppio.`],
+  'cfg-closeGrace': [`Ultimi minuti non controllati prima della chiusura`, `Negli ultimi minuti prima della chiusura (es. tra le 21:00 e le 21:30) i minimi delle fasce non vengono controllati: in quel momento c'è solo la squadra di chiusura. La squadra di chiusura invece si controlla fino alle 21:30, e chi è in formazione non può restare da solo.`],
+  'cfg-requestMargin': [`Richieste: fine turno prima di un impegno`, `Quando un dipendente chiede "ho un impegno alle…", il turno deve finire almeno queste ore prima (es. 2h: concerto alle 21:00 → turno finito entro le 19:00). Quando accetti la richiesta puoi comunque cambiare l'orario.`],
+  'cfg-aft': [`Post-rush pomeriggio`, `Fascia del pomeriggio tra i due rush (es. 14:30–19:00). Qui il generatore non mette turni "rigidi" tutti dentro questa fascia (es. 14:30–19:30) né turni "ibridi" a cavallo (es. 15:30–20:30): preferisce turni sfalsati che si agganciano ai rush, per esempio 13:00–17:00 e poi 17:00–21:00.`],
+  'cfg-pre': [`Chi fa la cena entra dalle`, `Ora più presto in cui entra chi lavora per la cena (es. 16:30). Così i turni di cena non partono nel mezzo del pomeriggio.`],
+  'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale (es. 7:30–21:30). Il generatore non mette turni fuori da quest'orario.`],
+  'col-nome': [`Fascia di copertura`, `Ogni riga è una fascia oraria (es. "Rush pranzo 12:00–15:00") con il numero minimo di persone che devono essere presenti per tutta la sua durata. Puoi cambiarne nome e orari, aggiungerne o eliminarne.`],
+  'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Crew Hours (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Crew Hours.`],
+  'col-post': [`Postazione`, `<b>Qualsiasi crew</b>: contano tutti i crew presenti, in qualunque postazione.<br><b>Una postazione</b> (MFY, OA, McCafé, Sala, Hospitality): contano solo le persone messe in quella postazione. Per la Sala contano anche le hospitality.`],
+  'col-ap': [`Solo formati apertura`, `Se è spuntato, nella fascia contano solo le persone segnate per <b>aprire</b> quella postazione (sezione Aperture e chiusure). Serve per le fasce di apertura (7:30). Si può spuntare solo se hai scelto una postazione.`],
+  'col-ch': [`Solo formati chiusura`, `Se è spuntato, nella fascia contano solo le persone che possono <b>chiudere</b> quella postazione (sezione Aperture e chiusure: se per una postazione non hai segnato nessuno, possono chiudere tutti i formati in quella postazione). Serve per le fasce di chiusura. Si può spuntare solo se hai scelto una postazione.`],
+  'col-esatta': [`Squadra esatta`, `In un certo momento devono esserci <b>esattamente</b> il numero di persone indicato in quella postazione: né di meno, né di più (nelle altre fasce il numero è solo un minimo).<br><br><b>all'inizio</b>: esatto all'ora d'inizio della fascia. Es. aperture: alle 7:30 esattamente 1 McCafé e 1 MFY, nessun altro.<br><b>alla fine</b>: esatto all'ora di fine. Es. chiusure: alle 21:30 da lunedì a giovedì restano esattamente 1 McCafé, 1 Sala e 2 MFY (ven–dom 1, 2 e 3); se ne restano di più è un errore.<br><b>no</b>: il numero è solo un minimo.<br><br>Si può scegliere solo dopo aver scelto una <b>postazione</b> (con "Qualsiasi crew" il menu è grigio). Chi è in formazione può esserci in più.`],
+};
+/** Pulsante ⓘ: apre la spiegazione in una finestrella. */
+const ib = (key) => (INFO[key] ? `<button type="button" class="ib" title="Spiegazione" aria-label="Spiegazione" onclick="event.preventDefault();event.stopPropagation();showInfo('${key}')">i</button>` : '');
+function showInfo(key) { const [t, h] = INFO[key]; showModal(`<h3>ⓘ ${t}</h3><p style="line-height:1.55">${h}</p><div class="actions"><button class="btn primary" onclick="closeModal()">Ho capito</button></div>`); }
 function go(view) { ui.view = view; ui.deleteMode = false; ui.selected.clear(); render(); }
 // Telefono e tablet (schermo touch, senza mouse): solo il lineare e le richieste; il resto si fa dal PC.
 const COMPACT = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
@@ -755,8 +791,7 @@ function renderPrevisioni() {
     <button class="btn" onclick="copyFcPrev()">Copia dalla settimana precedente</button>
     <button class="btn" onclick="clearFc()">Svuota la settimana</button>
   </div>
-  <h2>Previsioni</h2>
-  <p class="muted">Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.</p>
+  <h2>Previsioni ${ib('previsioni')}</h2>
   <div class="card section">
     <table class="list" style="max-width:640px"><thead><tr><th>Giorno</th><th>Vendite previste (€)</th><th>GC</th><th>Crew Hours</th></tr></thead><tbody>${dayRows}</tbody></table>
     <div class="row small" style="margin-top:8px"><span class="muted">Scorciatoie:</span>
@@ -898,8 +933,7 @@ function renderFormazione() {
         ${e.trainee ? ` fino al <input type="date" value="${e.traineeUntil != null ? T.toIso(e.traineeUntil) : ''}" onchange="setTraineeUntil(${e.id},this.value)" title="Lascia vuoto se non sai quando finisce">` : ''}</td></tr>`).join('');
   }).join('');
   return `
-  <h2>Formazione</h2>
-  <p class="muted">Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="go('aperture');return false">Aperture</a>.</p>
+  <h2>Formazione ${ib('formazione')}</h2>
   <div class="notice warn" style="margin-bottom:10px"><b>🎓 In formazione</b>: chi sta ancora imparando non può fare apertura o chiusura da solo/a. In quelle fasce non conta per i minimi e deve avere accanto, nella stessa postazione, una persona già formata. Se metti la data "fino al", dal giorno dopo torna a contare normalmente.
     ${trainees.length ? `<div style="margin-top:6px">Ora in formazione: ${trainees.map((e) => `<b>${esc(T.fullName(e))}</b>${e.traineeUntil != null ? ` (fino al ${T.itDate(e.traineeUntil)}${e.traineeUntil < today ? ', finita' : ''})` : ''}`).join(', ')}</div>` : ''}</div>
   <p>Formati → ${counts}</p>
@@ -932,8 +966,7 @@ function renderAperture() {
       ${CLOSINGS.map((st) => box(e, 'closings', st)).join('')}</tr>`).join('');
   }).join('');
   return `
-  <h2>Aperture e chiusure</h2>
-  <p class="muted">Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.</p>
+  <h2>Aperture e chiusure ${ib('aperture')}</h2>
   <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la possono chiudere sia crew sia hospitality: se non segni nessuno, possono chiuderla tutti i crew formati in Sala e tutte le hospitality.<br>
   Chi è 🎓 in formazione non apre e non chiude mai da solo/a. In <b>apertura</b> (7:30) ci sono solo 2 persone: 1 McCafé e 1 MFY, niente hospitality.</div>
   <p>${pills}</p>
@@ -951,9 +984,7 @@ function renderDoppi() {
   const list = sortByName(state.employees.filter((e) => e.active));
   const tot = list.filter((e) => e.doubleDays > 0).length;
   return `
-  <h2>Doppi</h2>
-  <p class="muted">Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
-  I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica. <b>Chi apre</b> (turno delle 7:30) quel giorno non fa il doppio.</p>
+  <h2>Doppi ${ib('doppi')}</h2>
   <p><span class="pill on">Persone con doppi: ${tot}</span></p>
   <div class="card"><table class="list"><thead><tr><th>Dipendente</th><th>Ruolo</th><th>Giorni di doppio a settimana</th></tr></thead><tbody>
     ${list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${T.TYPES[e.type]}</td>
@@ -967,8 +998,7 @@ function renderFerie() {
   const list = [...state.absences].sort((a, b) => b.from - a.from);
   const today = T.toIso(T.todayDay());
   return `
-  <h2>Ferie e malattie</h2>
-  <p class="muted">Inserisci ferie, malattie, infortuni e assenze. In quei giorni la persona non può avere turni (il generatore non la usa) e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno). Una malattia o un infortunio in corso si può inserire anche a settimana già fatta: i suoi turni di quei giorni diventano errori da coprire (usa 🛠 Risolvi problemi).</p>
+  <h2>Ferie e malattie ${ib('ferie')}</h2>
   <div class="card section">
     <div class="form"><div class="row">
       <label class="f">Dipendente<select id="a-emp"><option value="">— scegli —</option>${sortByName(state.employees).map((e) => `<option value="${e.id}">${esc(T.fullName(e))}</option>`).join('')}</select></label>
@@ -1005,26 +1035,25 @@ function deleteAbsence(id) { state.absences = state.absences.filter((a) => a.id 
 // ================= REGOLE =================
 function renderRegole() {
   const c = state.config;
-  const field = (key, label) => `<label class="f">${label}<input type="text" id="cfg-${key}" value="${T.hoursText(c[key])}" style="width:110px"></label>`;
+  const field = (key, label) => `<label class="f"><span>${label} ${ib('cfg-' + key)}</span><input type="text" id="cfg-${key}" value="${T.hoursText(c[key])}" style="width:110px"></label>`;
   return `
   <h2>Regole</h2>
   <div class="card section">
     <div class="form">
       <div class="row">${field('crewMaxWeekday', 'Max ore turno Crew lun–gio (standard)')}${field('crewMax', 'Max ore turno Crew (turni lunghi e ven–dom)')}${field('hospMax', 'Max ore turno Hospitality')}${field('minShift', 'Turno minimo (ore)')}${field('rest11', 'Stacco tra giorni consecutivi (ore)')}${field('rest36', 'Stacco con riposo in mezzo (ore)')}</div>
-      <div class="row"><label class="f">Turni lunghi lun–gio a testa a settimana (a rotazione)<input type="number" min="0" max="4" id="cfg-longpw" value="${c.weekdayLongPerWeek ?? 1}" style="width:110px"></label></div>
+      <div class="row"><label class="f"><span>Turni lunghi lun–gio a testa a settimana (a rotazione) ${ib('cfg-longpw')}</span><input type="number" min="0" max="4" id="cfg-longpw" value="${c.weekdayLongPerWeek ?? 1}" style="width:110px"></label></div>
       <div class="row">${field('doubleMax', 'Durata massima doppio (ore)')}${field('doubleGap', 'Pausa minima turno–doppio (ore)')}${field('closeGrace', 'Ultimi minuti non controllati prima della chiusura (ore)')}${field('requestMargin', 'Richieste: fine turno prima di un impegno (ore)')}</div>
-      <div class="row"><label class="f">Post-rush pomeriggio: dalle${timeSelect(c.afternoonStart ?? 870, '').replace('<select', '<select id="cfg-aft0"')}</label><label class="f">alle${timeSelect(c.afternoonEnd ?? 1140, '').replace('<select', '<select id="cfg-aft1"')}</label>
-        <label class="f">Chi fa la cena entra dalle${timeSelect(c.dinnerPreStart ?? 990, '').replace('<select', '<select id="cfg-pre"')}</label>
-        <span class="small muted" style="align-self:end">Niente turni tutti nel post-rush (es. 14:30–19:30) né ibridi (es. 15:30–20:30): turni sfalsati che si agganciano ai rush (13:00–17:00 → 17:00–21:00). I turni oltre 4h devono coprire il picco del pranzo o della cena.</span></div>
-      <div class="row"><label class="f">Apertura locale${timeSelect(c.open, '').replace('<select', '<select id="cfg-open"')}</label><label class="f">Chiusura locale${timeSelect(c.close, '').replace('<select', '<select id="cfg-close"')}</label></div>
-      <div class="small muted">Il massimo del turno non comprende il doppio, che ha il suo limite. Si possono scrivere anche mezze ore: 4,5 oppure 4:30. Il generatore non mette turni fuori dall'orario del locale.</div>
+      <div class="row"><label class="f"><span>Post-rush pomeriggio: dalle ${ib('cfg-aft')}</span>${timeSelect(c.afternoonStart ?? 870, '').replace('<select', '<select id="cfg-aft0"')}</label><label class="f">alle${timeSelect(c.afternoonEnd ?? 1140, '').replace('<select', '<select id="cfg-aft1"')}</label>
+        <label class="f"><span>Chi fa la cena entra dalle ${ib('cfg-pre')}</span>${timeSelect(c.dinnerPreStart ?? 990, '').replace('<select', '<select id="cfg-pre"')}</label>
+</div>
+      <div class="row"><label class="f"><span>Apertura locale ${ib('cfg-orario')}</span>${timeSelect(c.open, '').replace('<select', '<select id="cfg-open"')}</label><label class="f">Chiusura locale${timeSelect(c.close, '').replace('<select', '<select id="cfg-close"')}</label></div>
+      <div class="small muted">Si possono scrivere anche mezze ore: 4,5 oppure 4:30. Tocca ⓘ per la spiegazione di ogni regola.</div>
       <div id="cfg-error" class="notice err" style="display:none"></div>
       <div><button class="btn primary" onclick="saveConfig()">Salva regole</button></div>
     </div>
   </div>
-  <h2>Fasce di copertura</h2>
-  <p class="muted">Numero minimo di persone presenti per tutta la durata della fascia, giorno per giorno (0 = nessun minimo). Nei giorni con le Crew Hours (sezione Previsioni), i minimi delle fasce senza postazione (rush, picchi, intermedi) vengono ricavati dalle Crew Hours. I valori iniziali vengono dagli orari reali delle settimane 39–44. Contano crew e hospitality messe in una postazione crew (non quelle in sala). Con una postazione indicata contano solo i presenti in quella postazione; con "Solo formati apertura" solo chi è segnato nella sezione Aperture.</p>
-  <div class="card"><table class="list"><thead><tr><th>Nome</th><th>Dalle</th><th>Alle</th><th>Minimo crew per giorno (Lun → Dom)</th><th>Postazione</th><th>Solo formati apertura</th><th>Solo formati chiusura</th><th title="In quel momento devono esserci esattamente questi, nessun altro">Squadra esatta</th><th></th></tr></thead><tbody>
+  <h2>Fasce di copertura ${ib('fasce')}</h2>
+  <div class="card"><table class="list"><thead><tr><th>Nome ${ib('col-nome')}</th><th>Dalle</th><th>Alle</th><th>Minimo crew per giorno (Lun → Dom) ${ib('col-min')}</th><th>Postazione ${ib('col-post')}</th><th>Solo formati apertura ${ib('col-ap')}</th><th>Solo formati chiusura ${ib('col-ch')}</th><th>Squadra esatta ${ib('col-esatta')}</th><th></th></tr></thead><tbody>
     ${state.coverage.map((r, i) => `<tr>
       <td><input type="text" value="${esc(r.name)}" onchange="state.coverage[${i}].name=this.value;save()"></td>
       <td>${timeSelect(r.start, `state.coverage[${i}].start=+this.value;save()`)}</td>
@@ -1721,8 +1750,7 @@ function renderRichieste() {
   };
   const people = sortByName(state.employees.filter((e) => e.active));
   return `
-  <h2>Richieste del personale</h2>
-  <p class="muted">I dipendenti, dall'app del personale (con il loro nome utente e password), chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.</p>
+  <h2>Richieste del personale ${ib('richieste')}</h2>
   ${!logged ? '<div class="notice warn">Per ricevere le richieste serve il salvataggio online: accedi in Regole → Dati.</div>'
     : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>`
     : `${ntfyBox()}<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
