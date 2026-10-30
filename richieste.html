@@ -60,8 +60,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301449"></script>
-<script src="turni-cripto.js?v=202610301449"></script>
+<script src="turni-cloud-config.js?v=202610301619"></script>
+<script src="turni-cripto.js?v=202610301619"></script>
 <script>
 'use strict';
 /*
@@ -217,7 +217,8 @@ function weekCard(w, open) {
   const days = w.days.map((x) => { const l = dLabel(x.d);
     return `<div class="day ${x.d === t ? 'today' : ''}"><div><div class="dn">${l.dn}${x.d === t ? ' · oggi' : ''}</div><div class="dd">${l.dd}</div></div><div>
       ${x.sh.length ? x.sh.map((s) => `<div class="sh">${fmt(s.a)}–${fmt(s.b)}<span class="ar ar-${s.st}">${AREA[s.st] || s.st}</span>${s.dbl ? ' <span class="muted">(doppio)</span>' : ''}</div>`).join('') : `<div class="off">${esc(x.tag || 'Libero')}</div>`}
-      ${x.note ? `<div class="muted">${esc(x.note)}</div>` : ''}</div></div>`; }).join('');
+      ${x.note ? `<div class="muted">${esc(x.note)}</div>` : ''}
+      ${x.mod ? `<div style="color:#8a6100;font-size:14px;font-weight:600">✏️ Turno modificato dal manager (${new Date(x.mod).toLocaleString('it-IT', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })})</div>` : ''}</div></div>`; }).join('');
   const head = `<h2>Settimana ${wkLabel(w.ws)}</h2><div class="muted">Ore: <b>${dur(w.hours)}</b>${w.target ? ` su ${dur(w.target)} da contratto` : ''} · pubblicata il ${new Date(w.at).toLocaleDateString('it-IT')}</div>
     ${w.note ? `<div class="notice info" style="margin:10px 0 0">📌 ${esc(w.note)}</div>` : ''}`;
   return open ? `<div class="card wk">${head}<div style="margin-top:8px">${days}</div></div>`

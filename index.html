@@ -123,6 +123,19 @@
     table.acc td:first-child { display: block; }
     table.acc td:last-child { display: block; text-align: left !important; margin-top: 6px; }
   }
+  /* ---- giornaliero: modifica trascinando (tablet) ---- */
+  .sheet.editing .lrow:not(.lhead):not(.lcount) { min-height: 38px; }
+  .sheet.editing .lrow:not(.lhead):not(.lcount) > div { font-size: 13px; }
+  .lbar.drag { top: 4px; bottom: 4px; cursor: grab; touch-action: none; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+  .lbar.drag .hl, .lbar.drag .hr { position: absolute; top: 0; bottom: 0; width: 16px; cursor: ew-resize; }
+  .lbar.drag .hl { left: -4px; } .lbar.drag .hr { right: -4px; }
+  .lbar.drag .hl::after, .lbar.drag .hr::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 6px; width: 3px; border-radius: 2px; background: rgba(255,255,255,.85); }
+  .lbar.dragging { opacity: .85; outline: 2px solid #111; z-index: 3; cursor: grabbing; }
+  .lsec.droptarget h4 { outline: 3px solid #111; }
+  .dragtip { position: fixed; z-index: 30; background: #111; color: #fff; font-weight: 700; font-size: 14px; padding: 4px 10px; border-radius: 8px; pointer-events: none; transform: translate(-50%, -130%); white-space: nowrap; }
+  #toast .bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 25; background: #1d1d1f; color: #fff; border-radius: 14px; padding: 10px 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; box-shadow: 0 10px 30px rgba(0,0,0,.3); max-width: calc(100vw - 24px); font-size: 14px; }
+  #toast .bar button { font: inherit; font-weight: 700; border: 0; border-radius: 9px; padding: 7px 12px; cursor: pointer; background: #fff; color: #111; }
+  #toast .bar button.go { background: var(--yellow); }
   .sync { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
   .sync button { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .sync button.bad { background: #fde68a; color: #7c2d12; }
@@ -245,15 +258,16 @@
 </header>
 <main id="app"></main>
 <div id="modal"></div>
+<div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610301449"></script>
-<script src="turni-core.js?v=202610301449"></script>
+<script src="turni-storico.js?v=202610301619"></script>
+<script src="turni-core.js?v=202610301619"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301449"></script>
-<script src="turni-cloud-config.js?v=202610301449"></script>
-<script src="turni-cloud.js?v=202610301449"></script>
-<script src="turni-cripto.js?v=202610301449"></script>
+<script src="turni-data.js?v=202610301619"></script>
+<script src="turni-cloud-config.js?v=202610301619"></script>
+<script src="turni-cloud.js?v=202610301619"></script>
+<script src="turni-cripto.js?v=202610301619"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -610,22 +624,28 @@ function renderGiornaliero() {
     ['Crew', day_.filter((s) => !s.doppio && typeOf(s) === 'CREW')],
     ['Doppi turni', day_.filter((s) => s.doppio)],
   ];
+  const editing = !!ui.dragEdit, byArea = ui.groupBy === 'area';
+  if (editing) day_.forEach((s) => { if (s.id == null) s.id = newId(); });
+  // vista per area: una fascia per postazione (trascinando una barra in un'altra fascia si cambia area)
+  const AREAS = [['CUCINA', 'MFY (cucina)'], ['FRONT', 'OA (front)'], ['MCCAFE', 'McCafé'], ['SERVIZIO', 'Sala'], ['HOSPITALITY', 'Hospitality']];
+  const shown = byArea ? AREAS.map(([st, t]) => [t, day_.filter((s) => s.station === st), st]) : sections;
   const vs = T.validate(ctx).filter((v) => v.day === day);
   const bad = new Set(vs.filter((v) => v.emp != null).map((v) => v.emp));
   const row = (s) => {
     const e = ctx.byId.get(s.employeeId);
     const lim = T.limitOf(ctx, e.id, day);
     const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}${lim ? ` · richiesta accettata: ${lim.label}` : ''}`;
-    return `<div class="lrow click" onclick="openDay(${e.id},${day})" title="${esc(tip)}">
+    return `<div class="lrow ${editing ? '' : 'click'}" ${editing ? '' : `onclick="openDay(${e.id},${day})"`} title="${esc(tip)}">
       <div class="lpos">${T.STATIONS[s.station].short}</div>
       <div class="lname">${bad.has(e.id) ? '<span style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
-      <div class="ltime">${T.fmtTime(s.start)}</div><div class="ltime">${T.fmtTime(s.end)}</div>
-      <div class="ltrack" style="--hw:${hw}"><div class="lbar st-${s.station}" style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%"></div></div>
+      <div class="ltime" data-t="a">${T.fmtTime(s.start)}</div><div class="ltime" data-t="b">${T.fmtTime(s.end)}</div>
+      <div class="ltrack" style="--hw:${hw}"><div class="lbar st-${s.station}${editing ? ' drag' : ''}" ${editing ? `data-sid="${s.id}" onpointerdown="dragStart(event)"` : ''} style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%">${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div>
     </div>`;
   };
   const head = `<div class="lrow lhead"><div class="lpos">Post.</div><div class="lname">Nome</div><div class="ltime">Dalle</div><div class="ltime">Alle</div>
     <div class="ltrack" style="--hw:${hw}">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60 + 30)}">${h}</span>`).join('')}</div></div>`;
-  const body = sections.map(([title, list]) => `<div class="lsec"><h4>${title} (${list.length})</h4>${head}${
+  ui.dragGeo = { H0, span };
+  const body = shown.map(([title, list, st]) => `<div class="lsec" ${st ? `data-st="${st}"` : ''}><h4>${title} (${list.length})</h4>${head}${
     list.sort((a, b) => a.start - b.start || a.end - b.end).map(row).join('') || '<div class="lrow"><div></div><div class="lname muted">nessuno</div></div>'}</div>`).join('');
 
   // ore per fascia oraria (persone × ore) come nel lineare
@@ -655,15 +675,18 @@ function renderGiornaliero() {
     <button class="btn" onclick="moveDay(1)">▶</button>
     <button class="btn" onclick="ui.day=T.todayDay();render()">Oggi</button>
     <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
+    <div class="seg"><button class="${byArea ? '' : 'on'}" onclick="ui.groupBy='ruolo';render()">Per ruolo</button><button class="${byArea ? 'on' : ''}" onclick="ui.groupBy='area';render()">Per area</button></div>
+    <button class="btn ${editing ? 'primary' : ''}" onclick="ui.dragEdit=!ui.dragEdit;render()" title="Sposta e allunga i turni trascinandoli (anche con il dito sul tablet)">${editing ? '✓ Fine modifica' : '✋ Modifica trascinando'}</button>
     <div class="spacer"></div>
     <button class="btn" onclick="ui.ws=T.mondayOf(ui.day);go('turni')">Vai alla settimana</button>
     <button class="btn primary" onclick="window.print()">🖨 Stampa</button>
   </div>
   <div class="daily">
-    <div class="card sheet">
+    <div class="card sheet ${editing ? 'editing' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>LINEARE GIORNALIERO</b><span><b>${T.DOW_LONG[T.dow(day)]}</b> ${T.itDate(day)}</span></div>
       ${body}${counts}
       <div class="legend" style="margin-top:10px">${legend}</div>
+      ${editing ? `<p class="notice info no-print" style="margin:10px 0 0">✋ <b>Modifica trascinando:</b> trascina una barra per spostare il turno, i suoi bordi per allungarlo o accorciarlo (a scatti di 15 minuti)${byArea ? ', oppure in un\'altra fascia per cambiare area' : ' (con "Per area" puoi anche cambiare area)'}. Tocca una barra senza trascinare per aprire il turno.</p>` : ''}
       <p class="small muted no-print">Clicca una riga per modificare il turno. I numeri in fondo sono le ore lavorate in ogni fascia oraria (es. 2 persone per mezz'ora = 1).</p>
     </div>
     <div class="dayside">
@@ -1271,6 +1294,89 @@ setInterval(() => {
   if (document.visibilityState === 'visible' && !modalOpen() && !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) cloudPull().then(() => checkInbox(true));
 }, 60000);
 
+// ================= GIORNALIERO: MODIFICA TRASCINANDO (tablet, dito o mouse) =================
+let drag = null;
+const SNAP = 15;
+function dragStart(ev) {
+  const bar = ev.currentTarget, sid = +bar.dataset.sid, s = state.shifts.find((x) => x.id === sid);
+  if (!s) return;
+  ev.preventDefault(); bar.setPointerCapture(ev.pointerId);
+  const track = bar.parentElement, row = track.parentElement;
+  const mode = ev.target.classList.contains('hl') ? 'left' : ev.target.classList.contains('hr') ? 'right' : 'move';
+  drag = { s, bar, row, mode, x0: ev.clientX, y0: ev.clientY, a: s.start, b: s.end, st: s.station, moved: false,
+    pxPerMin: track.getBoundingClientRect().width / ui.dragGeo.span, tip: document.createElement('div'), target: null };
+  drag.tip.className = 'dragtip'; document.body.appendChild(drag.tip);
+  bar.classList.add('dragging');
+  bar.addEventListener('pointermove', dragMove); bar.addEventListener('pointerup', dragEnd); bar.addEventListener('pointercancel', dragEnd);
+  dragMove(ev);
+}
+function dragMove(ev) {
+  if (!drag) return;
+  const cfg = state.config, OPEN = cfg.open ?? 450, CLOSE = cfg.close ?? 1290;
+  const dx = ev.clientX - drag.x0, dy = ev.clientY - drag.y0;
+  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.moved = true;
+  const dm = Math.round(dx / drag.pxPerMin / SNAP) * SNAP, len = drag.s.end - drag.s.start;
+  let a = drag.s.start, b = drag.s.end;
+  if (drag.mode === 'move') { a = Math.min(Math.max(OPEN, drag.s.start + dm), CLOSE - len); b = a + len; }
+  if (drag.mode === 'left') a = Math.min(Math.max(OPEN, drag.s.start + dm), drag.s.end - 30);
+  if (drag.mode === 'right') b = Math.max(Math.min(CLOSE, drag.s.end + dm), drag.s.start + 30);
+  drag.a = a; drag.b = b;
+  const { H0, span } = ui.dragGeo;
+  drag.bar.style.left = (((a - H0 * 60) / span) * 100).toFixed(3) + '%';
+  drag.bar.style.width = (((b - a) / span) * 100).toFixed(3) + '%';
+  const ta = drag.row.querySelector('[data-t="a"]'), tb = drag.row.querySelector('[data-t="b"]');
+  if (ta) ta.textContent = T.fmtTime(a); if (tb) tb.textContent = T.fmtTime(b);
+  // vicino al bordo alto/basso dello schermo la pagina scorre da sola (per raggiungere le altre fasce)
+  if (drag.mode === 'move' && ui.groupBy === 'area') {
+    const edge = 70;
+    if (ev.clientY > window.innerHeight - edge) window.scrollBy(0, 18); else if (ev.clientY < edge) window.scrollBy(0, -18);
+  }
+  // cambio area: trascinando su un'altra fascia (vista per area)
+  document.querySelectorAll('.lsec.droptarget').forEach((x) => x.classList.remove('droptarget'));
+  drag.target = null;
+  if (drag.mode === 'move' && ui.groupBy === 'area' && Math.abs(dy) > 20) {
+    const el = document.elementFromPoint(ev.clientX, ev.clientY), sec = el && el.closest('.lsec[data-st]');
+    if (sec && sec.dataset.st !== drag.s.station) { sec.classList.add('droptarget'); drag.target = sec.dataset.st; }
+  }
+  drag.tip.textContent = `${T.fmtTime(a)}–${T.fmtTime(b)}${drag.target ? ' → ' + T.STATIONS[drag.target].short : ''}`;
+  drag.tip.style.left = ev.clientX + 'px'; drag.tip.style.top = ev.clientY + 'px';
+}
+function dragEnd() {
+  if (!drag) return;
+  const d = drag; drag = null;
+  d.tip.remove(); d.bar.classList.remove('dragging');
+  document.querySelectorAll('.lsec.droptarget').forEach((x) => x.classList.remove('droptarget'));
+  const s = d.s;
+  if (!d.moved) return openDay(s.employeeId, s.day); // tocco senza trascinare: apre il turno
+  const st = d.target || s.station;
+  if (d.a === s.start && d.b === s.end && st === s.station) return render();
+  const before = { start: s.start, end: s.end, station: s.station };
+  s.start = d.a; s.end = d.b; s.station = st;
+  save(); render();
+  shiftToast(s, before);
+}
+/** Barra in basso dopo una modifica: annulla, e (se la settimana è pubblicata) aggiorna subito l'app del dipendente. */
+function shiftToast(s, before) {
+  const e = empById(s.employeeId), ws = T.mondayOf(s.day);
+  const published = pubOf(ws) && state.reqCreds[s.employeeId] && TurniCloud.loggedIn();
+  const txt = `${esc(T.fullName(e))}: ${T.fmtTime(before.start)}–${T.fmtTime(before.end)} → <b>${T.fmtTime(s.start)}–${T.fmtTime(s.end)}</b>${before.station !== s.station ? ` · ${T.STATIONS[s.station].short}` : ''}`;
+  ui.toastUndo = () => { Object.assign(s, before); save(); render(); hideToast(); };
+  ui.toastNotify = () => notifyShiftChange(s);
+  document.getElementById('toast').innerHTML = `<div class="bar"><span>${txt}</span><button onclick="ui.toastUndo()">↩︎ Annulla</button>${published ? `<button class="go" onclick="ui.toastNotify()">📲 Aggiorna l'app di ${esc(e.firstName || T.fullName(e))}</button>` : ''}<button onclick="hideToast()" aria-label="chiudi">✕</button></div>`;
+  clearTimeout(ui.toastTimer); ui.toastTimer = setTimeout(hideToast, 20000);
+}
+function hideToast() { document.getElementById('toast').innerHTML = ''; }
+/** La modifica arriva subito nell'app del dipendente (solo per lui), con la scritta "turno modificato dal manager". */
+async function notifyShiftChange(s) {
+  const ws = T.mondayOf(s.day), w = pubOf(ws); if (!w) return;
+  w.emp[s.employeeId] = weekSnapshot(ws)[s.employeeId];
+  w.marks = w.marks || {}; w.marks[s.employeeId + '|' + s.day] = new Date().toISOString();
+  save(); render();
+  const r = await pushOrari([s.employeeId]);
+  document.getElementById('toast').innerHTML = `<div class="bar"><span>${r.ok ? '✅ Aggiornato: lo vede nell\'app (scheda I miei turni).' : '⚠️ Invio non riuscito (connessione?): riprova.'}</span><button onclick="hideToast()">OK</button></div>`;
+  clearTimeout(ui.toastTimer); ui.toastTimer = setTimeout(hideToast, 6000);
+}
+
 // ================= ORARIO PUBBLICATO PER IL PERSONALE =================
 // "Pubblica settimana": si fissa una copia dell'orario della settimana (quella che vedono i dipendenti) e per ogni
 // dipendente con un accesso si manda online il suo orario, cifrato con la sua chiave personale (nome utente + password).
@@ -1327,7 +1433,8 @@ async function pushOrari(ids) {
   const weeks = Object.entries(state.publishedWeeks || {}).map(([k, w]) => [+k, w]).sort((a, b) => b[0] - a[0]).slice(0, 12);
   for (const e of state.employees.filter((x) => x.active && state.reqCreds[x.id] && (!ids || ids.includes(x.id)))) {
     const c = state.reqCreds[e.id];
-    const mine = weeks.filter(([, w]) => w.emp[e.id]).map(([ws, w]) => ({ ws, at: w.at, note: w.note || '', ...w.emp[e.id] }));
+    const mine = weeks.filter(([, w]) => w.emp[e.id]).map(([ws, w]) => ({ ws, at: w.at, note: w.note || '', ...w.emp[e.id],
+      days: w.emp[e.id].days.map((x) => ((w.marks || {})[e.id + '|' + x.d] ? { ...x, mod: w.marks[e.id + '|' + x.d] } : x)) }));
     // le sue richieste con lo stato: così le vede da qualunque telefono o browser entri
     const reqs = (state.requests || []).filter((q) => q.employeeId === e.id).sort((a, b) => b.day - a.day).slice(0, 30)
       .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
