@@ -246,14 +246,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301432"></script>
-<script src="turni-core.js?v=202610301432"></script>
+<script src="turni-storico.js?v=202610301440"></script>
+<script src="turni-core.js?v=202610301440"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301432"></script>
-<script src="turni-cloud-config.js?v=202610301432"></script>
-<script src="turni-cloud.js?v=202610301432"></script>
-<script src="turni-cripto.js?v=202610301432"></script>
+<script src="turni-data.js?v=202610301440"></script>
+<script src="turni-cloud-config.js?v=202610301440"></script>
+<script src="turni-cloud.js?v=202610301440"></script>
+<script src="turni-cripto.js?v=202610301440"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -780,9 +780,9 @@ function accessBox(e) {
   const c = state.reqCreds[e.id];
   if (!c) return `<div class="shiftbox">${head}<div class="small muted" style="margin-bottom:6px">Non ha ancora l'accesso.</div><div><button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button></div></div>`;
   return `<div class="shiftbox">${head}
-    <div>Nome utente: <code>${esc(c.user)}</code> · Password: <code>${esc(c.pw)}</code></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="shareAccess(${e.id})">📤 Invia le credenziali</button><button class="btn" onclick="if(confirm('Creare una password nuova per ${esc(T.fullName(e))}? Quella vecchia smette subito di funzionare.'))makeAccess(${e.id})">🔑 Nuova password</button></div>
-    <div class="small muted">Se l'ha dimenticata o l'ha data a qualcun altro, crea una password nuova e mandagliela.</div></div>`;
+    <div>Nome utente: <code>${esc(c.user)}</code> · Password: ${c.changed ? '<span class="muted">cambiata dal dipendente (non la conosci)</span>' : `<code>${esc(c.pw)}</code>`}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${c.changed ? '' : `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia le credenziali</button>`}<button class="btn" onclick="if(confirm('Creare una password nuova per ${esc(T.fullName(e))}? Quella vecchia smette subito di funzionare.'))makeAccess(${e.id})">🔑 Nuova password</button></div>
+    <div class="small muted">Il dipendente può cambiarsi la password da solo dall'app. Se l'ha dimenticata o l'ha data a qualcun altro, crea una password nuova e mandagliela.</div></div>`;
 }
 function editEmployee(id) {
   const e = id ? empById(id) : { id: null, lastName: '', firstName: '', type: 'CREW', weeklyMinutes: 1080, restDays: [], trainings: [], active: true, fixedShift: null, doubleDays: 0 };
@@ -1331,9 +1331,9 @@ async function pushOrari(ids) {
     // le sue richieste con lo stato: così le vede da qualunque telefono o browser entri
     const reqs = (state.requests || []).filter((q) => q.employeeId === e.id).sort((a, b) => b.day - a.day).slice(0, 30)
       .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
+    if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
-      const key = await TurniCripto.personalKey(TurniCloud.uid(), c.user, c.pw);
-      await TurniCloud.setOrario(c.code, await TurniCripto.sealWith(key, { nome: e.firstName || '', weeks: mine, requests: reqs }));
+      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs }));
       res.ok++;
     } catch (err) { res.fail++; }
   }
@@ -1368,6 +1368,8 @@ async function checkInbox(notify) {
     if (state.loginPublished !== me) { await TurniCloud.setStoreInfo({ login: me }); state.loginPublished = me; save(); }
     // una volta sola dopo l'aggiornamento: ogni dipendente riceve l'elenco delle sue richieste con lo stato
     if (!state.reqListPushed) { await pushOrari(); state.reqListPushed = true; save(); }
+    await upgradeCreds();
+    if (!ui.credsChecked) { ui.credsChecked = true; checkChangedPasswords(); }
     const list = await TurniCloud.listRequests();
     const known = new Set((state.requests || []).map((q) => q.rid));
     const fresh = [];
@@ -1439,15 +1441,29 @@ async function enableRequests() {
   } catch (e) { alert('Attivazione non riuscita: ' + e.message); }
 }
 /** Crea (o rinnova) nome utente e password di un dipendente. La password vecchia smette di funzionare. */
+/*
+ * Ogni dipendente ha una "chiave dei turni" fissa (k) e un indirizzo fisso del suo orario (oid). Nell'accesso online
+ * la chiave è custodita sotto la sua password (kw): così può cambiarsi la password da solo senza che il manager la conosca,
+ * e il manager continua a pubblicargli l'orario con la stessa chiave.
+ */
+const randB64 = (n) => btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(n))));
+const randId = () => Array.from(crypto.getRandomValues(new Uint8Array(18)), (b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+async function accessFields(e, user, pw, k, oid) {
+  const w = await TurniCripto.sealWith(await TurniCripto.personalKey(TurniCloud.uid(), user, pw), { k });
+  return { emp: String(e.id), nome: e.firstName || '', kw: w.box, kiv: w.iv, oid };
+}
 async function makeAccess(id, quiet) {
   const e = empById(id); if (!e) return false;
   const old = state.reqCreds[id];
   const user = old ? old.user : newUser(e), pw = newPassword();
+  const k = (old && old.k) || randB64(32), oid = (old && old.oid) || randId();
   try {
     const code = await TurniCripto.codeHash(TurniCloud.uid(), user, pw);
-    await TurniCloud.setAccess(code, e.id, e.firstName || '');
-    if (old && old.code) { await TurniCloud.deleteAccess(old.code); await TurniCloud.deleteOrario(old.code); }
-    state.reqCreds[id] = { user, pw, code }; save();
+    await TurniCloud.setAccess(code, await accessFields(e, user, pw, k, oid));
+    // via tutti gli altri accessi di questa persona (anche quelli nuovi creati da lei cambiando password)
+    for (const a of await TurniCloud.listAccess()) if (String(a.emp) === String(e.id) && a.code !== code) await TurniCloud.deleteAccess(a.code);
+    if (old && !old.oid && old.code) await TurniCloud.deleteOrario(old.code); // vecchio formato
+    state.reqCreds[id] = { user, pw, code, k, oid }; save();
     pushOrari([id]).catch(() => null); // con la password nuova serve di nuovo il suo orario pubblicato
     if (!quiet) { render(); shareAccess(id); }
     return true;
@@ -1465,11 +1481,34 @@ async function share(title, text) {
     <textarea id="lnk" style="width:100%;min-height:130px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px" readonly>${esc(text)}</textarea>
     <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="copyLink()">Copia</button></div>`);
 }
+/** Accessi creati prima del cambio password in autonomia: si aggiungono chiave fissa e indirizzo dell'orario (stessa password). */
+async function upgradeCreds() {
+  const todo = Object.entries(state.reqCreds).filter(([, c]) => !c.k || !c.oid);
+  for (const [id, c] of todo) {
+    const e = empById(+id); if (!e) continue;
+    const k = randB64(32), oid = randId();
+    try {
+      await TurniCloud.setAccess(c.code, await accessFields(e, c.user, c.pw, k, oid));
+      await TurniCloud.deleteOrario(c.code);
+      state.reqCreds[id] = { ...c, k, oid }; save();
+      await pushOrari([+id]);
+    } catch (err) { /* riprova al prossimo controllo */ }
+  }
+}
+/** Chi ha cambiato la password da solo: quella che conosce il manager non funziona più (si mostra "cambiata dal dipendente"). */
+async function checkChangedPasswords() {
+  let changed = false;
+  for (const [id, c] of Object.entries(state.reqCreds)) {
+    try { const gone = !(await TurniCloud.accessExists(c.code)); if (!!c.changed !== gone) { c.changed = gone; changed = true; } } catch (e) { /* senza rete */ }
+  }
+  if (changed) { save(); if (!modalOpen()) render(); }
+}
 /** Messaggio unico per tutti (es. gruppo WhatsApp): link dell'app, senza credenziali. */
 const shareAppLink = () => share('Link dell\'app per il personale', `Ciao a tutti! Da quest'app potete chiedere un turno compatibile con i vostri impegni (concerti, università, allenamenti…).\nScaricatela da qui: ${appLink()}\nAprite il link nel browser del telefono (non dentro WhatsApp): la pagina vi spiega come installare l'app, per qualsiasi telefono e browser.\nNome utente e password ve li mando in privato.`);
 /** Credenziali personali (in privato). */
 function shareAccess(id) {
   const e = empById(id), c = state.reqCreds[id];
+  if (c.changed) return alert(`${T.fullName(e)} ha cambiato la password da solo/a: non la conosci. Se l'ha dimenticata, premi "Nuova password".`);
   share(`Accesso di ${T.fullName(e)}`, `Ciao ${e.firstName || ''}! Ecco i tuoi dati per l'app dei turni:\nNome utente: ${c.user}\nPassword: ${c.pw}\nApp: ${appLink()}\nSono personali: non darli a nessuno.`);
 }
 function copyLink() { const t = document.getElementById('lnk'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); } closeModal(); }
@@ -1535,8 +1574,8 @@ function renderRichieste() {
     <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
   <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
   <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
-    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? `<code>${esc(c.pw)}</code>` : ''}</td>
-      <td style="text-align:right;white-space:nowrap">${c ? `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> <button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
+    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? (c.changed ? '<span class="muted small">cambiata dal dipendente</span>' : `<code>${esc(c.pw)}</code>`) : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${c ? `${c.changed ? '' : `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> `}<button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
   </tbody></table></div>` : ''}`;
 }
 function askAccept(id) {
