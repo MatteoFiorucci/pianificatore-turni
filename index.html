@@ -228,14 +228,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301207"></script>
-<script src="turni-core.js?v=202610301207"></script>
+<script src="turni-storico.js?v=202610301221"></script>
+<script src="turni-core.js?v=202610301221"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301207"></script>
-<script src="turni-cloud-config.js?v=202610301207"></script>
-<script src="turni-cloud.js?v=202610301207"></script>
-<script src="turni-cripto.js?v=202610301207"></script>
+<script src="turni-data.js?v=202610301221"></script>
+<script src="turni-cloud-config.js?v=202610301221"></script>
+<script src="turni-cloud.js?v=202610301221"></script>
+<script src="turni-cripto.js?v=202610301221"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1177,8 +1177,11 @@ setInterval(() => {
 // ================= RICHIESTE DEL PERSONALE =================
 // I dipendenti inviano richieste dal loro link personale (richieste.html): arrivano cifrate, le apre solo il manager.
 // Niente va nei turni finché il manager non accetta. Le accettate diventano vincoli per il generatore.
-const KIND_TXT = (q) => q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
-const LIMIT_TXT = (q) => q.kind === 'libero' ? 'giorno libero' : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
+const DAYS_IT = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
+const SLOTS_TXT = (q) => (q.slots || []).map((x) => `${DAYS_IT[x.d]} ${T.fmtTime(x.a)}–${T.fmtTime(x.b)}`).join(', ');
+const PERIOD_TXT = (q) => `dal ${T.itDate(q.day)}${q.to != null ? ` al ${T.itDate(q.to)}` : ' (senza data di fine)'}`;
+const KIND_TXT = (q) => q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
+const LIMIT_TXT = (q) => q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
 const reqLink = (e) => {
   const base = location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/');
   return `${base}richieste.html#s=${TurniCloud.uid()}&e=${e.id}&p=${state.reqCodes[e.id]}&n=${encodeURIComponent(e.firstName || '')}`;
@@ -1202,6 +1205,11 @@ async function checkInbox(notify) {
       const q = { id: newId(), rid: d.rid, employeeId: e.id, day, kind: x.kind, note: String(x.note || '').slice(0, 300), status: 'in attesa', createdAt: d.createdAt };
       if (x.kind === 'impegno') { q.time = +x.time; q.until = Math.max(0, q.time - margin); }
       if (x.kind === 'dalle') q.from = +x.from;
+      if (x.kind === 'fisso') {
+        q.slots = (Array.isArray(x.slots) ? x.slots : []).map((y) => ({ d: +y.d, a: +y.a, b: +y.b })).filter((y) => y.d >= 1 && y.d <= 7 && y.b > y.a).slice(0, 14);
+        q.to = x.to ? T.toDay(x.to) : null;
+        if (!q.slots.length) continue;
+      }
       fresh.push(q);
     }
     if (fresh.length) {
@@ -1213,7 +1221,7 @@ async function checkInbox(notify) {
   } catch (e) { return 0; } finally { inboxBusy = false; }
 }
 function notifyRequests(fresh) {
-  const txt = fresh.map((q) => `${T.fullName(empById(q.employeeId))} · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${KIND_TXT(q)}`);
+  const txt = fresh.map((q) => `${T.fullName(empById(q.employeeId))} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}: ${KIND_TXT(q)}`);
   try { if (window.Notification && Notification.permission === 'granted') new Notification('📩 Nuove richieste turni', { body: txt.join('\n') }); } catch (e) { /* niente */ }
   if (!modalOpen()) showModal(`<h3>📩 ${fresh.length === 1 ? 'Nuova richiesta' : fresh.length + ' nuove richieste'} dal personale</h3>
     <ul style="padding-left:18px">${txt.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
@@ -1264,11 +1272,14 @@ function renderRichieste() {
   const logged = TurniCloud.loggedIn();
   const reqs = state.requests || [];
   const pend = reqs.filter((q) => q.status === 'in attesa').sort((a, b) => a.day - b.day);
-  const done = reqs.filter((q) => q.status !== 'in attesa').sort((a, b) => b.day - a.day).slice(0, 40);
+  const done = reqs.filter((q) => q.status !== 'in attesa').sort((a, b) => b.day - a.day).slice(0, 60);
   const card = (q) => {
     const e = empById(q.employeeId), name = e ? T.fullName(e) : '?';
     let prop = '';
-    if (q.status === 'in attesa' && q.kind !== 'libero') {
+    if (q.status === 'in attesa' && q.kind === 'fisso') {
+      const c = fixedConflicts(q);
+      prop = `<div class="prop">${c.length ? `⚠️ Turni già pianificati non compatibili (${c.length}): ${c.slice(0, 6).map((x) => `${T.shortDate(x.day)} ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`).join(', ')}${c.length > 6 ? '…' : ''}<br><span class="muted">Se accetti, li vedrai come errori: si sistemano con 🛠 Risolvi problemi o rigenerando quelle settimane.</span>` : '✅ Nessun turno già pianificato va in conflitto. Le prossime settimane, "Genera turni" ne terrà conto.'}</div>`;
+    } else if (q.status === 'in attesa' && q.kind !== 'libero') {
       const p = proposalOf(q);
       const cur = p.current.filter((x) => !x.doppio);
       prop = `<div class="prop">${cur.length ? `Turno attuale: <b>${cur.map(shiftTxt).join(', ')}</b> ${p.currentOk ? '✅ già compatibile' : '⚠️ non compatibile'}<br>` : ''}
@@ -1277,12 +1288,12 @@ function renderRichieste() {
     }
     const st = q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : q.status === 'rifiutata' ? '<span class="chip err">Rifiutata</span>' : '<span class="chip warn">In attesa</span>';
     return `<div class="card reqcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div>
-      <div class="when">${esc(name)} · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}</div>
+      <div class="when">${esc(name)} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}</div>
       <div>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.note ? ` <span class="muted">· "${esc(q.note)}"</span>` : ''}</div>
       ${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</div>${st}</div>
       ${prop}
       ${q.status === 'in attesa' ? `<div class="row" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="askAccept(${q.id})">✓ Accetta / modifica</button><button class="btn" onclick="askReject(${q.id})">✕ Rifiuta</button></div>`
-        : `<div style="margin-top:8px"><button class="link" onclick="reopenRequest(${q.id})">Rimetti in attesa</button></div>`}
+        : `<div style="margin-top:8px;display:flex;gap:16px"><button class="link" onclick="reopenRequest(${q.id})">Rimetti in attesa</button><button class="link" style="color:var(--err-ink)" onclick="deleteRequests([${q.id}])">🗑 Elimina</button></div>`}
     </div>`;
   };
   const people = sortByName(state.employees.filter((e) => e.active));
@@ -1295,7 +1306,9 @@ function renderRichieste() {
         ${window.Notification && Notification.permission !== 'granted' ? '<button class="btn" onclick="Notification.requestPermission().then(()=>render())">🔔 Avvisami anche con le notifiche del browser</button>' : ''}</div>`}
   <h3 style="margin:18px 0 8px">Da decidere (${pend.length})</h3>
   ${pend.map(card).join('') || '<p class="muted">Nessuna richiesta in attesa.</p>'}
-  ${done.length ? `<h3 style="margin:18px 0 8px">Già decise</h3>${done.map(card).join('')}` : ''}
+  ${done.length ? `<details style="margin-top:18px" ${ui.showDone ? 'open' : ''} ontoggle="ui.showDone=this.open"><summary style="cursor:pointer;font-weight:700;font-size:15px;margin-bottom:8px">Già decise (${reqs.length - pend.length})</summary>
+    <div style="margin:4px 0 10px"><button class="btn" style="color:var(--err-ink)" onclick="deleteRequests(state.requests.filter((q)=>q.status!=='in attesa').map((q)=>q.id))">🗑 Elimina tutte le decise</button></div>
+    ${done.map(card).join('')}</details>` : ''}
   ${logged && state.reqKeys ? `<h3 style="margin:22px 0 8px">Link personali del personale</h3>
   <p class="muted">Ogni persona ha il suo link con un codice. Se un link finisce in mani sbagliate, premi "Nuovo link": quello vecchio smette di funzionare.</p>
   <div class="card"><table class="list"><thead><tr><th>Nome</th><th>Link</th><th></th></tr></thead><tbody>
@@ -1305,6 +1318,15 @@ function renderRichieste() {
 }
 function askAccept(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
+  if (q.kind === 'fisso') {
+    const c = fixedConflicts(q);
+    return showModal(`<h3>Accetta gli impegni fissi</h3>
+      <p><b>${esc(T.fullName(empById(q.employeeId)))}</b>: ${esc(SLOTS_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
+      <div class="form"><div class="row"><label class="f">Valido dal<input type="date" id="acc-from" value="${T.toIso(q.day)}"></label><label class="f">Fino al (vuoto = senza fine)<input type="date" id="acc-to" value="${q.to != null ? T.toIso(q.to) : ''}"></label></div>
+      ${c.length ? `<p class="notice warn" style="margin:0">${c.length} turni già pianificati vanno in conflitto: dopo l'accettazione usa 🛠 Risolvi problemi in quelle settimane.</p>` : ''}
+      <label class="f">Messaggio per il dipendente (facoltativo)<input type="text" id="acc-msg" maxlength="200" placeholder="es. ok, ne tengo conto nei turni"></label></div>
+      <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="doAccept(${id})">Accetta</button></div>`);
+  }
   const p = q.kind === 'libero' ? null : proposalOf(q);
   const weekHas = state.shifts.some((x) => x.day >= T.mondayOf(q.day) && x.day <= T.mondayOf(q.day) + 6);
   const timeSel = (idn, v, from, to) => `<select id="${idn}">${TIME_OPTIONS.filter((t) => t >= from && t <= to).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
@@ -1326,6 +1348,12 @@ function askAccept(id) {
 }
 async function doAccept(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
+  if (q.kind === 'fisso') {
+    const f = document.getElementById('acc-from').value, to = document.getElementById('acc-to').value;
+    if (f) q.day = T.toDay(f);
+    q.to = to ? T.toDay(to) : null;
+    if (q.to != null && q.to < q.day) return alert('"Fino al" deve essere dopo "Valido dal".');
+  }
   const t = document.getElementById('acc-t');
   if (t && q.kind === 'impegno') q.until = +t.value;
   if (t && q.kind === 'dalle') q.from = +t.value;
@@ -1351,7 +1379,7 @@ async function doAccept(id) {
   }
   const msg = (document.getElementById('acc-msg').value || '').trim();
   q.status = 'accettata';
-  q.reply = msg || (q.kind === 'libero' ? 'Ok, quel giorno sei libero/a.' : applied ? `Ok: il tuo turno è ${T.fmtTime(applied.start)}–${T.fmtTime(applied.end)}.` : `Ok: il turno sarà compatibile (${LIMIT_TXT(q)}).`);
+  q.reply = msg || (q.kind === 'fisso' ? 'Ok, ne terrò conto nei turni.' : q.kind === 'libero' ? 'Ok, quel giorno sei libero/a.' : applied ? `Ok: il tuo turno è ${T.fmtTime(applied.start)}–${T.fmtTime(applied.end)}.` : `Ok: il turno sarà compatibile (${LIMIT_TXT(q)}).`);
   closeModal(); save(); render();
   if (swapped) {
     const other = empById(swapped.partner);
@@ -1359,6 +1387,28 @@ async function doAccept(id) {
       <p class="notice warn">Ricordati di avvisare <b>${esc(T.fullName(other))}</b> che il suo turno di ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)} è cambiato.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
   }
   try { await TurniCloud.answerRequest(q.rid, 'accettata', q.reply); } catch (e) { alert('Accettata qui, ma la risposta al dipendente non è partita (connessione?). Riprova più tardi da "Rimetti in attesa" → Accetta.'); }
+}
+/** Turni già pianificati (da oggi in poi) che non rispettano gli impegni fissi della richiesta. */
+function fixedConflicts(q) {
+  const from = Math.max(q.day, T.todayDay());
+  const fake = { ...state, requests: [{ ...q, status: 'accettata' }] };
+  const out = [];
+  for (const s of state.shifts) {
+    if (s.employeeId !== q.employeeId || s.day < from || (q.to != null && s.day > q.to)) continue;
+    const ctx = { limits: T.makeCtx(fake, T.mondayOf(s.day)).limits };
+    if (!T.fitsLimit(ctx, s)) out.push(s);
+  }
+  return out.sort((a, b) => a.day - b.day || a.start - b.start);
+}
+async function deleteRequests(ids) {
+  const list = state.requests.filter((q) => ids.includes(q.id));
+  if (!list.length) return;
+  const acc = list.filter((q) => q.status === 'accettata').length;
+  if (!confirm(`Eliminare ${list.length === 1 ? 'questa richiesta' : list.length + ' richieste'}?${acc ? `\n${acc === 1 ? 'È accettata' : acc + ' sono accettate'}: il generatore smetterà di tenerne conto.` : ''}\nIl dipendente la vedrà come "cancellata dal manager".`)) return;
+  state.requests = state.requests.filter((q) => !ids.includes(q.id)); save(); render();
+  let fail = 0;
+  for (const q of list) { try { await TurniCloud.deleteRequest(q.rid); } catch (e) { fail++; } }
+  if (fail) alert(`Eliminate qui, ma ${fail} non sono state cancellate online (connessione?).`);
 }
 function askReject(id) {
   showModal(`<h3>Rifiuta la richiesta</h3><div class="form"><label class="f">Motivo per il dipendente (facoltativo)<input type="text" id="rej-msg" maxlength="200" placeholder="es. quel giorno siamo scoperti, ne parliamo"></label></div>
