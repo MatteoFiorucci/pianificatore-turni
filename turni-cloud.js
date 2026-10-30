@@ -217,12 +217,18 @@
   /** Risposta del manager: stato (accettata/rifiutata) e breve messaggio che il dipendente vede. */
   const answerRequest = (rid, status, risposta) => api(storeUrl(`/richieste/${rid}?updateMask.fieldPaths=status&updateMask.fieldPaths=risposta`), { method: 'PATCH', body: JSON.stringify({ fields: str({ status, risposta }) }) });
 
+  /**
+   * Accesso di un dipendente all'app Richieste: il documento si chiama come l'impronta di nome utente + password,
+   * quindi lo può leggere solo chi conosce entrambi (nessun elenco pubblico). Dentro: id del dipendente e nome.
+   */
+  const setAccess = (code, emp, nome) => api(storeUrl(`/accessi/${code}`), { method: 'PATCH', body: JSON.stringify({ fields: str({ emp, nome }) }) });
+  const deleteAccess = (code) => api(storeUrl(`/accessi/${code}`), { method: 'DELETE' }).catch(() => null);
   /** Cancella una richiesta (il dipendente la vedrà come "cancellata dal manager"). */
   const deleteRequest = (rid) => api(storeUrl(`/richieste/${rid}`), { method: 'DELETE' });
 
   root.TurniCloud = {
     configured, loggedIn, session, login, logout, push, pull, deviceName,
-    uid: () => (read() || {}).uid, publishKey, setCode, listRequests, answerRequest, deleteRequest,
+    uid: () => (read() || {}).uid, publishKey, setCode, setAccess, deleteAccess, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
     setLastUpdate: (t) => patch({ lastUpdate: t }),
   };
