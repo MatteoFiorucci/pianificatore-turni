@@ -30,8 +30,8 @@
   h2 { margin: 4px 0 12px; font-size: 20px; }
   .muted { color: var(--muted); }
   .small { font-size: 12px; }
-  button.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); }
-  button.btn:hover { border-color: #b9b9c0; }
+  button.btn, label.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  button.btn:hover, label.btn:hover { border-color: #b9b9c0; }
   button.primary { background: var(--green); color: #fff; border-color: var(--green); }
   button.danger { background: var(--err-ink); color: #fff; border-color: var(--err-ink); }
   button.link { background: none; border: 0; color: var(--green); font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
@@ -113,6 +113,7 @@
   button.ib:hover { background: var(--green); color: #fff; }
   th button.ib { width: 18px; height: 18px; font-size: 11px; }
   .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; line-height: 18px; text-align: center; margin-left: 2px; }
+  .autotag { display: inline-block; padding: 0 6px; border-radius: 999px; background: #e6f0ff; color: #2456b3; font-size: 11px; line-height: 18px; margin-left: 4px; }
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
   .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
@@ -268,14 +269,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610302137"></script>
-<script src="turni-core.js?v=202610302137"></script>
+<script src="turni-storico.js?v=202610302358"></script>
+<script src="turni-core.js?v=202610302358"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610302137"></script>
-<script src="turni-cloud-config.js?v=202610302137"></script>
-<script src="turni-cloud.js?v=202610302137"></script>
-<script src="turni-cripto.js?v=202610302137"></script>
+<script src="turni-data.js?v=202610302358"></script>
+<script src="turni-cloud-config.js?v=202610302358"></script>
+<script src="turni-cloud.js?v=202610302358"></script>
+<script src="turni-cripto.js?v=202610302358"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -313,6 +314,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 // ---------- navigazione ----------
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.`],
+  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Le <b>Crew Hours</b> si inseriscono sempre a mano.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
@@ -772,28 +774,70 @@ function setFc(k, field, v) {
 /** Copia lo stesso valore su più giorni (es. lun–gio uguali). */
 function fillFc(from, to) {
   const f = fcOf(ui.ws);
-  for (let k = to[0]; k <= to[1]; k++) f.days[k] = { ...f.days[from] };
+  for (let k = to[0]; k <= to[1]; k++) { f.days[k] = { ...f.days[from] }; delete f.days[k].auto; }
   state.forecasts = state.forecasts || {}; state.forecasts[ui.ws] = f; save(); render();
 }
-function copyFcPrev() { const p = (state.forecasts || {})[ui.ws - 7]; if (!p) return alert('La settimana precedente non ha previsioni.'); state.forecasts[ui.ws] = fcOf(ui.ws - 7); save(); render(); }
+function copyFcPrev() { const p = (state.forecasts || {})[ui.ws - 7]; if (!p) return alert('La settimana precedente non ha previsioni.'); const f = fcOf(ui.ws - 7); f.days.forEach((d) => delete d.auto); state.forecasts[ui.ws] = f; save(); render(); }
+/**
+ * Previsioni automatiche (calcolate sul Mac dallo storico SmartBusiness): riempie Vendite e GC giorno per giorno.
+ * I valori cambiati a mano restano; le Crew Hours non vengono toccate.
+ * data = { tipo: 'previsioni-turni', creato, errori, giorni: { 'AAAA-MM-GG': { sales, gc, gcSB } } }
+ */
+async function applyAutoForecasts(data) {
+  if (!data || data.tipo !== 'previsioni-turni' || !data.giorni) throw new Error('Questo non è un file di previsioni automatiche.');
+  if (TurniCloud.loggedIn()) await cloudPull(); // parte dai dati online più recenti
+  state.forecasts = state.forecasts || {};
+  let n = 0, manual = 0;
+  for (const [iso, p] of Object.entries(data.giorni)) {
+    const day = Math.round(Date.parse(iso) / 864e5), ws = T.mondayOf(day), k = day - ws;
+    const f = fcOf(ws), d = f.days[k], prev = d.auto || {};
+    for (const fld of ['sales', 'gc']) {
+      if (d[fld] != null && d[fld] !== prev[fld]) manual++; // scritto a mano: non si tocca
+      else d[fld] = p[fld] ?? null;
+    }
+    d.auto = { sales: p.sales ?? null, gc: p.gc ?? null, gcSB: p.gcSB ?? null };
+    state.forecasts[ws] = f; n++;
+  }
+  state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {} };
+  save(); render();
+  return { giorni: n, manuali: manual };
+}
+/** Attende che i dati siano salvati online (per il caricamento automatico). */
+function waitSynced(ms = 60000) {
+  return new Promise((res) => { const t0 = Date.now(); (function chk() { if (!TurniCloud.loggedIn() || sync.status === 'ok') return res(sync.status); if (Date.now() - t0 > ms) return res(sync.status); setTimeout(chk, 500); })(); });
+}
+function importAutoForecasts(input) {
+  const file = input.files && input.files[0]; input.value = '';
+  if (!file) return;
+  file.text().then((t) => applyAutoForecasts(JSON.parse(t)))
+    .then((r) => alert(`Previsioni caricate per ${r.giorni} giorni.` + (r.manuali ? ` ${r.manuali} valori scritti a mano sono rimasti com'erano.` : '')))
+    .catch((e) => alert('Non è stato possibile caricare il file: ' + e.message));
+}
 function clearFc() { if (state.forecasts) delete state.forecasts[ui.ws]; save(); render(); }
 function renderPrevisioni() {
   const f = fcOf(ui.ws);
   const num = (val, on, ph = '') => `<input type="number" min="0" step="any" value="${val ?? ''}" placeholder="${ph}" style="width:130px" onchange="${on}">`;
+  const tag = (d, fld) => (d.auto && d[fld] != null && d[fld] === d.auto[fld] ? ' <span class="autotag" title="Calcolata in automatico">auto</span>' : '');
+  const sbOf = (d) => (d.auto && d.auto.gcSB ? `<span class="muted small" title="Previsione di SmartBusiness">SB ${d.auto.gcSB}</span>` : '');
   const dayRows = DAYS7.map((k) => `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td><b>${T.shortDate(ui.ws + k)}</b></td>
-      <td>${num(f.days[k].sales, `setFc(${k},'sales',this.value)`)}</td>
-      <td>${num(f.days[k].gc, `setFc(${k},'gc',this.value)`)}</td>
+      <td>${num(f.days[k].sales, `setFc(${k},'sales',this.value)`)}${tag(f.days[k], 'sales')}</td>
+      <td>${num(f.days[k].gc, `setFc(${k},'gc',this.value)`)}${tag(f.days[k], 'gc')}</td>
+      <td>${sbOf(f.days[k])}</td>
       <td>${num(f.days[k].crewHours, `setFc(${k},'crewHours',this.value)`)}</td></tr>`).join('');
+  const af = state.autoForecast;
+  const errs = af && af.err ? Object.entries(af.err).map(([k, v]) => `${esc(k)} ${String(v).replace('.', ',')}%`).join(' · ') : '';
   return `
   <div class="toolbar">
     <button class="btn" onclick="moveWeek(-1)">◀</button><div class="week">${T.weekLabel(ui.ws)}</div><button class="btn" onclick="moveWeek(1)">▶</button>
     <div class="spacer"></div>
+    <label class="btn" title="Carica il file previsioni-app.json">📥 Carica previsioni automatiche<input type="file" accept=".json,application/json" style="display:none" onchange="importAutoForecasts(this)"></label>
     <button class="btn" onclick="copyFcPrev()">Copia dalla settimana precedente</button>
     <button class="btn" onclick="clearFc()">Svuota la settimana</button>
   </div>
   <h2>Previsioni ${ib('previsioni')}</h2>
+  ${af ? `<div class="notice info" style="margin-bottom:10px">📈 Previsioni automatiche aggiornate ${esc(fmtWhen(af.at))}, con i dati fino al ${esc(af.upTo ? af.upTo.split('-').reverse().join('/') : '—')} ${ib('prev-auto')}${errs ? `<br><span class="small">Errore medio delle ultime 8 settimane: ${errs}</span>` : ''}</div>` : ''}
   <div class="card section">
-    <table class="list" style="max-width:640px"><thead><tr><th>Giorno</th><th>Vendite previste (€)</th><th>GC</th><th>Crew Hours</th></tr></thead><tbody>${dayRows}</tbody></table>
+    <table class="list" style="max-width:760px"><thead><tr><th>Giorno</th><th>Vendite previste (€)</th><th>GC</th><th>GC SmartBusiness</th><th>Crew Hours</th></tr></thead><tbody>${dayRows}</tbody></table>
     <div class="row small" style="margin-top:8px"><span class="muted">Scorciatoie:</span>
       <button class="link" onclick="fillFc(0,[1,3])">copia il lunedì su mar–gio</button> ·
       <button class="link" onclick="fillFc(4,[5,6])">copia il venerdì su sab–dom</button>
