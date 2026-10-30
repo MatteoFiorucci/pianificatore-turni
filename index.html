@@ -235,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301320"></script>
-<script src="turni-core.js?v=202610301320"></script>
+<script src="turni-storico.js?v=202610301323"></script>
+<script src="turni-core.js?v=202610301323"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301320"></script>
-<script src="turni-cloud-config.js?v=202610301320"></script>
-<script src="turni-cloud.js?v=202610301320"></script>
-<script src="turni-cripto.js?v=202610301320"></script>
+<script src="turni-data.js?v=202610301323"></script>
+<script src="turni-cloud-config.js?v=202610301323"></script>
+<script src="turni-cloud.js?v=202610301323"></script>
+<script src="turni-cripto.js?v=202610301323"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1129,12 +1129,23 @@ function renderGate() {
   const back = APP_STORE ? `<p style="margin:14px 0 0;text-align:center"><a href="richieste.html?s=${encodeURIComponent(APP_STORE)}" style="color:var(--green);font-weight:600">← Sono un dipendente</a></p>` : '';
   document.getElementById('app').innerHTML = `<div class="card section" style="max-width:420px;margin:30px auto">
     <h3 style="margin-top:0">🔑 Area manager</h3>
-    ${ui.gateLogin ? `<p class="muted">Inserisci la password dei manager del locale.</p><input type="hidden" id="cl-email" value="${esc(ui.gateLogin)}">
-      <div class="form"><label class="f">Password manager<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')cloudLogin()"></label>
-      <div><button class="btn primary" id="cl-btn" onclick="cloudLogin()">Entra</button></div><div id="cl-err" class="notice err" style="display:none"></div></div>`
+    ${ui.gateLogin ? `<p class="muted">Inserisci nome utente e password dei manager del locale.</p><input type="hidden" id="cl-email" value="">
+      <div class="form"><label class="f">Nome utente<input type="text" id="gm-user" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+      <label class="f">Password<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')gateLogin()"></label>
+      <div><button class="btn primary" id="cl-btn" onclick="gateLogin()">Entra</button></div><div id="cl-err" class="notice err" style="display:none"></div></div>`
       : ui.gateLogin === null ? '<p class="muted">Caricamento…</p>' : `<p class="muted">Accedi con nome utente (o email) e password dei manager.</p>${cloudLoginFields()}`}
     ${back}</div>`;
-  setTimeout(() => { const i = document.getElementById('cl-pw'); if (i && !document.activeElement.matches('input')) i.focus(); }, 50);
+  setTimeout(() => { const i = document.getElementById('gm-user') || document.getElementById('cl-pw'); if (i && !document.activeElement.matches('input')) i.focus(); }, 50);
+}
+/**
+ * Nome utente dei manager: la parte prima della @ del loro accesso (es. "mario" per mario@…),
+ * oppure l'email intera. Maiuscole e minuscole non contano.
+ */
+function gateLogin() {
+  const u = document.getElementById('gm-user').value.trim(), L = ui.gateLogin || '';
+  const email = u.includes('@') ? u : u && u.toLowerCase() === L.split('@')[0].toLowerCase() ? L : u ? toLoginEmail(u) : '';
+  document.getElementById('cl-email').value = email;
+  cloudLogin();
 }
 /** Nome di accesso dei manager pubblicato dal locale (così basta la password). */
 async function loadGateLogin(s) {
