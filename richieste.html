@@ -59,8 +59,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301400"></script>
-<script src="turni-cripto.js?v=202610301400"></script>
+<script src="turni-cloud-config.js?v=202610301405"></script>
+<script src="turni-cripto.js?v=202610301405"></script>
 <script>
 'use strict';
 /*
@@ -221,7 +221,8 @@ function turniView() {
   if (!orario) return `<div class="card"><p class="muted" style="margin:0">${orarioErr || 'Caricamento dei turni…'}</p></div>`;
   const mon = mondayOf(todayDay());
   const next = orario.weeks.filter((w) => w.ws >= mon).sort((a, b) => a.ws - b.ws), past = orario.weeks.filter((w) => w.ws < mon).sort((a, b) => b.ws - a.ws);
-  return `${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}
+  const upd = `<div class="row" style="margin:0 2px 10px"><span class="muted">${orarioAt ? 'Aggiornato: ' + new Date(orarioAt).toLocaleString('it-IT', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span><button class="light" onclick="orarioAt='';orario=orario||null;loadOrario()">🔄 Aggiorna</button></div>`;
+  return `${upd}${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}
     ${next.length ? next.map((w) => weekCard(w, true)).join('') : '<div class="card"><p class="muted" style="margin:0">Il manager non ha ancora pubblicato l\'orario di questa settimana. Appena lo pubblica lo vedi qui.</p></div>'}
     ${past.length ? `<h2 style="margin:18px 2px 8px;font-size:15px;color:var(--muted)">Settimane passate</h2>${past.map((w) => weekCard(w, false)).join('')}` : ''}`;
 }
@@ -259,7 +260,7 @@ function render() {
     <p class="muted" style="margin:10px 0 0">La richiesta va al tuo manager, che decide il turno. Finché non risponde resta "in attesa".</p>
   </div>
   <div class="card">
-    <div class="row"><h2 style="margin:0">Le mie richieste</h2>${list.length ? '<button class="light" onclick="refresh()">🔄 Aggiorna</button>' : ''}</div>
+    <div class="row"><h2 style="margin:0">Le mie richieste</h2><button class="light" onclick="refresh()">🔄 Aggiorna</button></div>
     ${list.map((q) => `<div class="req"><b>${q.kind === 'fisso' ? `Dal ${shortDate(q.date)}` : dateLabel(q.date)}</b>${esc(describe(q))}${q.note ? ` <span class="muted">· ${esc(q.note)}</span>` : ''}<br>
       <span class="pill ${q.status === 'accettata' ? 'yes' : q.status === 'rifiutata' || q.status === 'cancellata' ? 'no' : 'wait'}">${q.status === 'accettata' ? '✓ Accettata' : q.status === 'rifiutata' ? '✕ Rifiutata' : q.status === 'cancellata' ? 'Cancellata dal manager' : '⏳ In attesa'}</span>
       ${q.risposta ? `<div class="muted" style="margin-top:4px">Risposta: ${esc(q.risposta)}</div>` : ''}</div>`).join('') || '<p class="muted" style="margin:0">Ancora nessuna richiesta da questo telefono.</p>'}
