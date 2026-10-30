@@ -188,8 +188,38 @@
     return { changed: true, doc, state: data.state };
   }
 
+  // ---- richieste del personale (negozi/{uid}: chiave pubblica, codici, richieste) ----
+  const storeUrl = (path = '') => `https://firestore.googleapis.com/v1/projects/${cfg().projectId}/databases/(default)/documents/negozi/${read().uid}${path}`;
+  async function api(url, opts = {}) {
+    let r;
+    try { r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + await token(), 'Content-Type': 'application/json', ...(opts.headers || {}) }, cache: 'no-store' }); }
+    catch (e) { if (e instanceof CloudError) throw e; throw new CloudError('OFFLINE', 'Nessuna connessione a internet'); }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new CloudError('SERVER', dbMessage(j, r.status));
+    return j;
+  }
+  const str = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { stringValue: String(v) }]));
+  const unstr = (f = {}) => Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.stringValue ?? v.integerValue]));
+  /** Pubblica la chiave pubblica del locale (serve alla pagina dei dipendenti per cifrare le richieste). */
+  const publishKey = (pub) => api(storeUrl(), { method: 'PATCH', body: JSON.stringify({ fields: str({ pub }) }) });
+  /** Salva l'impronta del codice personale di un dipendente (il codice vero resta nei dati cifrati del manager). */
+  const setCode = (emp, code) => api(storeUrl(`/codici/${emp}`), { method: 'PATCH', body: JSON.stringify({ fields: str({ code }) }) });
+  /** Tutte le richieste arrivate (ancora cifrate). */
+  async function listRequests() {
+    const out = []; let page = '';
+    for (let i = 0; i < 20; i++) {
+      const j = await api(storeUrl(`/richieste?pageSize=300${page ? '&pageToken=' + encodeURIComponent(page) : ''}`));
+      for (const d of j.documents || []) out.push({ rid: d.name.split('/').pop(), ...unstr(d.fields) });
+      if (!j.nextPageToken) break; page = j.nextPageToken;
+    }
+    return out;
+  }
+  /** Risposta del manager: stato (accettata/rifiutata) e breve messaggio che il dipendente vede. */
+  const answerRequest = (rid, status, risposta) => api(storeUrl(`/richieste/${rid}?updateMask.fieldPaths=status&updateMask.fieldPaths=risposta`), { method: 'PATCH', body: JSON.stringify({ fields: str({ status, risposta }) }) });
+
   root.TurniCloud = {
     configured, loggedIn, session, login, logout, push, pull, deviceName,
+    uid: () => (read() || {}).uid, publishKey, setCode, listRequests, answerRequest,
     setDirty: (d) => patch({ dirty: !!d }),
     setLastUpdate: (t) => patch({ lastUpdate: t }),
   };

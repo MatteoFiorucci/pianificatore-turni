@@ -31,6 +31,34 @@
       return JSON.parse(dec.decode(plain));
     } catch (e) { throw new Error('Password sbagliata'); }
   }
-  root.TurniCripto = { encrypt, decrypt, supported: () => !!subtle() && typeof TextEncoder !== 'undefined' };
+  // ---- richieste del personale: chiave pubblica del locale (per cifrare) e privata del manager (per leggere) ----
+  const RSA = { name: 'RSA-OAEP', hash: 'SHA-256' };
+  /** Nuova coppia di chiavi del locale: { pub, priv } in base64. */
+  async function newKeyPair() {
+    const k = await subtle().generateKey({ ...RSA, modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]) }, true, ['encrypt', 'decrypt']);
+    return { pub: toB64(await subtle().exportKey('spki', k.publicKey)), priv: toB64(await subtle().exportKey('pkcs8', k.privateKey)) };
+  }
+  /** Cifra un oggetto per il manager (lo può aprire solo chi ha la chiave privata). */
+  async function sealFor(pubB64, obj) {
+    const pub = await subtle().importKey('spki', fromB64(pubB64), RSA, false, ['encrypt']);
+    const aes = await subtle().generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt']);
+    const iv = root.crypto.getRandomValues(new Uint8Array(12));
+    const box = await subtle().encrypt({ name: 'AES-GCM', iv }, aes, enc.encode(JSON.stringify(obj)));
+    const key = await subtle().encrypt(RSA, pub, await subtle().exportKey('raw', aes));
+    return { box: toB64(box), key: toB64(key), iv: toB64(iv) };
+  }
+  async function openWith(privB64, sealed) {
+    const priv = await subtle().importKey('pkcs8', fromB64(privB64), RSA, false, ['decrypt']);
+    const raw = await subtle().decrypt(RSA, priv, fromB64(sealed.key));
+    const aes = await subtle().importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+    return JSON.parse(dec.decode(await subtle().decrypt({ name: 'AES-GCM', iv: fromB64(sealed.iv) }, aes, fromB64(sealed.box))));
+  }
+  /** Impronta del codice personale (il codice vero non va mai online). */
+  async function codeHash(store, emp, pin) {
+    const h = await subtle().digest('SHA-256', enc.encode(`${store}|${emp}|${pin}`));
+    return Array.from(new Uint8Array(h)).map((b) => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  root.TurniCripto = { encrypt, decrypt, newKeyPair, sealFor, openWith, codeHash, supported: () => !!subtle() && typeof TextEncoder !== 'undefined' };
   if (typeof module !== 'undefined') module.exports = root.TurniCripto;
 })(typeof window !== 'undefined' ? window : globalThis);

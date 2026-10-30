@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Richieste turni</title>
+<style>
+  :root { --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70; --line: #d9d9de; --bg: #f6f6f4; --err: #ffd3d6; --err-ink: #b3261e; --warn: #fff0c2; --warn-ink: #8a6100; --ok: #dcf0e1; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+  header { background: var(--green); color: #fff; padding: 16px 18px calc(16px + env(safe-area-inset-top, 0px)); padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 2px 0 0; opacity: .85; font-size: 14px; }
+  main { padding: 14px 14px 40px; max-width: 560px; margin: 0 auto; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  label.f { display: grid; gap: 6px; font-size: 14px; color: var(--muted); font-weight: 600; margin-bottom: 14px; }
+  input, select, textarea { font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--ink); width: 100%; }
+  textarea { min-height: 70px; resize: vertical; }
+  .kinds { display: grid; gap: 8px; margin-bottom: 14px; }
+  .kinds label { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-weight: 600; }
+  .kinds label.on { border-color: var(--green); background: var(--green-soft); color: var(--green); }
+  .kinds input { width: auto; margin: 0; accent-color: var(--green); }
+  button { font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 14px; width: 100%; cursor: pointer; }
+  button.primary { background: var(--green); color: #fff; }
+  button.light { background: #fff; border: 1px solid var(--line); color: var(--ink); padding: 10px; width: auto; }
+  button:disabled { opacity: .5; }
+  .notice { padding: 10px 12px; border-radius: 10px; font-size: 14px; margin-bottom: 12px; }
+  .notice.err { background: var(--err); color: var(--err-ink); } .notice.ok { background: var(--ok); color: var(--green); } .notice.info { background: #e8eefc; color: #1e40af; }
+  .req { border-top: 1px solid var(--line); padding: 12px 0; }
+  .req:first-child { border-top: 0; padding-top: 0; }
+  .req b { display: block; }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; margin-top: 4px; }
+  .pill.wait { background: var(--warn); color: var(--warn-ink); } .pill.yes { background: var(--ok); color: var(--green); } .pill.no { background: var(--err); color: var(--err-ink); }
+  .muted { color: var(--muted); font-size: 14px; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<header><h1>📅 Richieste turni</h1><p id="hello"></p></header>
+<main id="app"></main>
+<script src="turni-cloud-config.js?v=202610301144"></script>
+<script src="turni-cripto.js?v=202610301144"></script>
+<script>
+'use strict';
+/*
+ * Pagina per il personale: con il link personale (dato dal manager) si inviano richieste sui turni.
+ * Le richieste sono cifrate sul telefono con la chiave pubblica del locale: le può leggere solo il manager.
+ * Da qui non si vede niente dei dati del locale. Il link contiene: s = locale, e = dipendente, p = codice, n = nome.
+ */
+const cfg = window.TURNI_CLOUD_CONFIG || {};
+const P = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const BASE = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/negozi/${P.s}`;
+const MINE = `richieste-mie-${P.s}-${P.e}`;
+const esc = (x) => String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+const DOW = ['domenica', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato'];
+const dateLabel = (iso) => { const d = new Date(iso + 'T12:00:00'); return `${DOW[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}/${d.getFullYear()}`; };
+const times = (from, to, sel) => { let o = ''; for (let m = from; m <= to; m += 15) o += `<option value="${m}" ${m === sel ? 'selected' : ''}>${fmt(m)}</option>`; return o; };
+const mine = () => { try { return JSON.parse(localStorage.getItem(MINE)) || []; } catch (e) { return []; } };
+const saveMine = (l) => { try { localStorage.setItem(MINE, JSON.stringify(l)); } catch (e) { /* niente */ } };
+let kind = 'impegno', pub = null, msg = '';
+
+function describe(q) {
+  return q.kind === 'impegno' ? `Ho un impegno alle ${fmt(q.time)}` : q.kind === 'dalle' ? `Posso lavorare solo dalle ${fmt(q.from)}` : 'Non posso lavorare';
+}
+function render() {
+  const app = document.getElementById('app');
+  if (!P.s || !P.e || !P.p) { app.innerHTML = '<div class="card"><div class="notice err">Link non completo.</div><p>Apri il link personale che ti ha mandato il tuo manager.</p></div>'; return; }
+  document.getElementById('hello').textContent = P.n ? `Ciao ${P.n}! Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.` : 'Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.';
+  const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const list = mine().slice().reverse();
+  app.innerHTML = `
+  ${msg}
+  <div class="card">
+    <h2>Nuova richiesta</h2>
+    <label class="f">Giorno<input type="date" id="date" min="${iso}"></label>
+    <div class="kinds">
+      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. ho lezione la mattina'], ['libero', 'Non posso lavorare quel giorno', '']].map(([k, t, h]) =>
+        `<label class="${kind === k ? 'on' : ''}"><input type="radio" name="k" value="${k}" ${kind === k ? 'checked' : ''} onchange="kind=this.value;keep();render()"><span>${t}${h ? `<br><span class="muted" style="font-weight:400">${h}</span>` : ''}</span></label>`).join('')}
+    </div>
+    ${kind === 'impegno' ? `<label class="f">A che ora è l'impegno?<select id="time">${times(480, 1440, 1260)}</select></label>` : ''}
+    ${kind === 'dalle' ? `<label class="f">Da che ora puoi lavorare?<select id="from">${times(480, 1260, 900)}</select></label>` : ''}
+    <label class="f">Nota (facoltativa)<textarea id="note" maxlength="300" placeholder="es. concerto a Roma"></textarea></label>
+    <button class="primary" id="send" onclick="send()">Invia la richiesta</button>
+    <p class="muted" style="margin:10px 0 0">La richiesta va al tuo manager, che decide il turno. Finché non risponde resta "in attesa".</p>
+  </div>
+  <div class="card">
+    <div class="row"><h2 style="margin:0">Le mie richieste</h2>${list.length ? '<button class="light" onclick="refresh()">🔄 Aggiorna</button>' : ''}</div>
+    ${list.map((q) => `<div class="req"><b>${dateLabel(q.date)}</b>${esc(describe(q))}${q.note ? ` <span class="muted">· ${esc(q.note)}</span>` : ''}<br>
+      <span class="pill ${q.status === 'accettata' ? 'yes' : q.status === 'rifiutata' ? 'no' : 'wait'}">${q.status === 'accettata' ? '✓ Accettata' : q.status === 'rifiutata' ? '✕ Rifiutata' : '⏳ In attesa'}</span>
+      ${q.risposta ? `<div class="muted" style="margin-top:4px">Risposta: ${esc(q.risposta)}</div>` : ''}</div>`).join('') || '<p class="muted" style="margin:0">Ancora nessuna richiesta da questo telefono.</p>'}
+  </div>`;
+  restore();
+}
+// mantiene i campi compilati quando si cambia tipo di richiesta
+let draft = {};
+function keep() { for (const id of ['date', 'note', 'time', 'from']) { const el = document.getElementById(id); if (el) draft[id] = el.value; } }
+function restore() { for (const [id, v] of Object.entries(draft)) { const el = document.getElementById(id); if (el && v) el.value = v; } }
+
+async function loadPub() {
+  if (pub) return pub;
+  const r = await fetch(`${BASE}?key=${cfg.apiKey}`, { cache: 'no-store' });
+  if (!r.ok) throw new Error('Il tuo locale non ha ancora attivato le richieste: chiedi al manager.');
+  const j = await r.json(); pub = j.fields && j.fields.pub && j.fields.pub.stringValue;
+  if (!pub) throw new Error('Il tuo locale non ha ancora attivato le richieste: chiedi al manager.');
+  return pub;
+}
+async function send() {
+  keep();
+  const date = draft.date, note = (draft.note || '').trim();
+  const show = (cls, t) => { msg = `<div class="notice ${cls}">${t}</div>`; render(); window.scrollTo(0, 0); };
+  if (!date) return show('err', 'Scegli il giorno.');
+  const btn = document.getElementById('send'); btn.disabled = true; btn.textContent = 'Invio…';
+  const q = { date, kind, note };
+  if (kind === 'impegno') q.time = +draft.time;
+  if (kind === 'dalle') q.from = +draft.from;
+  try {
+    const sealed = await TurniCripto.sealFor(await loadPub(), q);
+    const code = await TurniCripto.codeHash(P.s, P.e, P.p);
+    const rid = Array.from(crypto.getRandomValues(new Uint8Array(15)), (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 24);
+    const fields = { emp: String(P.e), code, ...sealed, createdAt: new Date().toISOString(), status: 'in attesa' };
+    const r = await fetch(`${BASE}/richieste?documentId=${rid}&key=${cfg.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields: Object.fromEntries(Object.entries(fields).map(([k, v]) => [k, { stringValue: v }])) }) });
+    if (!r.ok) throw new Error(r.status === 403 ? 'Il tuo link non è più valido: chiedi al manager un link nuovo.' : 'Invio non riuscito, riprova tra poco.');
+    saveMine([...mine(), { rid, ...q, status: 'in attesa', sentAt: new Date().toISOString() }]);
+    draft = {}; kind = 'impegno';
+    show('ok', '✓ Richiesta inviata. Il manager la vedrà e ti risponderà qui.');
+  } catch (e) {
+    show('err', e instanceof TypeError ? 'Nessuna connessione a internet.' : esc(e.message));
+  }
+}
+async function refresh() {
+  const list = mine();
+  for (const q of list) {
+    try {
+      const r = await fetch(`${BASE}/richieste/${q.rid}?key=${cfg.apiKey}`, { cache: 'no-store' });
+      if (r.status === 404) { q.status = 'rifiutata'; q.risposta = q.risposta || 'Richiesta cancellata dal manager'; continue; }
+      const j = await r.json(); const f = j.fields || {};
+      q.status = (f.status && f.status.stringValue) || q.status; q.risposta = (f.risposta && f.risposta.stringValue) || '';
+    } catch (e) { /* senza rete: resta com'era */ }
+  }
+  saveMine(list); msg = ''; render();
+}
+render();
+if (P.s && mine().length) refresh();
+</script>
+</body>
+</html>

@@ -34,7 +34,7 @@
   // weekdayLongPerWeek = turni lunghi (oltre crewMaxWeekday) da lunedì a giovedì per persona a settimana, a rotazione
   // afternoonStart/End = post-rush del pranzo (14:30–19:00): niente turni "rigidi" tutti lì dentro, meglio sfalsati
   // dinnerPreStart = da quando può entrare chi copre la cena (pre-rush, 16:30); lunchPeak/dinnerPeak = cuore dei rush
-  const DEFAULT_CONFIG = { dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30 };
+  const DEFAULT_CONFIG = { dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30, requestMargin: 120 };
   // min = minimo di crew per giorno (lun→dom). Valori presi dagli orari reali delle settimane 39–44.
   const all = (n) => [n, n, n, n, n, n, n];
   const DEFAULT_COVERAGE = [
@@ -147,6 +147,26 @@
   /** Turno lungo in settimana: crew, da lunedì a giovedì, oltre il turno normale (4h). */
   const isLongWeekday = (cfg, e, s) => e && e.type === 'CREW' && !s.doppio && !isWeekend(s.day) && s.end - s.start > (cfg.crewMaxWeekday ?? 240);
 
+  /**
+   * Richieste del personale (sezione Richieste) accettate dal manager, per la settimana: diventano vincoli.
+   * until = deve finire entro quell'ora (impegno), from = può iniziare solo da quell'ora, off = quel giorno non lavora.
+   */
+  function limitsFrom(requests, ws) {
+    const m = new Map();
+    for (const q of requests || []) {
+      if (q.status !== 'accettata' || q.day < ws - 2 || q.day > ws + 6) continue;
+      const k = q.employeeId + '|' + q.day, cur = m.get(k) || {};
+      if (q.kind === 'libero') cur.off = true;
+      if (q.until != null) cur.until = Math.min(cur.until ?? 1440, q.until);
+      if (q.from != null) cur.from = Math.max(cur.from ?? 0, q.from);
+      cur.label = [cur.label, q.kind === 'libero' ? 'giorno libero' : q.until != null ? `finire entro le ${fmtTime(q.until)}` : `iniziare dalle ${fmtTime(q.from)}`].filter(Boolean).join(', ');
+      m.set(k, cur);
+    }
+    return m;
+  }
+  const limitOf = (ctx, id, day) => (ctx.limits ? ctx.limits.get(id + '|' + day) : null);
+  /** Il turno rispetta la richiesta accettata di quella persona per quel giorno? */
+  const fitsLimit = (ctx, s) => { const l = limitOf(ctx, s.employeeId, s.day); return !l || (!l.off && (l.until == null || s.end <= l.until) && (l.from == null || s.start >= l.from)); };
   function makeCtx(state, ws) {
     const employees = state.employees.filter((e) => e.active);
     // postazioni per cui qualcuno è segnato come formato alla chiusura (se nessuno: chiudono tutti i formati)
@@ -166,6 +186,8 @@
       forecast: null,
       // turni lunghi in settimana fatti nelle 4 settimane precedenti (per farli a rotazione)
       longHistory: new Map(),
+      // richieste del personale accettate dal manager: chiave "id|giorno" → { until, from, off, label }
+      limits: limitsFrom(state.requests, ws),
     };
     for (const x of state.shifts) {
       if (x.day < ws - 28 || x.day >= ws) continue;
@@ -243,7 +265,7 @@
     (!(ctx.closingMarked && ctx.closingMarked.has(station)) && (e.trainings.includes(station) || (station === 'SERVIZIO' && e.type === 'HOSPITALITY')));
   /** In forza quel giorno? Prima della data di inizio (assunzione) non si può pianificare. */
   const started = (e, day) => e.startDate == null || day >= e.startDate;
-  const isAvail = (ctx, e, day) => started(e, day) && !isRest(e, day) && !absenceOn(ctx, e.id, day);
+  const isAvail = (ctx, e, day) => started(e, day) && !isRest(e, day) && !absenceOn(ctx, e.id, day) && !(limitOf(ctx, e.id, day) || {}).off;
   /** Ore del contratto: contano solo i turni normali, i doppi sono ore in più. */
   const worked = (ctx, id) => sumDur(ctx.shifts.filter((s) => s.employeeId === id && !isDouble(s)));
   const doubleWorked = (ctx, id) => sumDur(ctx.shifts.filter((s) => s.employeeId === id && isDouble(s)));
@@ -276,7 +298,7 @@
     COVERAGE: 'Copertura', FIXED_REST: 'Riposo fisso', ABSENCE: 'Ferie / malattia', INVALID_TIME: 'Orario non valido',
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
-    DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena',
+    DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena', REQUEST: 'Richiesta del personale',
   };
   const V = (rule, sev, msg, emp = null, day = null) => ({ rule, sev, msg, emp, day });
 
@@ -501,6 +523,16 @@
   const inPeak = (a, b, p) => overlap(a, b, p) >= (p[1] - p[0]) / 2;
   const peakStation = (st) => (st === 'HOSPITALITY' ? 'SERVIZIO' : st);
   const peakCount = (list, day, st, p, except = null) => list.filter((x) => x !== except && x.day === day && !x.doppio && peakStation(x.station) === st && inPeak(x.start, x.end, p)).length;
+  function ruleRequests(ctx) {
+    const out = [];
+    for (const s of ctx.shifts) {
+      if (fitsLimit(ctx, s)) continue;
+      const e = ctx.byId.get(s.employeeId), l = limitOf(ctx, s.employeeId, s.day);
+      if (!e) continue;
+      out.push(V('REQUEST', 'ERROR', `${fullName(e)}: richiesta accettata per il ${shortDate(s.day)} (${l.label}), ma ha il turno ${fmtTime(s.start)}–${fmtTime(s.end)}`, e.id, s.day));
+    }
+    return out;
+  }
   function ruleRushSplit(ctx) {
     const out = [];
     const [L, D] = peaksOf(ctx.cfg);
@@ -644,9 +676,25 @@
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleRequests].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
+  }
+
+  /**
+   * Proposta per una richiesta del personale: come se fosse accettata, ricalcola solo il giorno di quella persona
+   * tenendo i turni degli altri (se la settimana è vuota la genera tutta). Non cambia niente nei dati.
+   * Restituisce { proposal, current, currentOk }.
+   */
+  function proposeFor(state, q) {
+    const ws = mondayOf(q.day);
+    const others = (state.requests || []).filter((x) => x.id !== q.id);
+    const st2 = { ...state, requests: [...others, { ...q, status: 'accettata' }], shifts: state.shifts.filter((x) => !(x.employeeId === q.employeeId && x.day === q.day)) };
+    const ctx = makeCtx(st2, ws);
+    const r = generate(ctx, { seed: 7 });
+    const proposal = r.added.find((x) => x.employeeId === q.employeeId && x.day === q.day && !x.doppio) || null;
+    const current = state.shifts.filter((x) => x.employeeId === q.employeeId && x.day === q.day);
+    return { proposal, current, currentOk: current.every((x) => fitsLimit(ctx, x)) };
   }
 
   // ---------- generatore ----------
@@ -704,6 +752,7 @@
     const lateEnd = (b) => b > CLOSE - (cfg.closeGrace ?? 30) && b < CLOSE;
     function canPlace(e, cand, replacing = null) {
       if (!isAvail(ctx, e, cand.day)) return false;
+      if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (lateEnd(cand.end) && !e.fixedShift) return false;
       if (!e.fixedShift && !cand.doppio && isRigidAfternoon(cfg, cand)) return false; // pomeriggio: turni sfalsati, non rigidi
       if (!e.fixedShift && !cand.doppio && e.type === 'CREW' && (isHybridAfternoon(cfg, cand) || isLongWithoutRush(cfg, cand))) return false; // niente ibridi, turni lunghi solo sul rush
@@ -729,7 +778,7 @@
     }
     /** Doppio: solo per chi lo fa, nello stesso giorno del turno normale, con la pausa minima. */
     function canPlaceDouble(e, cand) {
-      if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day)) return false;
+      if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand)) return false;
       if (dur(cand) <= 0 || dur(cand) > D_MAX || cand.start < OPEN || cand.end > CLOSE) return false;
       if (lateEnd(cand.end)) return false;
       const main = dayMain(e.id, cand.day);
@@ -901,7 +950,9 @@
         const hospBias = req.station === 'SERVIZIO' && !req.opening ? 0 : -2;
         // in apertura si preferisce chi NON è segnato per le chiusure: chi chiude serve la sera (e dopo una chiusura non può aprire)
         const closerPenalty = (e) => (req.opening && (e.closings || []).length ? -1.5 : 0);
-        return pickPair(d, wins, pool, (e) => st(e), false, canPlace, (e) => (e.type === 'HOSPITALITY' ? hospBias : 0) + closerPenalty(e));
+        // chi ha un impegno la sera (richiesta accettata) è il primo candidato per l'apertura: finisce presto
+        const earlyBonus = (e) => { const l = limitOf(ctx, e.id, d); return req.opening && l && l.until != null ? 2 : 0; };
+        return pickPair(d, wins, pool, (e) => st(e), false, canPlace, (e) => (e.type === 'HOSPITALITY' ? hospBias : 0) + closerPenalty(e) + earlyBonus(e));
       }
       const s1 = pickPair(d, windowsFor(d, m, LENGTHS, generic, 0, 'CREW', cfg.crewMax), crew, (e, a, b) => pickStation(e, d, a, b));
       if (s1) return s1;
@@ -1152,7 +1203,7 @@
     ABSENCE_TYPES, absenceInfo,
     STATIONS, CREW_STATIONS, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
-    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
+    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
   };
   if (typeof module !== 'undefined') module.exports = root.Turni;
 })(typeof window !== 'undefined' ? window : globalThis);
