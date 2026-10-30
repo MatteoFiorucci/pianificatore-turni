@@ -235,14 +235,14 @@
 <main id="app"></main>
 <div id="modal"></div>
 
-<script src="turni-storico.js?v=202610301241"></script>
-<script src="turni-core.js?v=202610301241"></script>
+<script src="turni-storico.js?v=202610301307"></script>
+<script src="turni-core.js?v=202610301307"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610301241"></script>
-<script src="turni-cloud-config.js?v=202610301241"></script>
-<script src="turni-cloud.js?v=202610301241"></script>
-<script src="turni-cripto.js?v=202610301241"></script>
+<script src="turni-data.js?v=202610301307"></script>
+<script src="turni-cloud-config.js?v=202610301307"></script>
+<script src="turni-cloud.js?v=202610301307"></script>
+<script src="turni-cripto.js?v=202610301307"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1116,6 +1116,22 @@ function cloudLoginFields(msg) {
       <button class="btn primary" id="cl-btn" style="align-self:end" onclick="cloudLogin()">Accedi</button>
     </div><div id="cl-err" class="notice err" style="display:none"></div></div>`;
 }
+/** Dall'app "Turni" (sezione Manager): basta la password comune dei manager, il nome di accesso lo prende dal locale. */
+async function askManagerLogin(s) {
+  let login = null;
+  try {
+    const c = window.TURNI_CLOUD_CONFIG;
+    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${c.projectId}/databases/(default)/documents/negozi/${encodeURIComponent(s)}?key=${c.apiKey}`, { cache: 'no-store' });
+    const j = await r.json(); login = j.fields && j.fields.login && j.fields.login.stringValue;
+  } catch (e) { /* senza rete o locale non attivo */ }
+  if (!login) return askCloudLogin();
+  showModal(`<h3>🔑 Area manager</h3><p class="muted">Inserisci la password dei manager del locale.</p>
+    <input type="hidden" id="cl-email" value="${esc(login)}">
+    <div class="form"><label class="f">Password manager<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')cloudLogin()"></label>
+    <div><button class="btn primary" id="cl-btn" onclick="cloudLogin()">Entra</button></div><div id="cl-err" class="notice err" style="display:none"></div></div>
+    <div class="actions"><a class="btn" style="text-decoration:none;display:inline-flex;align-items:center" href="richieste.html?s=${encodeURIComponent(s)}">← Sono un dipendente</a></div>`);
+  setTimeout(() => { const i = document.getElementById('cl-pw'); if (i) i.focus(); }, 50);
+}
 function askCloudLogin(msg) {
   showModal(`<h3>☁️ Accedi ai dati del locale</h3>
     <p class="muted">Entra con il nome utente (o l'email) e la password del salvataggio online: i dati saranno gli stessi su PC e telefono.</p>
@@ -1205,6 +1221,8 @@ async function checkInbox(notify) {
   if (inboxBusy || !TurniCloud.loggedIn() || !state.reqKeys) return 0;
   inboxBusy = true;
   try {
+    const me = TurniCloud.session().email;
+    if (state.loginPublished !== me) { await TurniCloud.setStoreInfo({ login: me }); state.loginPublished = me; save(); }
     const list = await TurniCloud.listRequests();
     const known = new Set((state.requests || []).map((q) => q.rid));
     const fresh = [];
@@ -1241,12 +1259,37 @@ function notifyRequests(fresh) {
     <p class="muted">Non cambia niente nei turni finché non la accetti.</p>
     <div class="actions"><button class="btn" onclick="closeModal()">Dopo</button><button class="btn primary" onclick="closeModal();go('richieste')">Vedi le richieste</button></div>`);
 }
+// ---- notifiche sul telefono anche ad app chiusa: ntfy (app gratuita), canale privato con nome casuale ----
+// Il messaggio non contiene nomi: dice solo che è arrivata una richiesta. Il dettaglio si vede nell'app.
+function ntfyBox() {
+  const t = state.ntfyTopic;
+  if (!t) return `<div class="card section"><b>🔔 Notifiche sul telefono, anche ad app chiusa</b>
+    <p style="margin:6px 0 10px" class="muted">Quando un dipendente manda una richiesta ti arriva una notifica sul telefono, come un messaggio. Usa l'app gratuita <b>ntfy</b> (Android e iPhone). Nella notifica non c'è nessun nome.</p>
+    <button class="btn primary" onclick="enableNtfy()">Attiva le notifiche sul telefono</button></div>`;
+  return `<details class="card section" ${ui.ntfyOpen ? 'open' : ''} ontoggle="ui.ntfyOpen=this.open"><summary style="cursor:pointer;font-weight:700">🔔 Notifiche sul telefono: attive (canale <code>${esc(t)}</code>)</summary>
+    <ol style="margin:10px 0;padding-left:20px;line-height:1.7">
+      <li>Sul telefono installa l'app gratuita <b>ntfy</b>: <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">Android</a> · <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener">iPhone</a></li>
+      <li>Aprila, tocca <b>+</b> (Iscriviti a un argomento) e scrivi esattamente: <code style="background:#f3f3f5;padding:2px 6px;border-radius:4px">${esc(t)}</code> (il server lascia quello già scritto, ntfy.sh). Tocca <b>Iscriviti</b>.</li>
+      <li>Premi qui sotto "Manda una notifica di prova": deve arrivarti sul telefono.</li>
+    </ol>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="testNtfy()">📨 Manda una notifica di prova</button><button class="link" onclick="if(confirm('Creare un canale nuovo? Dovrai iscriverti di nuovo su ntfy.'))enableNtfy()">Cambia canale</button></div>
+    <p class="small muted" style="margin-bottom:0">Il nome del canale è casuale e lo conoscete solo voi: tienilo per i manager.</p></details>`;
+}
+async function enableNtfy() {
+  const topic = 'turni-' + Array.from(crypto.getRandomValues(new Uint8Array(14)), (b) => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+  try { await TurniCloud.setStoreInfo({ ntfy: topic }); state.ntfyTopic = topic; ui.ntfyOpen = true; save(); render(); }
+  catch (e) { alert('Non riuscito: ' + e.message); }
+}
+function testNtfy() {
+  fetch(`https://ntfy.sh/${state.ntfyTopic}?title=${encodeURIComponent('Turni')}&tags=bell`, { method: 'POST', body: 'Prova: le notifiche delle richieste funzionano ✓' })
+    .then((r) => alert(r.ok ? 'Notifica inviata: controlla il telefono.' : 'Invio non riuscito.')).catch(() => alert('Invio non riuscito (connessione?).'));
+}
 async function enableRequests() {
   if (!TurniCloud.loggedIn()) return;
   try {
     const k = await TurniCripto.newKeyPair();
-    await TurniCloud.publishKey(k.pub);
-    state.reqKeys = k; save(); render();
+    await TurniCloud.setStoreInfo({ pub: k.pub, login: TurniCloud.session().email });
+    state.reqKeys = k; state.loginPublished = TurniCloud.session().email; save(); render();
   } catch (e) { alert('Attivazione non riuscita: ' + e.message); }
 }
 /** Crea (o rinnova) nome utente e password di un dipendente. La password vecchia smette di funzionare. */
@@ -1332,7 +1375,7 @@ function renderRichieste() {
   <p class="muted">I dipendenti, dal loro link personale, chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.</p>
   ${!logged ? '<div class="notice warn">Per ricevere le richieste serve il salvataggio online: accedi in Regole → Dati.</div>'
     : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>`
-    : `<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
+    : `${ntfyBox()}<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
         ${window.Notification && Notification.permission !== 'granted' ? '<button class="btn" onclick="Notification.requestPermission().then(()=>render())">🔔 Avvisami anche con le notifiche del browser</button>' : ''}</div>`}
   <h3 style="margin:18px 0 8px">Da decidere (${pend.length})</h3>
   ${pend.map(card).join('') || '<p class="muted">Nessuna richiesta in attesa.</p>'}
@@ -1506,7 +1549,7 @@ function saveConfig() {
 saveLocal();
 render();
 if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
-else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
+else if (TurniCloud.configured()) { const s = new URLSearchParams(location.search).get('s'); if (s) askManagerLogin(s); else if (!state.employees.length) askCloudLogin(); }
 else loadFromSite(false);
 // installabile come app (schermata Home del telefono o del computer)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => null);

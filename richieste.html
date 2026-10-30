@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Turni – Richieste</title>
+<title>Turni</title>
 <link rel="manifest" href="app-personale.webmanifest">
 <meta name="theme-color" content="#1e5631">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -48,8 +48,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><button id="logout" class="light" style="display:none;padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202610301241"></script>
-<script src="turni-cripto.js?v=202610301241"></script>
+<script src="turni-cloud-config.js?v=202610301307"></script>
+<script src="turni-cripto.js?v=202610301307"></script>
 <script>
 'use strict';
 /*
@@ -72,7 +72,7 @@ const dateLabel = (iso) => { const d = new Date(iso + 'T12:00:00'); return `${DO
 const times = (from, to, sel) => { let o = ''; for (let m = from; m <= to; m += 15) o += `<option value="${m}" ${m === sel ? 'selected' : ''}>${fmt(m)}</option>`; return o; };
 const mine = () => { try { return JSON.parse(localStorage.getItem(MINE())) || []; } catch (e) { return []; } };
 const saveMine = (l) => { try { localStorage.setItem(MINE(), JSON.stringify(l)); } catch (e) { /* niente */ } };
-let kind = 'impegno', pub = null, msg = '';
+let kind = 'impegno', pub = null, ntfy = null, msg = '';
 // impegni fissi ogni settimana: righe giorno + dalle + alle (d: 1 = lunedì … 7 = domenica)
 let slots = [{ d: 1, a: 660, b: 960 }];
 const DAYS = ['', 'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
@@ -99,18 +99,28 @@ const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
 function installBox() {
   if (standalone()) return '';
   if (installEvt) return '<div class="card"><b>📲 Installa l\'app sul telefono</b><p class="muted" style="margin:6px 0 10px">Così la apri dalla schermata Home, come le altre app.</p><button class="primary" onclick="installApp()">Installa l\'app</button></div>';
-  if (isIos()) return '<div class="card"><b>📲 Metti l\'app sulla schermata Home</b><p class="muted" style="margin:6px 0 0">In Safari tocca il tasto <b>Condividi</b> (il quadrato con la freccia in su), poi <b>"Aggiungi alla schermata Home"</b>. Dopo, apri l\'app dall\'icona e accedi.</p></div>';
+  if (isIos()) return '<div class="card"><b>📲 Metti l\'app sulla schermata Home</b><p class="muted" style="margin:6px 0 0">Apri questa pagina in <b>Safari</b>, tocca il tasto <b>Condividi</b> (il quadrato con la freccia in su), poi <b>"Aggiungi alla schermata Home"</b>. Dopo, apri l\'app dall\'icona e accedi.</p></div>';
+  if (/android/i.test(navigator.userAgent)) return '<div class="card"><b>📲 Installa l\'app sul telefono</b><p class="muted" style="margin:6px 0 0">Se hai aperto il link da <b>WhatsApp</b>, prima tocca i <b>tre puntini ⋮</b> in alto a destra → <b>"Apri in Chrome"</b>.<br>Poi in Chrome tocca i <b>tre puntini ⋮</b> → <b>"Installa app"</b> (o "Aggiungi a schermata Home"). Dopo, apri l\'app dall\'icona "Turni".</p></div>';
   return '';
 }
 async function installApp() { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch (e) { /* niente */ } installEvt = null; render(); }
 
 // ---- accesso con nome utente e password ----
+let role = (() => { try { return localStorage.getItem('turni-ruolo') || ''; } catch (e) { return ''; } })();
+const setRole = (r) => { role = r; try { if (r) localStorage.setItem('turni-ruolo', r); else localStorage.removeItem('turni-ruolo'); } catch (e) { /* niente */ } msg = ''; render(); };
+function chooseView() {
+  return `${installBox()}<div class="card"><h2>Chi sei?</h2>
+    <button class="primary" style="margin-bottom:10px" onclick="setRole('dipendente')">👤 Sono un dipendente</button>
+    <button class="light" style="width:100%;padding:14px" onclick="location.href='index.html?s=' + encodeURIComponent(STORE)">🔑 Sono un manager</button>
+    <p class="muted" style="margin:10px 0 0">I dipendenti entrano con nome utente e password personali; i manager con la password comune dei manager.</p></div>`;
+}
 function loginView() {
   return `${msg}${installBox()}<div class="card"><h2>Accedi</h2>
     <p class="muted" style="margin-top:-6px">Usa il nome utente e la password che ti ha dato il tuo manager.</p>
     <label class="f">Nome utente<input id="lu" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="es. mario.r"></label>
     <label class="f">Password<input id="lp" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></label>
-    <button class="primary" id="lb" onclick="login()">Entra</button></div>`;
+    <button class="primary" id="lb" onclick="login()">Entra</button>
+    <p style="margin:12px 0 0;text-align:center"><a href="#" onclick="setRole('');return false" style="color:var(--green)">← Torna alla scelta (dipendente o manager)</a></p></div>`;
 }
 async function login() {
   const user = document.getElementById('lu').value.trim().toLowerCase(), pw = document.getElementById('lp').value.trim();
@@ -127,13 +137,13 @@ async function login() {
     msg = ''; render(); if (mine().length) refresh();
   } catch (e) { show(e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Accesso non riuscito.'); }
 }
-function logout() { if (!confirm('Uscire? Per rientrare servono nome utente e password.')) return; session = null; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } msg = ''; render(); }
+function logout() { if (!confirm('Uscire? Per rientrare servono nome utente e password.')) return; session = null; role = ''; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } msg = ''; render(); }
 
 function render() {
   const app = document.getElementById('app');
   document.getElementById('logout').style.display = session ? '' : 'none';
   if (!STORE) { app.innerHTML = '<div class="card"><div class="notice err">Manca il codice del locale.</div><p>Apri il link che ti ha mandato il tuo manager.</p></div>'; return; }
-  if (!session) { document.getElementById('hello').textContent = 'Richieste per i turni al tuo manager.'; app.innerHTML = loginView(); return; }
+  if (!session) { document.getElementById('hello').textContent = role === 'dipendente' ? 'Richieste per i turni al tuo manager.' : 'App dei turni del locale.'; app.innerHTML = role === 'dipendente' ? loginView() : chooseView(); return; }
   document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}! Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.` : 'Qui chiedi al tuo manager un turno compatibile con i tuoi impegni.';
   const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
   const list = mine().slice().reverse();
@@ -176,6 +186,7 @@ async function loadPub() {
   const r = await fetch(`${BASE}?key=${cfg.apiKey}`, { cache: 'no-store' });
   if (!r.ok) throw new Error('Il tuo locale non ha ancora attivato le richieste: chiedi al manager.');
   const j = await r.json(); pub = j.fields && j.fields.pub && j.fields.pub.stringValue;
+  ntfy = j.fields && j.fields.ntfy && j.fields.ntfy.stringValue;
   if (!pub) throw new Error('Il tuo locale non ha ancora attivato le richieste: chiedi al manager.');
   return pub;
 }
@@ -204,6 +215,8 @@ async function send() {
       throw new Error('Invio non riuscito, riprova tra poco.');
     }
     saveMine([...mine(), { rid, ...q, status: 'in attesa', sentAt: new Date().toISOString() }]);
+    // avviso sul telefono del manager (app ntfy), senza nomi: il dettaglio si vede solo nell'app
+    if (ntfy) fetch(`https://ntfy.sh/${ntfy}?title=${encodeURIComponent('Turni')}&tags=calendar`, { method: 'POST', body: '📩 Nuova richiesta di turno: aprila nell\'app' }).catch(() => null);
     draft = {}; kind = 'impegno'; slots = [{ d: 1, a: 660, b: 960 }];
     show('ok', '✓ Richiesta inviata. Il manager la vedrà e ti risponderà qui.');
   } catch (e) {
