@@ -145,14 +145,14 @@
     box(row0(yD), nD, 'NOTE');
     if (cfg.societa) t(W - 1, H - 2, String(cfg.societa).toUpperCase(), { fs: 2.6, b: 1, a: 'end', c: GREEN });
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" font-family="Arial, Helvetica, sans-serif" shape-rendering="crispEdges" text-rendering="geometricPrecision">${out.join('')}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet" font-family="Arial, Helvetica, sans-serif" shape-rendering="crispEdges" text-rendering="geometricPrecision">${out.join('')}</svg>`;
   }
 
   // stile: invisibile a schermo, in stampa su un foglio A4 verticale dopo il nostro lineare
   const css = document.createElement('style');
   css.textContent = `#lin-uff{display:none}
     @page uff { size: A4 portrait; margin: 6mm; }
-    @media print { #lin-uff{display:block;page:uff;break-before:page;-webkit-print-color-adjust:exact;print-color-adjust:exact} #lin-uff svg{display:block} }`;
+    @media print { #lin-uff{display:block;page:uff;break-before:page;-webkit-print-color-adjust:exact;print-color-adjust:exact} #lin-uff svg{display:block;width:100%;height:auto;max-height:270mm;margin:0 auto} }`;
   document.head.appendChild(css);
 
   function prepara() {
