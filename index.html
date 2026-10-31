@@ -113,6 +113,8 @@
   button.ib:hover { background: var(--green); color: #fff; }
   th button.ib { width: 18px; height: 18px; font-size: 11px; }
   .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; line-height: 18px; text-align: center; margin-left: 2px; }
+  .evtag { display: inline-block; padding: 0 7px; border-radius: 999px; background: #fff4d6; color: #7a5200; font-size: 11px; line-height: 18px; font-weight: 600; white-space: nowrap; }
+  .evtag.closed { background: #e2e8f0; color: #334155; }
   .autotag { display: inline-block; padding: 0 6px; border-radius: 999px; background: #e6f0ff; color: #2456b3; font-size: 11px; line-height: 18px; margin-left: 4px; }
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
@@ -269,14 +271,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610311521"></script>
-<script src="turni-core.js?v=202610311521"></script>
+<script src="turni-storico.js?v=202610311531"></script>
+<script src="turni-core.js?v=202610311531"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610311521"></script>
-<script src="turni-cloud-config.js?v=202610311521"></script>
-<script src="turni-cloud.js?v=202610311521"></script>
-<script src="turni-cripto.js?v=202610311521"></script>
+<script src="turni-data.js?v=202610311531"></script>
+<script src="turni-cloud-config.js?v=202610311531"></script>
+<script src="turni-cloud.js?v=202610311531"></script>
+<script src="turni-cripto.js?v=202610311531"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -315,6 +317,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e <b>Ore totali</b>.<br><br><b>Ore totali</b> = le ore di lavoro del giorno come nel totale del lineare (hospitality + crew + doppi turni), <b>senza le ore manager</b>. Corrispondono alle "Crew Hours" aziendali tolte le ore manager.<br><br>Il generatore toglie le ore hospitality tipiche di quel giorno (media delle 4 settimane prima) e distribuisce le ore che restano tra i crew nelle fasce; le hospitality seguono le loro fasce in Regole. I giorni senza Ore totali usano i minimi di Regole.`],
   'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Ore totali</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 8,6 ore ogni 100 GC, dal lineare reale). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Ore totali diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la colonna GC SmartBusiness, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi tra Kiosk, McCafé e Front, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
+  'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero; il generatore non mette turni e conta quel giorno come una giornata di ferie per tutti.<br><b>🕒 Chiusura parziale</b> (manutenzione, chiusura anticipata): le previsioni calano della quota di clienti che di solito entra in quelle ore; niente turni e niente minimi in quegli orari.<br><b>⭐ Evento o ricorrenza</b> (Black Friday, promozioni, festa locale): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto almeno il 30% di clienti in più.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
@@ -389,7 +392,7 @@ function renderTurni() {
   const nErr = vs.filter((v) => v.sev === 'ERROR').length, nWarn = vs.length - nErr;
   const cfg = state.config;
 
-  const head = `<tr><th class="name">Dipendente</th>${ctx.days.map((d) => `<th><button class="link" title="Apri il lineare di questo giorno" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button></th>`).join('')}<th>Ore</th></tr>`;
+  const head = `<tr><th class="name">Dipendente</th>${ctx.days.map((d) => `<th><button class="link" title="Apri il lineare di questo giorno" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${evTags(d) ? `<div>${evTags(d)}</div>` : ''}</th>`).join('')}<th>Ore</th></tr>`;
   const covList = state.coverage.filter((r) => (ui.type === 'HOSPITALITY') === (r.station === 'HOSPITALITY'));
   const cov = covList.map((req) => `<tr class="cov"><td class="name">${esc(req.name)}${req.soft ? ' <span class="small">· consiglio</span>' : ''} <span class="small">(${T.fmtTime(req.start)}–${T.fmtTime(req.end)})</span></td>${
     ctx.days.map((d) => { const need = T.reqMin(req, d); if (!need) return '<td class="c">—</td>'; const c = T.coverageMin(ctx, d, req); return `<td class="c ${c >= need ? 'okc' : req.soft ? 'soft' : 'bad'}" title="Presenti nel momento più scoperto / minimo richiesto (gli ultimi minuti prima della chiusura non contano)">${c}/${need}</td>`; }).join('')}<td></td></tr>`).join('');
@@ -741,6 +744,7 @@ function renderGiornaliero() {
   <div class="daily">
     <div class="card sheet ${editing ? 'editing' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>LINEARE GIORNALIERO</b><span><b>${T.DOW_LONG[T.dow(day)]}</b> ${T.itDate(day)}</span></div>
+      ${evTags(day) ? `<div style="margin:4px 0">${evTags(day)}</div>` : ''}
       ${body}${counts}
       <div class="legend" style="margin-top:10px">${legend}</div>
       ${editing ? `<p class="notice info no-print" style="margin:10px 0 0">✋ <b>Modifica trascinando:</b> a destra/sinistra sposti il turno, dai bordi lo allunghi o accorci (scatti di 15 minuti). <b>In alto/basso:</b> lasciala sulla riga di un'altra persona per <b>scambiare</b> i turni, oppure su un'area della striscia che compare in alto per <b>cambiare area</b>. Tocca una barra senza trascinarla per aprire il turno.</p>` : ''}
@@ -811,27 +815,28 @@ async function applyAutoForecasts(data) {
   const ratio = chRatio();
   // settimane con turni già fatti: i numeri restano fermi (si aggiornano solo GC SmartBusiness e quote per canale)
   const planned = new Set(state.shifts.map((s) => T.mondayOf(s.day)));
+  // storico dei giorni speciali e clienti per ora: servono a stimare l'effetto di eventi e chiusure
+  const old = state.autoForecast || {};
+  state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {}, indici: data.indici || old.indici || null, profiloOrario: data.profiloOrario || old.profiloOrario || null };
   let n = 0, manual = 0, locked = 0;
   for (const [iso, p] of Object.entries(data.giorni)) {
     const day = Math.round(Date.parse(iso) / 864e5), ws = T.mondayOf(day), k = day - ws;
     const f = fcOf(ws), d = f.days[k], prev = d.auto || {};
     if (p.canali) d.canali = p.canali;
     if (planned.has(ws)) {
-      if (d.auto && p.gcSB != null) d.auto.gcSB = p.gcSB;
+      if (d.auto) {
+        if (p.gcSB != null) d.auto.gcSB = p.gcSB;
+        // per poter applicare gli eventi che il manager aggiunge dopo
+        if (!d.auto.orig) { d.auto.orig = { gc: d.auto.gc ?? null, sales: d.auto.sales ?? null }; d.auto.base = p.base || null; }
+      }
       state.forecasts[ws] = f; locked++;
       continue;
     }
-    for (const fld of ['sales', 'gc']) {
-      if (d[fld] != null && d[fld] !== prev[fld]) manual++; // scritto a mano: non si tocca
-      else d[fld] = p[fld] ?? null;
-    }
-    const ch = d.gc ? Math.round(d.gc * ratio) : null;
-    if (d.crewHours != null && d.crewHours !== prev.crewHours) manual++;
-    else d.crewHours = ch;
-    d.auto = { sales: p.sales ?? null, gc: p.gc ?? null, gcSB: p.gcSB ?? null, crewHours: ch };
+    const man = { sales: d.sales != null && d.sales !== prev.sales, gc: d.gc != null && d.gc !== prev.gc, crewHours: d.crewHours != null && d.crewHours !== prev.crewHours };
+    d.auto = { orig: { gc: p.gc ?? null, sales: p.sales ?? null }, base: p.base || null, gcSB: p.gcSB ?? null };
+    manual += setAutoValues(d, iso, ratio, man);
     state.forecasts[ws] = f; n++;
   }
-  state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {} };
   save(); render();
   return { giorni: n, manuali: manual, bloccati: locked };
 }
@@ -856,6 +861,188 @@ function channelTable(d) {
   return `<table class="list small" style="margin:2px 0 6px"><thead><tr><th>Canale</th><th>Vendite</th><th>GC</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function clearFc() { if (state.forecasts) delete state.forecasts[ui.ws]; save(); render(); }
+
+// ================= EVENTI E CHIUSURE =================
+// ev = { id, nome, tipo, dal, al, da, a (minuti, chiusura parziale), effetto (% manuale o null), confronto: [date passate] }
+const EV_TIPI = { CHIUSURA: '🔒 Chiusura totale', PARZIALE: '🕒 Chiusura parziale', EVENTO: '⭐ Evento o ricorrenza', ZONA: '🏬 Novità in zona' };
+const isoAdd = (iso, n) => T.toIso(T.toDay(iso) + n);
+const itIso = (iso) => iso.split('-').reverse().join('/');
+const pctTxt = (f) => `${f >= 1 ? '+' : '−'}${Math.round(Math.abs(f - 1) * 100)}%`;
+/** Indice storico di un giorno passato: [clienti, vendite] rispetto a un giorno normale (1 = normale, 0 = chiuso). */
+const histIdx = (iso) => { const i = state.autoForecast && state.autoForecast.indici; return i ? i[iso] || [1, 1] : null; };
+/** Effetto di un evento su un giorno: moltiplicatori di clienti (g) e vendite (s), con la spiegazione. */
+function eventEffect(ev, iso) {
+  if (ev.tipo === 'CHIUSURA') return { g: 0, s: 0, txt: 'locale chiuso: niente vendite e niente turni' };
+  if (ev.tipo === 'PARZIALE') {
+    const prof = ((state.autoForecast || {}).profiloOrario || {})[String(T.dow(T.toDay(iso)))];
+    if (!prof) return { g: 1, s: 1, txt: 'manca il profilo orario: carica le previsioni automatiche' };
+    let share = 0;
+    prof.forEach((q, h) => { const a = (h + 5) * 60, b = a + 60; share += q * Math.max(0, Math.min(b, ev.a) - Math.max(a, ev.da)) / 60; });
+    return { g: 1 - share, s: 1 - share, txt: `${pctTxt(1 - share)}: in quelle ore di solito entra il ${Math.round(share * 100)}% dei clienti` };
+  }
+  if (ev.effetto != null && ev.effetto !== '') { const f = 1 + ev.effetto / 100; return { g: f, s: f, txt: `${pctTxt(f)} (indicato da te)` }; }
+  if (ev.tipo === 'EVENTO') {
+    const off = T.toDay(iso) - T.toDay(ev.dal);
+    const vals = (ev.confronto || []).map((c) => [isoAdd(c, off), histIdx(isoAdd(c, off))]).filter(([, v]) => v && v[0] > 0);
+    if (!vals.length) return { g: 1, s: 1, txt: 'nessun dato storico per le date di confronto' };
+    const g = vals.reduce((t, [, v]) => t + v[0], 0) / vals.length, sv = vals.reduce((t, [, v]) => t + v[1], 0) / vals.length;
+    return { g, s: sv, txt: `${pctTxt(g)} clienti, come negli anni scorsi (${vals.map(([c, v]) => `${itIso(c)} ${pctTxt(v[0])}`).join(', ')})` };
+  }
+  return { g: 1, s: 1, txt: 'indica l\'effetto in %' };
+}
+/** Effetto di tutti gli eventi di un giorno (null se nessun evento). */
+function dayEffect(iso) {
+  const evs = T.eventsOn(state.eventi, T.toDay(iso));
+  if (!evs.length) return null;
+  let g = 1, sv = 1;
+  for (const ev of evs) { const e = eventEffect(ev, iso); g *= e.g; sv *= e.s; }
+  return { g, s: sv, evs };
+}
+/**
+ * Valori automatici di un giorno: senza eventi la previsione normale del Mac (auto.orig); con un evento si parte
+ * dalla previsione "normale" delle ultime settimane (auto.base, che non contiene già l'effetto dell'anno scorso) × effetto.
+ * Restituisce quanti valori scritti a mano sono stati lasciati com'erano.
+ */
+function setAutoValues(d, iso, ratio, man) {
+  const ef = dayEffect(iso), o = d.auto.orig || {}, b = d.auto.base || o;
+  const v = ef ? { gc: b.gc != null ? Math.round(b.gc * ef.g) : null, sales: b.sales != null ? Math.round(b.sales * ef.s) : null } : { gc: o.gc ?? null, sales: o.sales ?? null };
+  let kept = 0;
+  for (const fld of ['sales', 'gc']) { d.auto[fld] = v[fld]; if (man[fld]) kept++; else d[fld] = v[fld]; }
+  const ch = d.gc != null ? Math.round(d.gc * ratio) : null;
+  d.auto.crewHours = ch;
+  if (man.crewHours) kept++; else d.crewHours = ch;
+  return kept;
+}
+/** Dopo aver cambiato gli eventi: ricalcola i valori automatici da oggi in poi (anche nelle settimane già pianificate). */
+function refreshEvents() {
+  const ratio = chRatio(), today = T.todayDay();
+  for (const ws of Object.keys(state.forecasts || {}).map(Number)) {
+    if (ws + 6 < today) continue;
+    const f = fcOf(ws);
+    f.days.forEach((d, k) => {
+      if (!d.auto || !d.auto.orig || ws + k < today) return;
+      const a = d.auto, man = { sales: d.sales != null && d.sales !== a.sales, gc: d.gc != null && d.gc !== a.gc, crewHours: d.crewHours != null && d.crewHours !== a.crewHours };
+      setAutoValues(d, T.toIso(ws + k), ratio, man);
+    });
+    state.forecasts[ws] = f;
+  }
+}
+/** Etichette degli eventi di un giorno (tabella previsioni, turni, lineare). */
+function evTags(day) {
+  return T.eventsOn(state.eventi, day).map((ev) => `<span class="evtag ${ev.tipo === 'CHIUSURA' || ev.tipo === 'PARZIALE' ? 'closed' : ''}" title="${esc(EV_TIPI[ev.tipo] || '')}">${ev.tipo === 'CHIUSURA' ? '🔒' : ev.tipo === 'PARZIALE' ? '🕒' : ev.tipo === 'ZONA' ? '🏬' : '⭐'} ${esc(ev.nome)}${ev.tipo === 'PARZIALE' ? ` ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : ''}</span>`).join(' ');
+}
+/** Suggerimenti dallo storico per i prossimi 4 mesi: festività in cui il locale era chiuso, periodi con molti più clienti.
+ *  Si suggerisce solo quando lo stesso schema c'è in tutti e due gli anni passati; i giorni vicini diventano un unico periodo. */
+const FESTE = { '01-01': 'Capodanno', '01-06': 'Epifania', '04-25': 'Festa della Liberazione', '05-01': 'Festa del lavoro', '06-02': 'Festa della Repubblica', '08-15': 'Ferragosto', '11-01': 'Ognissanti', '12-08': 'Immacolata', '12-24': 'Vigilia di Natale', '12-25': 'Natale', '12-26': 'Santo Stefano', '12-31': 'San Silvestro' };
+function eventSuggestions() {
+  if (!state.autoForecast || !state.autoForecast.indici) return [];
+  const today = T.todayDay(), ign = new Set(state.eventiIgnorati || []);
+  const yAgo = (iso, n) => `${+iso.slice(0, 4) - n}${iso.slice(4)}`;
+  const big = (x) => x[0] >= 1.25;
+  const days = [];
+  for (let day = today; day < today + 120; day++) {
+    const iso = T.toIso(day);
+    if (ign.has(iso) || T.eventsOn(state.eventi, day).length) continue;
+    const c1 = histIdx(yAgo(iso, 1)), c2 = histIdx(yAgo(iso, 2)), w1 = histIdx(isoAdd(iso, -364)), w2 = histIdx(isoAdd(iso, -728));
+    if (c1[0] === 0 && c2[0] === 0) days.push({ day, tipo: 'CHIUSURA' });
+    else if ((big(c1) && big(c2)) || (big(w1) && big(w2))) days.push({ day, tipo: 'EVENTO', top: Math.max(c1[0], c2[0], w1[0], w2[0]) });
+  }
+  // giorni consecutivi dello stesso tipo = un solo periodo
+  const out = [];
+  for (const x of days) {
+    const last = out[out.length - 1];
+    if (last && last.tipo === x.tipo && x.day === last.to + 1) { last.to = x.day; last.top = Math.max(last.top || 0, x.top || 0); } else out.push({ from: x.day, to: x.day, tipo: x.tipo, top: x.top });
+  }
+  return out.slice(0, 8).map((g) => {
+    const iso = T.toIso(g.from), al = T.toIso(g.to), md = (d) => T.toIso(d).slice(5);
+    const feste = []; for (let d = g.from; d <= g.to; d++) if (FESTE[md(d)]) feste.push(FESTE[md(d)]);
+    const m = +iso.slice(5, 7), bf = m === 11 && g.to - g.from <= 6 && [...Array(g.to - g.from + 1)].some((_, i) => { const dd = g.from + i, dt = new Date(dd * 864e5); return T.dow(dd) === 5 && dt.getUTCDate() >= 22 && dt.getUTCDate() <= 28; });
+    const nome = g.tipo === 'CHIUSURA' ? feste.join(' e ') || 'Festività' : bf ? 'Black Friday' : m === 12 && iso.slice(8) >= '15' ? 'Periodo natalizio' : feste[0] || 'Giornate speciali';
+    const perche = g.tipo === 'CHIUSURA' ? 'il locale era chiuso negli stessi giorni degli ultimi due anni'
+      : `negli ultimi due anni questi giorni hanno avuto molti più clienti del normale (fino a ${pctTxt(g.top)})`;
+    // confronto: stesso giorno della settimana per i periodi, stessa data per le feste a data fissa
+    const fissa = feste.length && g.tipo === 'EVENTO' && !bf;
+    return { iso, al, tipo: g.tipo, nome, perche, confronto: g.tipo === 'EVENTO' ? (fissa ? [yAgo(iso, 1), yAgo(iso, 2)] : [isoAdd(iso, -364), isoAdd(iso, -728)]) : [] };
+  });
+}
+function renderEventi() {
+  const today = T.todayDay();
+  const list = [...(state.eventi || [])].sort((a, b) => a.dal.localeCompare(b.dal));
+  const future = list.filter((ev) => T.toDay(ev.al || ev.dal) >= today), past = list.filter((ev) => T.toDay(ev.al || ev.dal) < today);
+  const when = (ev) => (ev.al && ev.al !== ev.dal ? `${itIso(ev.dal)} – ${itIso(ev.al)}` : itIso(ev.dal)) + (ev.tipo === 'PARZIALE' ? ` · ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : '');
+  const row = (ev) => `<tr class="clickable" onclick="editEvent(${ev.id})"><td style="white-space:nowrap">${when(ev)}</td><td><b>${esc(ev.nome)}</b><br><span class="small muted">${EV_TIPI[ev.tipo]}</span></td><td class="small">${esc(eventEffect(ev, ev.dal).txt)}</td></tr>`;
+  const sug = eventSuggestions();
+  return `<div class="card section">
+    <div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0">📅 Eventi e chiusure ${ib('eventi')}</h3><div class="spacer"></div><button class="btn primary" onclick="editEvent()">+ Aggiungi</button></div>
+    ${sug.length ? `<div class="notice info" style="margin:10px 0"><b>Suggeriti dallo storico</b>${sug.map((x, i) => `<div class="row small" style="margin-top:4px"><span>${itIso(x.iso)}${x.al !== x.iso ? ' – ' + itIso(x.al) : ''} · ${x.tipo === 'CHIUSURA' ? '🔒' : '⭐'} <b>${esc(x.nome)}</b>: ${esc(x.perche)}</span> <button class="link" onclick="addSuggested(${i})">aggiungi</button> · <button class="link" onclick="ignoreSuggested('${x.iso}')">ignora</button></div>`).join('')}</div>` : ''}
+    ${future.length ? `<table class="list" style="margin-top:8px"><thead><tr><th>Quando</th><th>Evento</th><th>Effetto previsto</th></tr></thead><tbody>${future.map(row).join('')}</tbody></table>` : '<p class="muted small">Nessun evento in programma.</p>'}
+    ${past.length ? `<details style="margin-top:8px"><summary class="small" style="cursor:pointer">Eventi passati (${past.length})</summary><table class="list"><tbody>${past.reverse().map(row).join('')}</tbody></table></details>` : ''}
+  </div>`;
+}
+function addSuggested(i) {
+  const x = eventSuggestions()[i]; if (!x) return;
+  ui.evDraft = { nome: x.nome, tipo: x.tipo, dal: x.iso, al: x.al, da: 450, a: 690, effetto: null, confronto: x.confronto || [] };
+  showEventModal();
+}
+function ignoreSuggested(iso) {
+  const x = eventSuggestions().find((y) => y.iso === iso); if (!x) return;
+  const add = []; for (let d = T.toDay(x.iso); d <= T.toDay(x.al); d++) add.push(T.toIso(d));
+  state.eventiIgnorati = [...(state.eventiIgnorati || []), ...add]; save(); render();
+}
+function editEvent(id) {
+  const ev = id != null && (state.eventi || []).find((x) => x.id === id);
+  const iso = T.toIso(T.todayDay());
+  ui.evDraft = ev ? JSON.parse(JSON.stringify(ev)) : { nome: '', tipo: 'EVENTO', dal: iso, al: iso, da: 450, a: 690, effetto: null, confronto: [isoAdd(iso, -364), isoAdd(iso, -728)] };
+  showEventModal();
+}
+function evSet(fld, v) {
+  const e = ui.evDraft;
+  if (fld === 'dal') { const shift = e.dal && v ? T.toDay(v) - T.toDay(e.dal) : 0; if (e.al && e.al === e.dal || !e.al || T.toDay(e.al) < T.toDay(v)) e.al = v; if (shift && e.confronto && e.confronto.length && e.confrontoAuto !== false) e.confronto = e.confronto.map((c) => isoAdd(c, shift)); }
+  if (fld === 'confronto') { e.confrontoAuto = false; v = String(v).split(/[,;\s]+/).map((t) => { const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null; }).filter(Boolean); }
+  if (fld === 'effetto') v = v === '' ? null : +String(v).replace(',', '.');
+  if (fld === 'da' || fld === 'a') v = +v;
+  e[fld] = v;
+  showEventModal();
+}
+function evPropose(kind) { const e = ui.evDraft; const y = (n) => `${+e.dal.slice(0, 4) - n}${e.dal.slice(4)}`; e.confronto = kind === 'data' ? [y(1), y(2)] : [isoAdd(e.dal, -364), isoAdd(e.dal, -728)]; e.confrontoAuto = false; showEventModal(); }
+function showEventModal() {
+  const e = ui.evDraft, isNew = e.id == null;
+  const ef = e.dal ? eventEffect(e, e.dal) : null;
+  const opt = Object.entries(EV_TIPI).map(([k, v]) => `<option value="${k}" ${e.tipo === k ? 'selected' : ''}>${v}</option>`).join('');
+  showModal(`<h3>${isNew ? 'Nuovo evento' : 'Modifica evento'}</h3>
+    <div class="form">
+      <label class="f">Nome<input type="text" value="${esc(e.nome || '')}" placeholder="es. Black Friday, Natale, inventario" onchange="ui.evDraft.nome=this.value"></label>
+      <label class="f">Tipo<select onchange="evSet('tipo',this.value)">${opt}</select></label>
+      <div class="row"><label class="f">Dal<input type="date" value="${e.dal || ''}" onchange="evSet('dal',this.value)"></label><label class="f">Al<input type="date" value="${e.al || ''}" onchange="evSet('al',this.value)"></label></div>
+      ${e.tipo === 'PARZIALE' ? `<div class="row"><label class="f">Chiuso dalle${timeSelect(e.da, "evSet('da',this.value)")}</label><label class="f">alle${timeSelect(e.a, "evSet('a',this.value)")}</label></div>` : ''}
+      ${e.tipo === 'EVENTO' ? `<label class="f">Date di confronto negli anni passati <span class="small muted">(gg/mm/aaaa, separate da virgola)</span><input type="text" value="${(e.confronto || []).map(itIso).join(', ')}" onchange="evSet('confronto',this.value)"></label>
+        <div class="small"><button class="link" onclick="evPropose('settimana')">stesso giorno della settimana</button> (es. Black Friday) · <button class="link" onclick="evPropose('data')">stessa data</button> (es. Natale)</div>` : ''}
+      ${e.tipo === 'EVENTO' || e.tipo === 'ZONA' ? `<label class="f">Effetto in % <span class="small muted">${e.tipo === 'EVENTO' ? '(lascia vuoto per usare lo storico)' : '(es. 10 o −15: non c\'è storico per stimarlo)'}</span><input type="number" step="1" value="${e.effetto ?? ''}" onchange="evSet('effetto',this.value)"></label>` : ''}
+      ${ef ? `<div class="notice info small">Effetto previsto il primo giorno: <b>${esc(ef.txt)}</b></div>` : ''}
+    </div>
+    <div class="actions">${isNew ? '' : `<button class="btn danger" onclick="deleteEvent(${e.id})">Elimina</button>`}<div class="spacer"></div><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="saveEvent()">Salva</button></div>`);
+}
+function saveEvent() {
+  const e = ui.evDraft;
+  if (!e.nome || !e.nome.trim()) return alert('Scrivi il nome dell\'evento.');
+  if (!e.dal) return alert('Indica la data.');
+  if (!e.al || T.toDay(e.al) < T.toDay(e.dal)) e.al = e.dal;
+  if (e.tipo === 'PARZIALE' && !(e.a > e.da)) return alert('L\'orario di chiusura non è valido.');
+  if (e.tipo === 'ZONA' && (e.effetto == null || isNaN(e.effetto))) return alert('Indica l\'effetto in % (es. -10 se il nuovo negozio porterà via clienti).');
+  e.nome = e.nome.trim();
+  delete e.confrontoAuto;
+  state.eventi = state.eventi || [];
+  if (e.id == null) { e.id = newId(); state.eventi.push(e); } else state.eventi = state.eventi.map((x) => (x.id === e.id ? e : x));
+  ui.evDraft = null;
+  refreshEvents(); save(); closeModal(); render();
+  const shifts = e.tipo === 'CHIUSURA' ? state.shifts.filter((s) => s.day >= T.toDay(e.dal) && s.day <= T.toDay(e.al)).length : 0;
+  if (shifts) alert(`Attenzione: in quei giorni ci sono già ${shifts} turni. Toglili dalla pagina Turni (compaiono come errore).`);
+}
+function deleteEvent(id) {
+  if (!confirm('Eliminare questo evento?')) return;
+  state.eventi = (state.eventi || []).filter((x) => x.id !== id);
+  refreshEvents(); save(); closeModal(); render();
+}
 function renderPrevisioni() {
   const f = fcOf(ui.ws);
   const num = (val, on, ph = '') => `<input type="number" min="0" step="any" value="${val ?? ''}" placeholder="${ph}" style="width:130px" onchange="${on}">`;
@@ -867,7 +1054,8 @@ function renderPrevisioni() {
     const head = hasCh
       ? `<button class="link" style="white-space:nowrap" title="Mostra vendite e GC per canale" onclick="ui.fcOpen=${open === k ? 'null' : `{ws:${ui.ws},k:${k}}`};render()"><b>${T.shortDate(ui.ws + k)}</b> ${open === k ? '▾' : '▸'}</button>`
       : `<b>${T.shortDate(ui.ws + k)}</b>`;
-    return `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${head}</td>
+    const evs = evTags(ui.ws + k);
+    return `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${head}${evs ? `<div style="margin-top:3px">${evs}</div>` : ''}</td>
       <td>${num(d.sales, `setFc(${k},'sales',this.value)`)}${tag(d, 'sales')}</td>
       <td>${num(d.gc, `setFc(${k},'gc',this.value)`)}${tag(d, 'gc')}</td>
       <td>${sbOf(d)}</td>
@@ -893,7 +1081,8 @@ function renderPrevisioni() {
       <button class="link" onclick="fillFc(0,[1,3])">copia il lunedì su mar–gio</button> ·
       <button class="link" onclick="fillFc(4,[5,6])">copia il venerdì su sab–dom</button>
     </div>
-  </div>`;
+  </div>
+  ${renderEventi()}`;
 }
 
 // ================= PERSONALE =================

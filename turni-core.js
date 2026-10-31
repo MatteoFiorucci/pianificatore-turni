@@ -20,6 +20,7 @@
     MALATTIA: { label: 'Malattia', phrase: 'in malattia', color: '#fde2e4', ink: '#9f1239' },
     INFORTUNIO: { label: 'Infortunio', phrase: 'in infortunio', color: '#ffedd5', ink: '#9a3412' },
     ASSENTE: { label: 'Assente', phrase: 'assente', color: '#eeeeee', ink: '#555555' },
+    CHIUSURA: { label: 'Locale chiuso', phrase: 'a casa (locale chiuso)', color: '#f1f5f9', ink: '#334155' },
   };
   const absenceInfo = (type) => ABSENCE_TYPES[type] || { label: type, phrase: String(type).toLowerCase(), color: '#eeeeee', ink: '#555555' };
   const TYPES = { CREW: 'Crew', HOSPITALITY: 'Hospitality' };
@@ -212,6 +213,8 @@
       longHistory: new Map(),
       // richieste del personale accettate dal manager: chiave "id|giorno" → { until, from, off, label }
       limits: limitsFrom(state.requests, ws),
+      // giorni con il locale chiuso (tutto il giorno o in parte), dalla sezione Eventi
+      closures: new Map([0, 1, 2, 3, 4, 5, 6].map((i) => [ws + i, closureOf(state.eventi, ws + i)]).filter(([, c]) => c)),
     };
     for (const x of state.shifts) {
       if (x.day < ws - 28 || x.day >= ws) continue;
@@ -223,6 +226,18 @@
       ctx.forecast = fc;
       // le fasce senza postazione (rush, picchi, intermedi) prendono i minimi dalle previsioni
       ctx.coverage = state.coverage.map((r) => (r.station ? r : { ...r, min: [0, 1, 2, 3, 4, 5, 6].map((k) => forecastMin(fc, r, k) ?? (r.min ? r.min[k] : r.minStaff)), fromForecast: true }));
+    }
+    // locale chiuso: nessun minimo quel giorno; chiusura parziale: nessun minimo nelle fasce che la toccano
+    if (ctx.closures.size) {
+      ctx.coverage = ctx.coverage.map((r) => {
+        const min = [0, 1, 2, 3, 4, 5, 6].map((k) => (r.min ? r.min[k] : r.minStaff));
+        let changed = false;
+        [0, 1, 2, 3, 4, 5, 6].forEach((k) => {
+          const c = ctx.closures.get(ws + k);
+          if (c && (c.full || (r.start < c.to && covEnd(ctx.cfg, r) > c.from)) && min[k]) { min[k] = 0; changed = true; }
+        });
+        return changed ? { ...r, min } : r;
+      });
     }
     return ctx;
   }
@@ -292,7 +307,20 @@
 
   const shiftsOf = (ctx, id, day) =>
     ctx.shifts.filter((s) => s.employeeId === id && (day === undefined || s.day === day)).sort((a, b) => a.start - b.start);
-  const absenceOn = (ctx, id, day) => ctx.absences.find((a) => a.employeeId === id && day >= a.from && day <= a.to);
+  const absenceOn = (ctx, id, day) => ctx.absences.find((a) => a.employeeId === id && day >= a.from && day <= a.to)
+    || (ctx.closures && ctx.closures.has(day) && ctx.closures.get(day).full ? { employeeId: id, from: day, to: day, type: 'CHIUSURA' } : undefined);
+
+  // ---------- eventi e chiusure (sezione Previsioni) ----------
+  /** Eventi di un giorno. ev = { tipo: CHIUSURA | PARZIALE | EVENTO | ZONA, dal, al (AAAA-MM-GG), da, a (minuti, solo PARZIALE) }. */
+  const eventsOn = (eventi, day) => (eventi || []).filter((ev) => ev.dal && day >= toDay(ev.dal) && day <= toDay(ev.al || ev.dal));
+  /** Chiusura del giorno: { full: true } se chiuso tutto il giorno, { from, to } se chiuso in parte, null se aperto. */
+  function closureOf(eventi, day) {
+    const evs = eventsOn(eventi, day);
+    const full = evs.find((ev) => ev.tipo === 'CHIUSURA');
+    if (full) return { full: true, name: full.nome };
+    const part = evs.find((ev) => ev.tipo === 'PARZIALE' && ev.a > ev.da);
+    return part ? { full: false, from: part.da, to: part.a, name: part.nome } : null;
+  }
   const isRest = (e, day) => e.restDays.includes(dow(day));
   /** In formazione quel giorno (fino alla data indicata, se c'è): in apertura/chiusura deve essere affiancato. */
   const isTrainee = (e, day) => !!e.trainee && (e.traineeUntil == null || day <= e.traineeUntil);
@@ -339,6 +367,7 @@
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
     DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena', REQUEST: 'Richiesta del personale',
+    CLOSED: 'Locale chiuso',
   };
   const V = (rule, sev, msg, emp = null, day = null) => ({ rule, sev, msg, emp, day });
 
@@ -632,6 +661,17 @@
   }
 
   /** Niente turni prima della data di inizio (assunzione). */
+  /** Chiusura parziale (sezione Eventi): niente turni negli orari in cui il locale è chiuso. */
+  function ruleClosedHours(ctx) {
+    const out = [];
+    for (const x of ctx.shifts) {
+      const c = ctx.closures && ctx.closures.get(x.day), e = ctx.byId.get(x.employeeId);
+      if (c && !c.full && e && x.start < c.to && x.end > c.from)
+        out.push(V('CLOSED', 'ERROR', `${fullName(e)} ha un turno il ${shortDate(x.day)} dalle ${fmtTime(x.start)} alle ${fmtTime(x.end)}, ma il locale è chiuso dalle ${fmtTime(c.from)} alle ${fmtTime(c.to)} (${c.name || 'chiusura'})`, e.id, x.day));
+    }
+    return out;
+  }
+
   function ruleStartDate(ctx) {
     const out = [];
     for (const x of ctx.shifts) {
@@ -716,7 +756,7 @@
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleRequests].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -797,6 +837,8 @@
   function generate(ctx, opts = {}) {
     const cfg = ctx.cfg, shifts = ctx.shifts.slice(), added = [], notes = [];
     const OPEN = cfg.open ?? 450, CLOSE = cfg.close ?? 1290;
+    // chiusura parziale del locale (sezione Eventi): nessun turno in quegli orari
+    const inClosure = (c) => { const x = ctx.closures && ctx.closures.get(c.day); return !!x && !x.full && c.start < x.to && c.end > x.from; };
     const D_MAX = cfg.doubleMax ?? 180, D_GAP = cfg.doubleGap ?? 120;
     const emps = ctx.employees;
     const flexible = emps.filter((e) => !e.fixedShift);
@@ -839,6 +881,7 @@
     function canPlace(e, cand, replacing = null) {
       if (!isAvail(ctx, e, cand.day)) return false;
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
+      if (inClosure(cand)) return false;
       if (lateEnd(cand.end) && !e.fixedShift) return false;
       if (!e.fixedShift && !cand.doppio && isRigidAfternoon(cfg, cand)) return false; // pomeriggio: turni sfalsati, non rigidi
       if (!e.fixedShift && !cand.doppio && e.type === 'CREW' && (isHybridAfternoon(cfg, cand) || isLongWithoutRush(cfg, cand))) return false; // niente ibridi, turni lunghi solo sul rush
@@ -864,7 +907,7 @@
     }
     /** Doppio: solo per chi lo fa, nello stesso giorno del turno normale, con la pausa minima. */
     function canPlaceDouble(e, cand) {
-      if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand)) return false;
+      if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
       if (dur(cand) <= 0 || dur(cand) > D_MAX || cand.start < OPEN || cand.end > CLOSE) return false;
       if (lateEnd(cand.end)) return false;
       const main = dayMain(e.id, cand.day);
@@ -1286,7 +1329,7 @@
   }
 
   root.Turni = {
-    ABSENCE_TYPES, absenceInfo,
+    ABSENCE_TYPES, absenceInfo, eventsOn, closureOf,
     STATIONS, CREW_STATIONS, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
