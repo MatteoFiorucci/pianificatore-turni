@@ -51,7 +51,8 @@
     // barra gialla con le ore 5…24, 1…5
     const hourBar = (y, title) => {
       r(X_G, y, 96 * QW, 2.2, { f: YEL, s: LINE });
-      for (let i = 0; i < 25; i++) { const h = (5 + i) % 24 || 24; t(X_G + i * 4 * QW + (i === 24 ? -1 : 0.3), y + 1.6, h, { fs: 1.35, b: 1 }); }
+      for (let q = 4; q < 96; q += 4) l(X_G + q * QW, y, X_G + q * QW, y + 2.2, '#555', 0.15);
+      for (let i = 0; i < 24; i++) { const h = (5 + i) % 24 || 24; t(X_G + (i * 4 + 2) * QW, y + 1.65, h, { fs: 1.4, b: 1, a: 'middle' }); }
       if (title) t(X_G + 48 * QW, y - 0.6, title, { fs: 2, b: 1, a: 'middle', i: 1 });
     };
     // una sezione: intestazione + righe; rows = turni (null = riga vuota)
@@ -62,9 +63,9 @@
       // griglia
       r(X_POS, y, X_T2 + 6.5 - X_POS, n * RH, { s: LINE, sw: 0.2 });
       r(X_G, y, 96 * QW, n * RH, { s: LINE, sw: 0.2 });
-      for (let i = 1; i < n; i++) { l(X_POS, y + i * RH, X_T2 + 6.5, y + i * RH); l(X_G, y + i * RH, X_GE, y + i * RH); }
+      for (let i = 1; i < n; i++) { l(X_POS, y + i * RH, X_T2 + 6.5, y + i * RH, '#9a9a9a', 0.12); l(X_G, y + i * RH, X_GE, y + i * RH, '#9a9a9a', 0.12); }
       [X_NAME, X_T1, X_T2].forEach((x) => l(x, y, x, y + n * RH, LINE, 0.12));
-      for (let q = 1; q < 96; q++) l(X_G + q * QW, y, X_G + q * QW, y + n * RH, q % 4 ? '#d4d4d4' : '#8a8a8a', q % 4 ? 0.05 : 0.1);
+      for (let q = 1; q < 96; q++) l(X_G + q * QW, y, X_G + q * QW, y + n * RH, q % 4 ? '#bdbdbd' : '#555', q % 4 ? 0.1 : 0.22);
       // turni
       rows.slice(0, n).forEach((s, i) => {
         if (!s) return;
@@ -74,7 +75,7 @@
         t(X_NAME + 0.6, ty, name(e), { fs: 1.6 });
         t(X_T1 + 3.25, ty, fmt(s.start), { fs: 1.55, a: 'middle' }); t(X_T2 + 3.25, ty, fmt(s.end), { fs: 1.55, a: 'middle' });
         const a = Math.max(0, (s.start - 300) / 15), b = Math.min(96, (s.end - 300) / 15);
-        r(X_G + a * QW, yy + 0.35, (b - a) * QW, RH - 0.7, { f: COL[s.station] || '#888' });
+        r(X_G + a * QW, yy + 0.3, (b - a) * QW, RH - 0.6, { f: COL[s.station] || '#888' });
       });
       return y + n * RH;
     };
@@ -144,7 +145,7 @@
     box(row0(yD), nD, 'NOTE');
     if (cfg.societa) t(W - 1, H - 2, String(cfg.societa).toUpperCase(), { fs: 2.6, b: 1, a: 'end', c: GREEN });
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" font-family="Arial, Helvetica, sans-serif">${out.join('')}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" font-family="Arial, Helvetica, sans-serif" shape-rendering="crispEdges" text-rendering="geometricPrecision">${out.join('')}</svg>`;
   }
 
   // stile: invisibile a schermo, in stampa su un foglio A4 verticale dopo il nostro lineare
