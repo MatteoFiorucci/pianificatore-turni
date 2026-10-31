@@ -269,14 +269,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610311209"></script>
-<script src="turni-core.js?v=202610311209"></script>
+<script src="turni-storico.js?v=202610311521"></script>
+<script src="turni-core.js?v=202610311521"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610311209"></script>
-<script src="turni-cloud-config.js?v=202610311209"></script>
-<script src="turni-cloud.js?v=202610311209"></script>
-<script src="turni-cripto.js?v=202610311209"></script>
+<script src="turni-data.js?v=202610311521"></script>
+<script src="turni-cloud-config.js?v=202610311521"></script>
+<script src="turni-cloud.js?v=202610311521"></script>
+<script src="turni-cripto.js?v=202610311521"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -313,14 +313,14 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 
 // ---------- navigazione ----------
 const INFO = {
-  'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.`],
-  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Crew Hours</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 11,5 ore ogni 100 GC). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Crew Hours diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la colonna GC SmartBusiness, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi tra Kiosk, McCafé e Front, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
+  'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e <b>Ore totali</b>.<br><br><b>Ore totali</b> = le ore di lavoro del giorno come nel totale del lineare (hospitality + crew + doppi turni), <b>senza le ore manager</b>. Corrispondono alle "Crew Hours" aziendali tolte le ore manager.<br><br>Il generatore toglie le ore hospitality tipiche di quel giorno (media delle 4 settimane prima) e distribuisce le ore che restano tra i crew nelle fasce; le hospitality seguono le loro fasce in Regole. I giorni senza Ore totali usano i minimi di Regole.`],
+  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Ore totali</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 8,6 ore ogni 100 GC, dal lineare reale). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Ore totali diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la colonna GC SmartBusiness, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi tra Kiosk, McCafé e Front, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
   I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica. <b>Chi apre</b> (turno delle 7:30) quel giorno non fa il doppio.`],
   'ferie': [`Ferie e malattie`, `Inserisci ferie, malattie, infortuni e assenze. In quei giorni la persona non può avere turni (il generatore non la usa) e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno). Una malattia o un infortunio in corso si può inserire anche a settimana già fatta: i suoi turni di quei giorni diventano errori da coprire (usa 🛠 Risolvi problemi).`],
-  'fasce': [`Fasce di copertura`, `Numero minimo di persone presenti per tutta la durata della fascia, giorno per giorno (0 = nessun minimo). Nei giorni con le Crew Hours (sezione Previsioni), i minimi delle fasce senza postazione (rush, picchi, intermedi) vengono ricavati dalle Crew Hours. I valori iniziali vengono dagli orari reali delle settimane 39–44. Contano crew e hospitality messe in una postazione crew (non quelle in sala). Con una postazione indicata contano solo i presenti in quella postazione; con "Solo formati apertura" solo chi è segnato nella sezione Aperture.<br><br>Le fasce segnate <b>"consiglio"</b> (es. Postazione MFY) non sono obbligatorie: il generatore cerca di rispettarle, ma se mancano compaiono in <b>giallo</b> tra gli avvisi, non in rosso tra gli errori.`],
+  'fasce': [`Fasce di copertura`, `Numero minimo di persone presenti per tutta la durata della fascia, giorno per giorno (0 = nessun minimo). Nei giorni con le Ore totali (sezione Previsioni), i minimi delle fasce senza postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality. I valori iniziali vengono dagli orari reali delle settimane 39–44. Contano crew e hospitality messe in una postazione crew (non quelle in sala). Con una postazione indicata contano solo i presenti in quella postazione; con "Solo formati apertura" solo chi è segnato nella sezione Aperture.<br><br>Le fasce segnate <b>"consiglio"</b> (es. Postazione MFY) non sono obbligatorie: il generatore cerca di rispettarle, ma se mancano compaiono in <b>giallo</b> tra gli avvisi, non in rosso tra gli errori.`],
   'richieste': [`Richieste del personale`, `I dipendenti, dall'app del personale (con il loro nome utente e password), chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.`],
   'cfg-crewMaxWeekday': [`Max ore turno Crew lun–gio`, `Durata massima di un turno normale di un crew da <b>lunedì a giovedì</b> (di solito 4h). Ognuno può fare ogni tanto un turno più lungo: vedi "Turni lunghi lun–gio a testa a settimana". Il doppio non conta: ha il suo limite.`],
   'cfg-crewMax': [`Max ore turno Crew (turni lunghi e ven–dom)`, `Durata massima di un turno di un crew da <b>venerdì a domenica</b> e dei <b>turni lunghi</b> da lunedì a giovedì (di solito 5h). Il doppio non conta: ha il suo limite.`],
@@ -337,7 +337,7 @@ const INFO = {
   'cfg-pre': [`Chi fa la cena entra dalle`, `Ora più presto in cui entra chi lavora per la cena (es. 16:30). Così i turni di cena non partono nel mezzo del pomeriggio.`],
   'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale (es. 7:30–21:30). Il generatore non mette turni fuori da quest'orario.`],
   'col-nome': [`Fascia di copertura`, `Ogni riga è una fascia oraria (es. "Rush pranzo 12:00–15:00") con il numero minimo di persone che devono essere presenti per tutta la sua durata. Puoi cambiarne nome e orari, aggiungerne o eliminarne.`],
-  'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Crew Hours (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Crew Hours.`],
+  'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Ore totali (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality.`],
   'col-post': [`Postazione`, `<b>Qualsiasi crew</b>: contano tutti i crew presenti, in qualunque postazione.<br><b>Una postazione</b> (MFY, OA, McCafé, Sala, Hospitality): contano solo le persone messe in quella postazione. Per la Sala contano anche le hospitality.`],
   'col-ap': [`Solo formati apertura`, `Se è spuntato, nella fascia contano solo le persone segnate per <b>aprire</b> quella postazione (sezione Aperture e chiusure). Serve per le fasce di apertura (7:30). Si può spuntare solo se hai scelto una postazione.`],
   'col-ch': [`Solo formati chiusura`, `Se è spuntato, nella fascia contano solo le persone che possono <b>chiudere</b> quella postazione (sezione Aperture e chiusure: se per una postazione non hai segnato nessuno, possono chiudere tutti i formati in quella postazione). Serve per le fasce di chiusura. Si può spuntare solo se hai scelto una postazione.`],
@@ -419,7 +419,7 @@ function renderTurni() {
     <button class="btn primary" onclick="askGenerate()">⚙ Genera turni</button>
   </div>
   ${ctx.forecast ? (() => { const fd = (k) => T.forecastDay((state.forecasts || {})[ui.ws], k) || {};
-    return `<div class="notice info" style="margin-bottom:10px">📈 <b>Crew Hours</b>: ${DAYS7.map((k) => `${T.DOW_SHORT[k + 1]} ${fd(k).crewHours ? `<b>${fd(k).crewHours}h</b>` : '—'}`).join(' · ')} <button class="link" onclick="go('previsioni')">Previsioni</button></div>`; })() : ''}
+    return `<div class="notice info" style="margin-bottom:10px">📈 <b>Ore totali</b> <span class="small muted">(senza manager)</span>: ${DAYS7.map((k) => `${T.DOW_SHORT[k + 1]} ${fd(k).crewHours ? `<b>${fd(k).crewHours}h</b>` : '—'}`).join(' · ')} <button class="link" onclick="go('previsioni')">Previsioni</button></div>`; })() : ''}
   <details class="help card">
     <summary>Come funziona (clicca per aprire)</summary>
     <ul>
@@ -599,8 +599,8 @@ function hintFor(v) {
     const resting = v.day != null ? crew.filter((e) => T.isRest(e, v.day)) : [];
     const avgRest = crew.length ? DAYS7.reduce((t, k) => t + crew.filter((e) => e.restDays.includes(k + 1)).length, 0) / 4 : 0; // i riposi sono da lun a gio
     const fc = (state.forecasts || {})[T.mondayOf(v.day ?? ui.ws)];
-    if (resting.length > avgRest + 1) return `Quel giorno sono a riposo ${resting.length} crew (${resting.map(T.fullName).slice(0, 8).join(', ')}${resting.length > 8 ? '…' : ''}): sposta qualche riposo su un altro giorno da lunedì a giovedì${fc ? ', oppure rivedi le Crew Hours di quel giorno' : ''}.`;
-    return `Non ci sono abbastanza persone libere in quella fascia${fc ? ' per le Crew Hours di quel giorno' : ''}: ${fc ? 'rivedi le Crew Hours, ' : ''}abbassa il minimo in Regole o sposta un riposo.`;
+    if (resting.length > avgRest + 1) return `Quel giorno sono a riposo ${resting.length} crew (${resting.map(T.fullName).slice(0, 8).join(', ')}${resting.length > 8 ? '…' : ''}): sposta qualche riposo su un altro giorno da lunedì a giovedì${fc ? ', oppure rivedi le Ore totali di quel giorno' : ''}.`;
+    return `Non ci sono abbastanza persone libere in quella fascia${fc ? ' per le Ore totali di quel giorno' : ''}: ${fc ? 'rivedi le Ore totali, ' : ''}abbassa il minimo in Regole o sposta un riposo.`;
   }
   if (v.rule === 'WEEKLY_HOURS' || v.rule === 'WORK_DAYS') return 'Le ore non entrano nei giorni disponibili con le regole attuali (stacchi, massimo giornaliero).';
   if (v.rule === 'TRAINEE') return 'Serve un formato nella stessa postazione: segna altre persone in Formazione.';
@@ -749,7 +749,7 @@ function renderGiornaliero() {
     <div class="dayside">
       ${(() => { const fd = T.forecastDay((state.forecasts || {})[T.mondayOf(day)], T.dow(day) - 1);
         if (!fd || !(fd.sales || fd.gc || fd.crewHours)) return '';
-        return `<div class="card"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b><br>` : ''}${fd.gc ? `GC: <b>${fd.gc}</b><br>` : ''}${fd.crewHours ? `Crew Hours: <b>${fd.crewHours}h</b>` : ''}${fd.canali && Object.keys(fd.canali).length ? `<details style="margin-top:6px"><summary class="small" style="cursor:pointer">Per canale</summary>${channelTable(fd)}</details>` : ''}</div>`; })()}
+        return `<div class="card"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b><br>` : ''}${fd.gc ? `GC: <b>${fd.gc}</b><br>` : ''}${fd.crewHours ? `Ore totali: <b>${fd.crewHours}h</b> <span class="small muted">(senza manager)</span>` : ''}${fd.canali && Object.keys(fd.canali).length ? `<details style="margin-top:6px"><summary class="small" style="cursor:pointer">Per canale</summary>${channelTable(fd)}</details>` : ''}</div>`; })()}
       <div class="card"><h3>Coperture</h3><ul style="list-style:none;padding:0">${cov || '<li class="muted">Nessuna fascia</li>'}</ul></div>
       <div class="card"><h3>Riposi (${resting.length})</h3><ul>${resting.map((e) => `<li>${esc(T.fullName(e))}</li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
       <div class="card"><h3>Ferie, malattie e assenze (${away.length})</h3><ul>${away.map((x) => `<li>${esc(T.fullName(x.e))} <span class="muted small">${T.absenceInfo(x.a.type).label}</span></li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
@@ -770,23 +770,26 @@ function setFc(k, field, v) {
   const f = fcOf(ui.ws), d = f.days[k];
   const chWasAuto = d.auto && d.crewHours != null && d.crewHours === d.auto.crewHours;
   d[field] = parseNum(v);
-  // GC cambiati a mano: anche la stima delle Crew Hours si ricalcola (se non era stata scritta a mano)
+  if (field === 'crewHours') d.senzaManager = true; // scritte come Ore totali senza manager (dal 31/10/2026)
+  // GC cambiati a mano: anche la stima delle Ore totali si ricalcola (se non era stata scritta a mano)
   if (field === 'gc' && chWasAuto && d.gc) { d.crewHours = Math.round(d.gc * chRatio()); d.auto.crewHours = d.crewHours; }
   state.forecasts[ui.ws] = f; save(); render();
 }
 /**
- * Crew Hours per cliente, imparate dai giorni in cui il manager ha scritto a mano Crew Hours e GC
- * (ultime 8 settimane con dati). Senza dati: 0,115 (circa 11,5 ore ogni 100 GC).
+ * Ore totali (senza manager) per cliente, imparate dai giorni in cui il manager ha scritto a mano Ore totali e GC
+ * (ultime 8 settimane con dati). Contano solo i valori scritti dopo il cambio di significato (d.senzaManager):
+ * prima si scrivevano le Crew Hours aziendali, che comprendono i manager.
+ * Senza dati: 0,086 (circa 8,6 ore ogni 100 GC, dal lineare reale: 126 ore − 37 manager per circa 1.030 GC).
  */
 function chRatio() {
   let ch = 0, gc = 0, weeks = 0;
   for (const ws of Object.keys(state.forecasts || {}).map(Number).sort((a, b) => b - a)) {
-    const days = fcOf(ws).days.filter((d) => d.crewHours > 0 && d.gc > 0 && !(d.auto && d.crewHours === d.auto.crewHours));
+    const days = fcOf(ws).days.filter((d) => d.crewHours > 0 && d.gc > 0 && d.senzaManager && !(d.auto && d.crewHours === d.auto.crewHours));
     if (!days.length) continue;
     days.forEach((d) => { ch += d.crewHours; gc += d.gc; });
     if (++weeks >= 8) break;
   }
-  return gc ? ch / gc : 0.115;
+  return gc ? ch / gc : 0.086;
 }
 /** Copia lo stesso valore su più giorni (es. lun–gio uguali). */
 function fillFc(from, to) {
@@ -884,7 +887,8 @@ function renderPrevisioni() {
   <h2>Previsioni ${ib('previsioni')}</h2>
   ${af ? `<div class="notice info" style="margin-bottom:10px">📈 Previsioni automatiche aggiornate ${esc(fmtWhen(af.at))}, con i dati fino al ${esc(af.upTo ? af.upTo.split('-').reverse().join('/') : '—')} ${ib('prev-auto')}${errs ? `<br><span class="small">Errore medio delle ultime 8 settimane: ${errs}</span>` : ''}</div>` : ''}
   <div class="card section">
-    <table class="list" style="max-width:760px"><thead><tr><th>Giorno</th><th>Vendite previste (€)</th><th>GC</th><th>GC SmartBusiness</th><th>Crew Hours</th></tr></thead><tbody>${dayRows}</tbody></table>
+    <table class="list" style="max-width:760px"><thead><tr><th>Giorno</th><th>Vendite previste (€)</th><th>GC</th><th>GC SmartBusiness</th><th>Ore totali*</th></tr></thead><tbody>${dayRows}</tbody></table>
+    <p class="small muted" style="margin:6px 0 0">* Ore totali = hospitality + crew + doppi turni, come il totale del lineare, <b>senza le ore manager</b> (le "Crew Hours" aziendali meno le ore manager).</p>
     <div class="row small" style="margin-top:8px"><span class="muted">Scorciatoie:</span>
       <button class="link" onclick="fillFc(0,[1,3])">copia il lunedì su mar–gio</button> ·
       <button class="link" onclick="fillFc(4,[5,6])">copia il venerdì su sab–dom</button>
