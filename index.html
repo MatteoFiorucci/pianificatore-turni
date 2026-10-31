@@ -269,14 +269,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610311157"></script>
-<script src="turni-core.js?v=202610311157"></script>
+<script src="turni-storico.js?v=202610311209"></script>
+<script src="turni-core.js?v=202610311209"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610311157"></script>
-<script src="turni-cloud-config.js?v=202610311157"></script>
-<script src="turni-cloud.js?v=202610311157"></script>
-<script src="turni-cripto.js?v=202610311157"></script>
+<script src="turni-data.js?v=202610311209"></script>
+<script src="turni-cloud-config.js?v=202610311209"></script>
+<script src="turni-cloud.js?v=202610311209"></script>
+<script src="turni-cripto.js?v=202610311209"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -314,7 +314,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 // ---------- navigazione ----------
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.`],
-  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Crew Hours</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 11,5 ore ogni 100 GC). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Crew Hours diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la colonna GC SmartBusiness, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi tra Chiosco, McCafé e Front, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
+  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Crew Hours</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 11,5 ore ogni 100 GC). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Crew Hours diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la colonna GC SmartBusiness, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi tra Kiosk, McCafé e Front, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
@@ -844,7 +844,7 @@ function importAutoForecasts(input) {
     .catch((e) => alert('Non è stato possibile caricare il file: ' + e.message));
 }
 /** Vendite e GC del giorno divise per canale, con le quote medie delle ultime 4 settimane (d.canali = { chiosco: { s, g } ... }). */
-const CANALI = { chiosco: 'Chiosco', mccafe: 'McCafé', front: 'Front', mcdelivery: 'McDelivery', drive: 'Drive', altro: 'Altro' };
+const CANALI = { chiosco: 'Kiosk', mccafe: 'McCafé', front: 'Front', mcdelivery: 'McDelivery', drive: 'Drive', altro: 'Altro' };
 function channelTable(d) {
   const eur = (x) => Math.round(x).toLocaleString('it-IT');
   const rows = Object.entries(d.canali).sort((a, b) => b[1].s - a[1].s).map(([c, q]) => `<tr><td>${esc(CANALI[c] || c)}</td>
