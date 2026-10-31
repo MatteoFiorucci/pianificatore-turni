@@ -237,7 +237,7 @@
   .dayside .card { padding: 12px; margin-bottom: 12px; } .dayside h3 { margin: 0 0 6px; font-size: 14px; }
   .dayside ul { margin: 0; padding-left: 18px; } .dayside li { margin: 2px 0; }
   @media print {
-    @page { size: A4 landscape; margin: 8mm; }
+    @page { size: A4 portrait; margin: 8mm; }
     header, .toolbar, .no-print, #modal { display: none !important; }
     body { background: #fff; } main { padding: 0; }
     /* lineare stampato: solo griglia, ore e aree; in testa la previsione, sotto riposi e assenze */
@@ -247,14 +247,15 @@
     .print-hide, .pdot, .reqtag, .evimp { display: none !important; }
     .lsec { margin-top: 5px; break-inside: avoid; }
     .lsec h4 { font-size: 10px; padding: 1px; margin-bottom: 1px; }
-    .lrow { grid-template-columns: 34px 170px 36px 36px 1fr; font-size: 10.5px; min-height: 15px; border-bottom: 1px solid #ccc; }
+    .lrow { grid-template-columns: 28px 150px 32px 32px 1fr; font-size: 9.5px; min-height: 14px; border-bottom: 1px solid #ccc; }
+    .lhead .ltrack span.odd { display: none; }
     .lrow > div { padding: 0 3px; }
     .lrow .lname { font-weight: 700; }
     .lrow .ltrack { min-height: 15px; }
     .lbar { top: 1px; bottom: 1px; opacity: 1; border-radius: 2px; display: flex; align-items: center; overflow: hidden; }
     .lbar .lbl { display: block; color: #fff; font-size: 8.5px; font-weight: 800; padding-left: 3px; white-space: nowrap; }
     .lhead { font-size: 9.5px; } .lhead .ltrack span { font-size: 9.5px; font-weight: 700; color: #000; }
-    .lcount .ltrack span { font-size: 9.5px; }
+    .lcount .ltrack span { font-size: 8px; }
     .lbar, .lrow .ltrack, .lcount.total, .lsec h4, .sw { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .legend { font-size: 9.5px; margin-top: 4px !important; }
     .dayside { display: flex; gap: 8px; margin-top: 6px; break-inside: avoid; }
@@ -291,14 +292,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610311603"></script>
-<script src="turni-core.js?v=202610311603"></script>
+<script src="turni-storico.js?v=202610311759"></script>
+<script src="turni-core.js?v=202610311759"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610311603"></script>
-<script src="turni-cloud-config.js?v=202610311603"></script>
-<script src="turni-cloud.js?v=202610311603"></script>
-<script src="turni-cripto.js?v=202610311603"></script>
+<script src="turni-data.js?v=202610311759"></script>
+<script src="turni-cloud-config.js?v=202610311759"></script>
+<script src="turni-cloud.js?v=202610311759"></script>
+<script src="turni-cripto.js?v=202610311759"></script>
+<script src="lineare-ufficiale.js?v=202610311759"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1455,6 +1457,8 @@ function renderRegole() {
   <div class="card section">
     <div class="form">
       <div class="row"><label class="f">Nome del locale (compare in alto)<input type="text" value="${esc(c.storeName || '')}" placeholder="es. il nome del ristorante" onchange="state.config.storeName=this.value.trim();save();render()"></label></div>
+      <div class="row"><label class="f">Marchio (in alto nel lineare ufficiale stampato, prima del nome del locale)<input type="text" value="${esc(c.marchio || '')}" placeholder="es. il nome dell'insegna" onchange="state.config.marchio=this.value.trim();save()"></label>
+        <label class="f">Società (in basso a destra nel lineare ufficiale)<input type="text" value="${esc(c.societa || '')}" placeholder="es. la ragione sociale" onchange="state.config.societa=this.value.trim();save()"></label></div>
       ${renderCloudBox()}
       <hr style="border:0;border-top:1px solid var(--line);width:100%">
       <p style="margin:0">${TurniCloud.loggedIn() ? 'Copia di sicurezza su file (facoltativa):' : 'Senza salvataggio online i dati (personale, turni, ferie, regole, previsioni) sono salvati <b>solo in questo browser</b>. Per spostarli su un altro dispositivo o farne una copia di sicurezza:'}</p>
