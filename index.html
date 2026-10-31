@@ -230,16 +230,36 @@
   .lcount.total { font-weight: 800; background: var(--green-soft); }
   .st-CUCINA { background: #d84a3a; } .st-FRONT { background: #2f80c0; } .st-MCCAFE { background: #7a4a2a; }
   .st-SERVIZIO { background: #8a8a8a; } .st-HOSPITALITY { background: #6c4bb5; }
+  .lbar .lbl { display: none; }
+  .printhead { display: none; }
+  .evimp { font-size: 11px; color: #7a5200; font-weight: 600; margin-top: 2px; }
+  .lcount.gcrow { color: var(--green); font-weight: 600; } .lcount.evrow { color: #7a5200; }
   .dayside .card { padding: 12px; margin-bottom: 12px; } .dayside h3 { margin: 0 0 6px; font-size: 14px; }
   .dayside ul { margin: 0; padding-left: 18px; } .dayside li { margin: 2px 0; }
   @media print {
     @page { size: A4 landscape; margin: 8mm; }
     header, .toolbar, .no-print, #modal { display: none !important; }
     body { background: #fff; } main { padding: 0; }
-    .daily { grid-template-columns: 1fr 230px; gap: 8px; } .card { border: 0; }
-    .lrow { grid-template-columns: 50px 150px 40px 40px 1fr; font-size: 10px; min-height: 16px; }
-    .lbar, .lrow .ltrack { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .lcount.total, .lsec h4 { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* lineare stampato: solo griglia, ore e aree; in testa la previsione, sotto riposi e assenze */
+    .daily { display: block; } .card { border: 0; box-shadow: none; }
+    .sheet { padding: 0; }
+    .printhead { display: block; font-size: 11px; margin: 2px 0 4px; padding: 3px 6px; border: 1px solid #999; border-radius: 4px; }
+    .print-hide, .pdot, .reqtag, .evimp { display: none !important; }
+    .lsec { margin-top: 5px; break-inside: avoid; }
+    .lsec h4 { font-size: 10px; padding: 1px; margin-bottom: 1px; }
+    .lrow { grid-template-columns: 34px 170px 36px 36px 1fr; font-size: 10.5px; min-height: 15px; border-bottom: 1px solid #ccc; }
+    .lrow > div { padding: 0 3px; }
+    .lrow .lname { font-weight: 700; }
+    .lrow .ltrack { min-height: 15px; }
+    .lbar { top: 1px; bottom: 1px; opacity: 1; border-radius: 2px; display: flex; align-items: center; overflow: hidden; }
+    .lbar .lbl { display: block; color: #fff; font-size: 8.5px; font-weight: 800; padding-left: 3px; white-space: nowrap; }
+    .lhead { font-size: 9.5px; } .lhead .ltrack span { font-size: 9.5px; font-weight: 700; color: #000; }
+    .lcount .ltrack span { font-size: 9.5px; }
+    .lbar, .lrow .ltrack, .lcount.total, .lsec h4, .sw { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .legend { font-size: 9.5px; margin-top: 4px !important; }
+    .dayside { display: flex; gap: 8px; margin-top: 6px; break-inside: avoid; }
+    .dayside .card { flex: 1; padding: 4px 8px; margin: 0; border: 1px solid #bbb; border-radius: 4px; font-size: 10px; }
+    .dayside h3 { font-size: 11px; margin-bottom: 2px; } .dayside ul { columns: 2; }
   }
   /* ---- tabelle: la riga dei titoli resta visibile scorrendo ---- */
   .list thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--line); }
@@ -271,14 +291,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610311531"></script>
-<script src="turni-core.js?v=202610311531"></script>
+<script src="turni-storico.js?v=202610311603"></script>
+<script src="turni-core.js?v=202610311603"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610311531"></script>
-<script src="turni-cloud-config.js?v=202610311531"></script>
-<script src="turni-cloud.js?v=202610311531"></script>
-<script src="turni-cripto.js?v=202610311531"></script>
+<script src="turni-data.js?v=202610311603"></script>
+<script src="turni-cloud-config.js?v=202610311603"></script>
+<script src="turni-cloud.js?v=202610311603"></script>
+<script src="turni-cripto.js?v=202610311603"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -317,7 +337,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e <b>Ore totali</b>.<br><br><b>Ore totali</b> = le ore di lavoro del giorno come nel totale del lineare (hospitality + crew + doppi turni), <b>senza le ore manager</b>. Corrispondono alle "Crew Hours" aziendali tolte le ore manager.<br><br>Il generatore toglie le ore hospitality tipiche di quel giorno (media delle 4 settimane prima) e distribuisce le ore che restano tra i crew nelle fasce; le hospitality seguono le loro fasce in Regole. I giorni senza Ore totali usano i minimi di Regole.`],
   'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Ore totali</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 8,6 ore ogni 100 GC, dal lineare reale). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Ore totali diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la colonna GC SmartBusiness, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi tra Kiosk, McCafé e Front, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
-  'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero; il generatore non mette turni e conta quel giorno come una giornata di ferie per tutti.<br><b>🕒 Chiusura parziale</b> (manutenzione, chiusura anticipata): le previsioni calano della quota di clienti che di solito entra in quelle ore; niente turni e niente minimi in quegli orari.<br><b>⭐ Evento o ricorrenza</b> (Black Friday, promozioni, festa locale): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto almeno il 30% di clienti in più.`],
+  'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero; il generatore non mette turni e conta quel giorno come una giornata di ferie per tutti.<br><b>🕒 Chiusura parziale</b> (manutenzione, chiusura anticipata): le previsioni calano della quota di clienti che di solito entra in quelle ore; niente turni e niente minimi in quegli orari.<br><b>⭐ Evento o ricorrenza</b> (Black Friday, promozioni, festa locale): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno (es. apertura +65% il primo giorno, +20% in settimana, +50% nel weekend) con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni (⭐ +434 (+60%)), nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto almeno il 30% di clienti in più.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
@@ -697,9 +717,9 @@ function renderGiornaliero() {
     const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}${lim ? ` · richiesta accettata: ${lim.label}` : ''}`;
     return `<div class="lrow ${editing ? '' : 'click'}" ${editing ? `data-rsid="${s.id}"` : `onclick="openDay(${e.id},${day})"`} title="${esc(tip)}">
       <div class="lpos">${T.STATIONS[s.station].short}</div>
-      <div class="lname">${bad.has(e.id) ? '<span style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
+      <div class="lname">${bad.has(e.id) ? '<span class="pdot" style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
       <div class="ltime" data-t="a">${T.fmtTime(s.start)}</div><div class="ltime" data-t="b">${T.fmtTime(s.end)}</div>
-      <div class="ltrack" style="${grid}"><div class="lbar st-${s.station}${editing ? ' drag' : ''}" ${editing ? `data-sid="${s.id}" onpointerdown="dragStart(event)"` : ''} style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%">${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div>
+      <div class="ltrack" style="${grid}"><div class="lbar st-${s.station}${editing ? ' drag' : ''}" ${editing ? `data-sid="${s.id}" onpointerdown="dragStart(event)"` : ''} style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%"><span class="lbl">${T.STATIONS[s.station].short}</span>${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div>
     </div>`;
   };
   const head = `<div class="lrow lhead"><div class="lpos">Post.</div><div class="lname">Nome</div><div class="ltime">Dalle</div><div class="ltime">Alle</div>
@@ -716,10 +736,22 @@ function renderGiornaliero() {
     return `<div class="lrow lcount ${cls}"><div></div><div class="lname">${label}</div><div class="ltime" style="grid-column: span 2">${fmtN(tot)}</div>
       <div class="ltrack">${hours.map((h) => `<span>${fmtN(hoursIn(list, h))}</span>`).join('')}</div></div>`;
   };
+  // clienti previsti per ora (profilo orario del locale) e quanti in più/meno per l'evento
+  const fd = T.forecastDay((state.forecasts || {})[T.mondayOf(day)], T.dow(day) - 1), iso = T.toIso(day);
+  const prof = ((state.autoForecast || {}).profiloOrario || {})[String(T.dow(day))];
+  const ef = dayEffect(iso), clo = T.closureOf(state.eventi, day);
+  const shut = (h) => clo && (clo.full || (h * 60 < clo.to && (h + 1) * 60 > clo.from));
+  const openShare = prof ? hours.reduce((t, h) => t + (shut(h) ? 0 : prof[(h - 5 + 24) % 24] || 0), 0) : 0;
+  const gcAt = (h) => (fd && fd.gc && prof && openShare && !shut(h) ? (fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / openShare : 0);
+  const gcRows = fd && fd.gc && prof && openShare ? `<div class="lrow lcount gcrow"><div></div><div class="lname">GC previsti</div><div class="ltime" style="grid-column: span 2">${fd.gc}</div><div class="ltrack">${hours.map((h) => `<span>${gcAt(h) >= 0.5 ? Math.round(gcAt(h)) : ''}</span>`).join('')}</div></div>
+    ${ef && ef.g > 0 && Math.abs(ef.g - 1) > 0.005 ? `<div class="lrow lcount evrow"><div></div><div class="lname">di cui evento ⭐</div><div class="ltime" style="grid-column: span 2">${sgn(fd.gc - fd.gc / ef.g)}</div><div class="ltrack">${hours.map((h) => { const x = gcAt(h) - gcAt(h) / ef.g; return `<span>${Math.abs(x) >= 0.5 ? sgn(x) : ''}</span>`; }).join('')}</div></div>` : ''}` : '';
   const crewPresent = (h) => { let mx = 0; for (let m = h * 60; m < (h + 1) * 60; m += 15) mx = Math.max(mx, day_.filter((s) => typeOf(s) === 'CREW' && s.start <= m && s.end >= m + 15).length); return mx; };
   const counts = `<div class="countwrap"><div class="lsec"><h4>Ore per fascia oraria</h4>${head}
     ${countRow('Ore hospitality', sections[0][1])}${countRow('Ore crew', sections[1][1])}${countRow('Ore doppi turni', sections[2][1])}${countRow('Totale', day_, 'total')}
-    <div class="lrow lcount"><div></div><div class="lname">Crew presenti (max)</div><div class="ltime" style="grid-column: span 2"></div><div class="ltrack">${hours.map((h) => `<span>${crewPresent(h)}</span>`).join('')}</div></div></div></div>`;
+    <div class="lrow lcount"><div></div><div class="lname">Crew presenti (max)</div><div class="ltime" style="grid-column: span 2"></div><div class="ltrack">${hours.map((h) => `<span>${crewPresent(h)}</span>`).join('')}</div></div>${gcRows}</div></div>`;
+  // riga di previsione in testa (in stampa sostituisce la colonna di destra)
+  const im = fd && evImpact(fd, iso);
+  const fcLine = fd && (fd.sales || fd.gc || fd.crewHours) ? [fd.sales ? `Vendite previste <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b>` : '', fd.gc ? `GC <b>${fd.gc}</b>` : '', fd.crewHours ? `Ore totali <b>${fd.crewHours}h</b>` : '', im ? `⭐ ${esc(im.names)}: <b>${esc(impactTxt(im))}</b>` : ''].filter(Boolean).join(' · ') : '';
 
   // colonna laterale
   const resting = sortByName(ctx.employees.filter((e) => T.started(e, day) && T.isRest(e, day) && !day_.some((s) => s.employeeId === e.id)));
@@ -745,6 +777,7 @@ function renderGiornaliero() {
     <div class="card sheet ${editing ? 'editing' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>LINEARE GIORNALIERO</b><span><b>${T.DOW_LONG[T.dow(day)]}</b> ${T.itDate(day)}</span></div>
       ${evTags(day) ? `<div style="margin:4px 0">${evTags(day)}</div>` : ''}
+      ${fcLine ? `<div class="printhead">${fcLine}</div>` : ''}
       ${body}${counts}
       <div class="legend" style="margin-top:10px">${legend}</div>
       ${editing ? `<p class="notice info no-print" style="margin:10px 0 0">✋ <b>Modifica trascinando:</b> a destra/sinistra sposti il turno, dai bordi lo allunghi o accorci (scatti di 15 minuti). <b>In alto/basso:</b> lasciala sulla riga di un'altra persona per <b>scambiare</b> i turni, oppure su un'area della striscia che compare in alto per <b>cambiare area</b>. Tocca una barra senza trascinarla per aprire il turno.</p>` : ''}
@@ -753,8 +786,9 @@ function renderGiornaliero() {
     <div class="dayside">
       ${(() => { const fd = T.forecastDay((state.forecasts || {})[T.mondayOf(day)], T.dow(day) - 1);
         if (!fd || !(fd.sales || fd.gc || fd.crewHours)) return '';
-        return `<div class="card"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b><br>` : ''}${fd.gc ? `GC: <b>${fd.gc}</b><br>` : ''}${fd.crewHours ? `Ore totali: <b>${fd.crewHours}h</b> <span class="small muted">(senza manager)</span>` : ''}${fd.canali && Object.keys(fd.canali).length ? `<details style="margin-top:6px"><summary class="small" style="cursor:pointer">Per canale</summary>${channelTable(fd)}</details>` : ''}</div>`; })()}
-      <div class="card"><h3>Coperture</h3><ul style="list-style:none;padding:0">${cov || '<li class="muted">Nessuna fascia</li>'}</ul></div>
+        const im = evImpact(fd, T.toIso(day));
+        return `<div class="card print-hide"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b>${impLine(fd, day, 'sales')}` : ''}${fd.gc ? `GC: <b>${fd.gc}</b>${impLine(fd, day, 'gc')}` : ''}${fd.crewHours ? `Ore totali: <b>${fd.crewHours}h</b> <span class="small muted">(senza manager)</span>` : ''}${im ? `<div class="notice info small" style="margin-top:6px">⭐ ${esc(im.names)}: ${esc(im.closed ? 'locale chiuso' : impactTxt(im))} rispetto a un giorno normale</div>` : ''}${fd.canali && Object.keys(fd.canali).length ? `<details style="margin-top:6px"><summary class="small" style="cursor:pointer">Per canale</summary>${channelTable(fd)}</details>` : ''}</div>`; })()}
+      <div class="card print-hide"><h3>Coperture</h3><ul style="list-style:none;padding:0">${cov || '<li class="muted">Nessuna fascia</li>'}</ul></div>
       <div class="card"><h3>Riposi (${resting.length})</h3><ul>${resting.map((e) => `<li>${esc(T.fullName(e))}</li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
       <div class="card"><h3>Ferie, malattie e assenze (${away.length})</h3><ul>${away.map((x) => `<li>${esc(T.fullName(x.e))} <span class="muted small">${T.absenceInfo(x.a.type).label}</span></li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
       <div class="card no-print"><h3>Problemi del giorno (${vs.length})</h3>${vs.map((v) => `<div class="prob"><span class="dot ${v.sev}"></span><div class="small">${esc(v.msg)}</div></div>`).join('') || '<p class="muted small">Nessuno</p>'}</div>
@@ -880,6 +914,8 @@ function eventEffect(ev, iso) {
     prof.forEach((q, h) => { const a = (h + 5) * 60, b = a + 60; share += q * Math.max(0, Math.min(b, ev.a) - Math.max(a, ev.da)) / 60; });
     return { g: 1 - share, s: 1 - share, txt: `${pctTxt(1 - share)}: in quelle ore di solito entra il ${Math.round(share * 100)}% dei clienti` };
   }
+  const pg = ev.perGiorno && ev.perGiorno[iso];
+  if (pg != null && pg !== '') { const f = 1 + pg / 100; return { g: f, s: f, txt: `${pctTxt(f)} (indicato da te per questo giorno)` }; }
   if (ev.effetto != null && ev.effetto !== '') { const f = 1 + ev.effetto / 100; return { g: f, s: f, txt: `${pctTxt(f)} (indicato da te)` }; }
   if (ev.tipo === 'EVENTO') {
     const off = T.toDay(iso) - T.toDay(ev.dal);
@@ -889,6 +925,45 @@ function eventEffect(ev, iso) {
     return { g, s: sv, txt: `${pctTxt(g)} clienti, come negli anni scorsi (${vals.map(([c, v]) => `${itIso(c)} ${pctTxt(v[0])}`).join(', ')})` };
   }
   return { g: 1, s: 1, txt: 'indica l\'effetto in %' };
+}
+/** Riassunto dell'effetto di un evento su tutti i suoi giorni (per la lista). */
+function evSummary(ev) {
+  const days = []; for (let d = T.toDay(ev.dal); d <= T.toDay(ev.al || ev.dal); d++) days.push(eventEffect(ev, T.toIso(d)));
+  const gs = days.map((x) => x.g), mn = Math.min(...gs), mx = Math.max(...gs);
+  return days.length > 1 && mx - mn > 0.005 ? `da ${pctTxt(mn)} a ${pctTxt(mx)} clienti, diverso giorno per giorno (primo giorno: ${days[0].txt})` : days[0].txt;
+}
+/**
+ * Impatto degli eventi su un giorno rispetto alla previsione normale: { names, closed, gc: { delta, pct, manual }, sales: {...} }.
+ * Se il valore è automatico, "normale" = previsione senza eventi; se è scritto a mano si stima dividendo per l'effetto.
+ */
+function evImpact(d, iso) {
+  const ef = dayEffect(iso);
+  if (!ef || !d) return null;
+  const names = ef.evs.map((e) => e.nome).join(', ');
+  if (ef.g === 0) return { names, closed: true };
+  const base = (d.auto && (d.auto.base || d.auto.orig)) || {};
+  const part = (fld, f) => {
+    if (d[fld] == null || !f) return null;
+    const auto = d.auto && d[fld] === d.auto[fld];
+    const normal = auto && base[fld] != null ? base[fld] : Math.round(d[fld] / f);
+    return { delta: d[fld] - normal, pct: normal ? d[fld] / normal - 1 : 0, manual: !auto };
+  };
+  return { names, gc: part('gc', ef.g), sales: part('sales', ef.s), g: ef.g };
+}
+/** Riga piccola sotto il valore: quanto vale l'evento (es. "⭐ +434 (+60%)"). */
+function impLine(d, day, fld) {
+  const im = evImpact(d, T.toIso(day));
+  if (!im || im.closed || !im[fld] || Math.abs(im[fld].delta) < 1) return '';
+  const x = im[fld];
+  return `<div class="evimp" title="Effetto di ${esc(im.names)} rispetto a un giorno normale${x.manual ? ' (stimato sul valore scritto a mano)' : ''}">⭐ ${sgn(x.delta)}${fld === 'sales' ? ' €' : ''} (${pctTxt(1 + x.pct)})</div>`;
+}
+const sgn = (x) => (x >= 0 ? '+' : '−') + Math.abs(Math.round(x)).toLocaleString('it-IT');
+/** Testo breve dell'impatto: "+434 GC (+60%) · +3.381 € (+53%)". */
+function impactTxt(im, what = 'both') {
+  if (!im) return '';
+  if (im.closed) return `${im.names}: locale chiuso`;
+  const g = im.gc && `${sgn(im.gc.delta)} GC (${pctTxt(1 + im.gc.pct)})`, v = im.sales && `${sgn(im.sales.delta)} € (${pctTxt(1 + im.sales.pct)})`;
+  return [what !== 'sales' && g, what !== 'gc' && v].filter(Boolean).join(' · ');
 }
 /** Effetto di tutti gli eventi di un giorno (null se nessun evento). */
 function dayEffect(iso) {
@@ -970,7 +1045,7 @@ function renderEventi() {
   const list = [...(state.eventi || [])].sort((a, b) => a.dal.localeCompare(b.dal));
   const future = list.filter((ev) => T.toDay(ev.al || ev.dal) >= today), past = list.filter((ev) => T.toDay(ev.al || ev.dal) < today);
   const when = (ev) => (ev.al && ev.al !== ev.dal ? `${itIso(ev.dal)} – ${itIso(ev.al)}` : itIso(ev.dal)) + (ev.tipo === 'PARZIALE' ? ` · ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : '');
-  const row = (ev) => `<tr class="clickable" onclick="editEvent(${ev.id})"><td style="white-space:nowrap">${when(ev)}</td><td><b>${esc(ev.nome)}</b><br><span class="small muted">${EV_TIPI[ev.tipo]}</span></td><td class="small">${esc(eventEffect(ev, ev.dal).txt)}</td></tr>`;
+  const row = (ev) => `<tr class="clickable" onclick="editEvent(${ev.id})"><td style="white-space:nowrap">${when(ev)}</td><td><b>${esc(ev.nome)}</b><br><span class="small muted">${EV_TIPI[ev.tipo]}</span></td><td class="small">${esc(evSummary(ev))}</td></tr>`;
   const sug = eventSuggestions();
   return `<div class="card section">
     <div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0">📅 Eventi e chiusure ${ib('eventi')}</h3><div class="spacer"></div><button class="btn primary" onclick="editEvent()">+ Aggiungi</button></div>
@@ -1018,9 +1093,33 @@ function showEventModal() {
       ${e.tipo === 'EVENTO' ? `<label class="f">Date di confronto negli anni passati <span class="small muted">(gg/mm/aaaa, separate da virgola)</span><input type="text" value="${(e.confronto || []).map(itIso).join(', ')}" onchange="evSet('confronto',this.value)"></label>
         <div class="small"><button class="link" onclick="evPropose('settimana')">stesso giorno della settimana</button> (es. Black Friday) · <button class="link" onclick="evPropose('data')">stessa data</button> (es. Natale)</div>` : ''}
       ${e.tipo === 'EVENTO' || e.tipo === 'ZONA' ? `<label class="f">Effetto in % <span class="small muted">${e.tipo === 'EVENTO' ? '(lascia vuoto per usare lo storico)' : '(es. 10 o −15: non c\'è storico per stimarlo)'}</span><input type="number" step="1" value="${e.effetto ?? ''}" onchange="evSet('effetto',this.value)"></label>` : ''}
+      ${(e.tipo === 'EVENTO' || e.tipo === 'ZONA') && e.al && e.dal && T.toDay(e.al) > T.toDay(e.dal) && T.toDay(e.al) - T.toDay(e.dal) <= 62 ? evDaysHtml(e) : ''}
       ${ef ? `<div class="notice info small">Effetto previsto il primo giorno: <b>${esc(ef.txt)}</b></div>` : ''}
     </div>
     <div class="actions">${isNew ? '' : `<button class="btn danger" onclick="deleteEvent(${e.id})">Elimina</button>`}<div class="spacer"></div><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="saveEvent()">Salva</button></div>`);
+}
+/** Evento di più giorni: % diversa per ogni giorno (es. apertura +65%, poi in settimana meno, nel weekend +50%). */
+function evDaysHtml(e) {
+  const rows = [];
+  for (let d = T.toDay(e.dal); d <= T.toDay(e.al); d++) {
+    const iso = T.toIso(d), v = e.perGiorno && e.perGiorno[iso];
+    const def = eventEffect({ ...e, perGiorno: null }, iso);
+    rows.push(`<tr><td>${T.DOW_SHORT[T.dow(d)]} ${itIso(iso).slice(0, 5)}</td><td><input type="number" step="1" style="width:80px" value="${v ?? ''}" placeholder="${Math.round((def.g - 1) * 100)}" onchange="evDay('${iso}',this.value)"> %</td></tr>`);
+  }
+  return `<div><div class="small" style="font-weight:600;color:var(--muted)">Effetto giorno per giorno <span style="font-weight:400">(vuoto = ${e.tipo === 'EVENTO' ? 'effetto generale o storico' : 'effetto generale'}, in grigio)</span></div>
+    <div class="row small" style="margin:6px 0">Riempi veloce: <span style="white-space:nowrap">primo giorno <input id="q1" type="number" style="width:60px"> %</span> <span style="white-space:nowrap">lun–gio <input id="q2" type="number" style="width:60px"> %</span> <span style="white-space:nowrap">ven–dom <input id="q3" type="number" style="width:60px"> %</span> <button class="btn" onclick="evQuick()">Applica</button></div>
+    <div style="max-height:220px;overflow:auto;border:1px solid var(--line);border-radius:8px"><table class="list small"><tbody>${rows.join('')}</tbody></table></div></div>`;
+}
+function evDay(iso, v) { const e = ui.evDraft; e.perGiorno = { ...(e.perGiorno || {}) }; if (v === '') delete e.perGiorno[iso]; else e.perGiorno[iso] = +String(v).replace(',', '.'); showEventModal(); }
+function evQuick() {
+  const e = ui.evDraft, val = (id) => { const x = document.getElementById(id).value; return x === '' ? null : +x; };
+  const first = val('q1'), wk = val('q2'), we = val('q3');
+  e.perGiorno = { ...(e.perGiorno || {}) };
+  for (let d = T.toDay(e.dal); d <= T.toDay(e.al); d++) {
+    const iso = T.toIso(d), v = d === T.toDay(e.dal) && first != null ? first : T.dow(d) >= 5 ? we : wk;
+    if (v != null) e.perGiorno[iso] = v;
+  }
+  showEventModal();
 }
 function saveEvent() {
   const e = ui.evDraft;
@@ -1028,7 +1127,8 @@ function saveEvent() {
   if (!e.dal) return alert('Indica la data.');
   if (!e.al || T.toDay(e.al) < T.toDay(e.dal)) e.al = e.dal;
   if (e.tipo === 'PARZIALE' && !(e.a > e.da)) return alert('L\'orario di chiusura non è valido.');
-  if (e.tipo === 'ZONA' && (e.effetto == null || isNaN(e.effetto))) return alert('Indica l\'effetto in % (es. -10 se il nuovo negozio porterà via clienti).');
+  if (e.perGiorno) { for (const k of Object.keys(e.perGiorno)) if (k < e.dal || k > e.al || isNaN(e.perGiorno[k])) delete e.perGiorno[k]; if (!Object.keys(e.perGiorno).length || (e.tipo !== 'EVENTO' && e.tipo !== 'ZONA')) delete e.perGiorno; }
+  if (e.tipo === 'ZONA' && (e.effetto == null || isNaN(e.effetto)) && !e.perGiorno) return alert('Indica l\'effetto in % (es. 20, o -10 se il nuovo negozio porterà via clienti), per tutto il periodo o giorno per giorno.');
   e.nome = e.nome.trim();
   delete e.confrontoAuto;
   state.eventi = state.eventi || [];
@@ -1056,8 +1156,8 @@ function renderPrevisioni() {
       : `<b>${T.shortDate(ui.ws + k)}</b>`;
     const evs = evTags(ui.ws + k);
     return `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${head}${evs ? `<div style="margin-top:3px">${evs}</div>` : ''}</td>
-      <td>${num(d.sales, `setFc(${k},'sales',this.value)`)}${tag(d, 'sales')}</td>
-      <td>${num(d.gc, `setFc(${k},'gc',this.value)`)}${tag(d, 'gc')}</td>
+      <td>${num(d.sales, `setFc(${k},'sales',this.value)`)}${tag(d, 'sales')}${impLine(d, ui.ws + k, 'sales')}</td>
+      <td>${num(d.gc, `setFc(${k},'gc',this.value)`)}${tag(d, 'gc')}${impLine(d, ui.ws + k, 'gc')}</td>
       <td>${sbOf(d)}</td>
       <td>${num(d.crewHours, `setFc(${k},'crewHours',this.value)`)}${tag(d, 'crewHours', 'stima')}</td></tr>`
       + (open === k && hasCh ? `<tr><td></td><td colspan="4">${channelTable(d)}</td></tr>` : '');
