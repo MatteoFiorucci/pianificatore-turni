@@ -245,17 +245,17 @@
     .sheet { padding: 0; }
     .printhead { display: block; font-size: 11px; margin: 2px 0 4px; padding: 3px 6px; border: 1px solid #999; border-radius: 4px; }
     .print-hide, .pdot, .reqtag, .evimp { display: none !important; }
-    .lsec { margin-top: 5px; break-inside: avoid; }
-    .lsec h4 { font-size: 10px; padding: 1px; margin-bottom: 1px; }
-    .lrow { grid-template-columns: 28px 150px 32px 32px 1fr; font-size: 9.5px; min-height: 14px; border-bottom: 1px solid #ccc; }
-    .lhead .ltrack span.odd { display: none; }
+    .lsec { margin-top: 3px; break-inside: avoid; }
+    .lsec h4 { font-size: 9px; padding: 0; margin-bottom: 1px; }
+    .lrow { grid-template-columns: 26px 140px 30px 30px 1fr; font-size: 8.5px; min-height: 11px; border-bottom: 1px solid #ccc; }
+    .lhead .ltrack span.odd { display: inline; }
     .lrow > div { padding: 0 3px; }
     .lrow .lname { font-weight: 700; }
-    .lrow .ltrack { min-height: 15px; }
+    .lrow .ltrack { min-height: 11px; }
     .lbar { top: 1px; bottom: 1px; opacity: 1; border-radius: 2px; display: flex; align-items: center; overflow: hidden; }
-    .lbar .lbl { display: block; color: #fff; font-size: 8.5px; font-weight: 800; padding-left: 3px; white-space: nowrap; }
-    .lhead { font-size: 9.5px; } .lhead .ltrack span { font-size: 9.5px; font-weight: 700; color: #000; }
-    .lcount .ltrack span { font-size: 8px; }
+    .lbar .lbl { display: block; color: #fff; font-size: 7px; font-weight: 800; padding-left: 3px; white-space: nowrap; }
+    .lhead { font-size: 8px; } .lhead .ltrack span { font-size: 8px; font-weight: 700; color: #000; top: 1px; }
+    .lcount .ltrack span { font-size: 7.5px; }
     .lbar, .lrow .ltrack, .lcount.total, .lsec h4, .sw { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .legend { font-size: 9.5px; margin-top: 4px !important; }
     .dayside { display: flex; gap: 8px; margin-top: 6px; break-inside: avoid; }
@@ -292,15 +292,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610311759"></script>
-<script src="turni-core.js?v=202610311759"></script>
+<script src="turni-storico.js?v=202610311806"></script>
+<script src="turni-core.js?v=202610311806"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610311759"></script>
-<script src="turni-cloud-config.js?v=202610311759"></script>
-<script src="turni-cloud.js?v=202610311759"></script>
-<script src="turni-cripto.js?v=202610311759"></script>
-<script src="lineare-ufficiale.js?v=202610311759"></script>
+<script src="turni-data.js?v=202610311806"></script>
+<script src="turni-cloud-config.js?v=202610311806"></script>
+<script src="turni-cloud.js?v=202610311806"></script>
+<script src="turni-cripto.js?v=202610311806"></script>
+<script src="lineare-ufficiale.js?v=202610311806"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -697,7 +697,7 @@ function renderGiornaliero() {
   // linea marcata a ogni ora, linee chiare ogni 15 minuti (4 quadratini per ora)
   const gx = (m) => (((m - H0 * 60) / span) * 100).toFixed(4);
   let gl = '';
-  for (let m = H0 * 60; m <= H1 * 60; m += 15) gl += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='${m % 60 ? '%23e3e3e8' : '%23a9a9b2'}' stroke-width='1' shape-rendering='crispEdges'/>`;
+  for (let m = H0 * 60; m <= H1 * 60; m += 15) gl += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='${m % 60 ? '%23d0d0d8' : '%238c8c96'}' stroke-width='1' shape-rendering='crispEdges'/>`;
   const grid = `background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'>${gl}</svg>&quot;);background-size:100% 100%;background-repeat:no-repeat`;
   const day_ = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
   const typeOf = (s) => ctx.byId.get(s.employeeId).type;
