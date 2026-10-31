@@ -269,14 +269,14 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610310021"></script>
-<script src="turni-core.js?v=202610310021"></script>
+<script src="turni-storico.js?v=202610311157"></script>
+<script src="turni-core.js?v=202610311157"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610310021"></script>
-<script src="turni-cloud-config.js?v=202610310021"></script>
-<script src="turni-cloud.js?v=202610310021"></script>
-<script src="turni-cripto.js?v=202610310021"></script>
+<script src="turni-data.js?v=202610311157"></script>
+<script src="turni-cloud-config.js?v=202610311157"></script>
+<script src="turni-cloud.js?v=202610311157"></script>
+<script src="turni-cripto.js?v=202610311157"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -314,7 +314,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 // ---------- navigazione ----------
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e Crew Hours. Il generatore distribuisce i crew nelle fasce in base alle <b>Crew Hours</b>; i giorni senza Crew Hours usano i minimi di Regole.`],
-  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Crew Hours</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 11,5 ore ogni 100 GC). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Crew Hours diventa precisa.`],
+  'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico di SmartBusiness, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione di SmartBusiness, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Crew Hours</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati: 11,5 ore ogni 100 GC). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Crew Hours diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la colonna GC SmartBusiness, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi tra Chiosco, McCafé e Front, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
@@ -749,7 +749,7 @@ function renderGiornaliero() {
     <div class="dayside">
       ${(() => { const fd = T.forecastDay((state.forecasts || {})[T.mondayOf(day)], T.dow(day) - 1);
         if (!fd || !(fd.sales || fd.gc || fd.crewHours)) return '';
-        return `<div class="card"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b><br>` : ''}${fd.gc ? `GC: <b>${fd.gc}</b><br>` : ''}${fd.crewHours ? `Crew Hours: <b>${fd.crewHours}h</b>` : ''}</div>`; })()}
+        return `<div class="card"><h3>📈 Previsione</h3>${fd.sales ? `Vendite previste: <b>${Math.round(fd.sales).toLocaleString('it-IT')} €</b><br>` : ''}${fd.gc ? `GC: <b>${fd.gc}</b><br>` : ''}${fd.crewHours ? `Crew Hours: <b>${fd.crewHours}h</b>` : ''}${fd.canali && Object.keys(fd.canali).length ? `<details style="margin-top:6px"><summary class="small" style="cursor:pointer">Per canale</summary>${channelTable(fd)}</details>` : ''}</div>`; })()}
       <div class="card"><h3>Coperture</h3><ul style="list-style:none;padding:0">${cov || '<li class="muted">Nessuna fascia</li>'}</ul></div>
       <div class="card"><h3>Riposi (${resting.length})</h3><ul>${resting.map((e) => `<li>${esc(T.fullName(e))}</li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
       <div class="card"><h3>Ferie, malattie e assenze (${away.length})</h3><ul>${away.map((x) => `<li>${esc(T.fullName(x.e))} <span class="muted small">${T.absenceInfo(x.a.type).label}</span></li>`).join('') || '<li class="muted">nessuno</li>'}</ul></div>
@@ -806,10 +806,18 @@ async function applyAutoForecasts(data) {
   if (TurniCloud.loggedIn()) await cloudPull(); // parte dai dati online più recenti
   state.forecasts = state.forecasts || {};
   const ratio = chRatio();
-  let n = 0, manual = 0;
+  // settimane con turni già fatti: i numeri restano fermi (si aggiornano solo GC SmartBusiness e quote per canale)
+  const planned = new Set(state.shifts.map((s) => T.mondayOf(s.day)));
+  let n = 0, manual = 0, locked = 0;
   for (const [iso, p] of Object.entries(data.giorni)) {
     const day = Math.round(Date.parse(iso) / 864e5), ws = T.mondayOf(day), k = day - ws;
     const f = fcOf(ws), d = f.days[k], prev = d.auto || {};
+    if (p.canali) d.canali = p.canali;
+    if (planned.has(ws)) {
+      if (d.auto && p.gcSB != null) d.auto.gcSB = p.gcSB;
+      state.forecasts[ws] = f; locked++;
+      continue;
+    }
     for (const fld of ['sales', 'gc']) {
       if (d[fld] != null && d[fld] !== prev[fld]) manual++; // scritto a mano: non si tocca
       else d[fld] = p[fld] ?? null;
@@ -822,7 +830,7 @@ async function applyAutoForecasts(data) {
   }
   state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {} };
   save(); render();
-  return { giorni: n, manuali: manual };
+  return { giorni: n, manuali: manual, bloccati: locked };
 }
 /** Attende che i dati siano salvati online (per il caricamento automatico). */
 function waitSynced(ms = 60000) {
@@ -832,8 +840,17 @@ function importAutoForecasts(input) {
   const file = input.files && input.files[0]; input.value = '';
   if (!file) return;
   file.text().then((t) => applyAutoForecasts(JSON.parse(t)))
-    .then((r) => alert(`Previsioni caricate per ${r.giorni} giorni.` + (r.manuali ? ` ${r.manuali} valori scritti a mano sono rimasti com'erano.` : '')))
+    .then((r) => alert(`Previsioni caricate per ${r.giorni} giorni.` + (r.bloccati ? ` ${r.bloccati} giorni di settimane con i turni già fatti sono rimasti fermi.` : '') + (r.manuali ? ` ${r.manuali} valori scritti a mano sono rimasti com'erano.` : '')))
     .catch((e) => alert('Non è stato possibile caricare il file: ' + e.message));
+}
+/** Vendite e GC del giorno divise per canale, con le quote medie delle ultime 4 settimane (d.canali = { chiosco: { s, g } ... }). */
+const CANALI = { chiosco: 'Chiosco', mccafe: 'McCafé', front: 'Front', mcdelivery: 'McDelivery', drive: 'Drive', altro: 'Altro' };
+function channelTable(d) {
+  const eur = (x) => Math.round(x).toLocaleString('it-IT');
+  const rows = Object.entries(d.canali).sort((a, b) => b[1].s - a[1].s).map(([c, q]) => `<tr><td>${esc(CANALI[c] || c)}</td>
+    <td>${d.sales ? eur(d.sales * q.s) + ' €' : '—'} <span class="muted small">${Math.round(q.s * 100)}%</span></td>
+    <td>${d.gc ? eur(d.gc * q.g) : '—'} <span class="muted small">${Math.round(q.g * 100)}%</span></td></tr>`).join('');
+  return `<table class="list small" style="margin:2px 0 6px"><thead><tr><th>Canale</th><th>Vendite</th><th>GC</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 function clearFc() { if (state.forecasts) delete state.forecasts[ui.ws]; save(); render(); }
 function renderPrevisioni() {
@@ -841,11 +858,19 @@ function renderPrevisioni() {
   const num = (val, on, ph = '') => `<input type="number" min="0" step="any" value="${val ?? ''}" placeholder="${ph}" style="width:130px" onchange="${on}">`;
   const tag = (d, fld, word = 'auto') => (d.auto && d[fld] != null && d[fld] === d.auto[fld] ? ` <span class="autotag" title="Calcolata in automatico">${word}</span>` : '');
   const sbOf = (d) => (d.auto && d.auto.gcSB ? `<span class="muted small" title="Previsione di SmartBusiness">SB ${d.auto.gcSB}</span>` : '');
-  const dayRows = DAYS7.map((k) => `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td><b>${T.shortDate(ui.ws + k)}</b></td>
-      <td>${num(f.days[k].sales, `setFc(${k},'sales',this.value)`)}${tag(f.days[k], 'sales')}</td>
-      <td>${num(f.days[k].gc, `setFc(${k},'gc',this.value)`)}${tag(f.days[k], 'gc')}</td>
-      <td>${sbOf(f.days[k])}</td>
-      <td>${num(f.days[k].crewHours, `setFc(${k},'crewHours',this.value)`)}${tag(f.days[k], 'crewHours', 'stima')}</td></tr>`).join('');
+  const open = ui.fcOpen && ui.fcOpen.ws === ui.ws ? ui.fcOpen.k : -1;
+  const dayRows = DAYS7.map((k) => {
+    const d = f.days[k], hasCh = !!(d.canali && Object.keys(d.canali).length);
+    const head = hasCh
+      ? `<button class="link" style="white-space:nowrap" title="Mostra vendite e GC per canale" onclick="ui.fcOpen=${open === k ? 'null' : `{ws:${ui.ws},k:${k}}`};render()"><b>${T.shortDate(ui.ws + k)}</b> ${open === k ? '▾' : '▸'}</button>`
+      : `<b>${T.shortDate(ui.ws + k)}</b>`;
+    return `<tr${k === 4 ? ' style="border-top:2px solid var(--line)"' : ''}><td>${head}</td>
+      <td>${num(d.sales, `setFc(${k},'sales',this.value)`)}${tag(d, 'sales')}</td>
+      <td>${num(d.gc, `setFc(${k},'gc',this.value)`)}${tag(d, 'gc')}</td>
+      <td>${sbOf(d)}</td>
+      <td>${num(d.crewHours, `setFc(${k},'crewHours',this.value)`)}${tag(d, 'crewHours', 'stima')}</td></tr>`
+      + (open === k && hasCh ? `<tr><td></td><td colspan="4">${channelTable(d)}</td></tr>` : '');
+  }).join('');
   const af = state.autoForecast;
   const errs = af && af.err ? Object.entries(af.err).map(([k, v]) => `${esc(k)} ${String(v).replace('.', ',')}%`).join(' · ') : '';
   return `
