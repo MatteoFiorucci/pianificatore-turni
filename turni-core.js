@@ -245,10 +245,13 @@
     const prof = (ctx.hist || {}).profile;
     if (!f || !prof) return null;
     // il fabbisogno viene solo dalle Crew Hours dell'azienda; vendite e clienti sono solo informativi
-    const need = (x) => (x && x.crewHours > 0 ? x.crewHours : null);
     const typeOf = (k) => (k >= 4 ? 'weekend' : 'weekday');
     const days = [0, 1, 2, 3, 4, 5, 6];
-    const hours = days.map((k) => need(forecastDay(f, k)));
+    // Le ore della previsione sono il totale senza manager (hospitality + crew + doppi):
+    // per i crew si tolgono le ore hospitality tipiche di quel giorno.
+    const hosp = days.map((k) => hospHours(state.shifts, ws, k));
+    const need = (x, k) => (x && x.crewHours > 0 ? Math.max(x.crewHours - hosp[k], x.crewHours * 0.5) : null);
+    const hours = days.map((k) => need(forecastDay(f, k), k));
     if (!hours.some((h) => h)) return null;
     const source = days.map((k) => { const x = forecastDay(f, k); return x && x.crewHours > 0 ? 'ch' : hours[k] ? 'calc' : null; });
     const base = days.map((k) => (typeOf(k) === 'weekend' ? prof.hoursWeekend : prof.hoursWeekday));
@@ -259,7 +262,20 @@
     const usesCH = source.some((x) => x === 'ch');
     const scale = !usesCH && needed > available ? available / needed : 1;
     const factor = days.map((k) => (hours[k] ? (hours[k] / base[k]) * scale : null));
-    return { hours, base, needed, available, scale, factor, prof, typeOf, source, usesCH };
+    return { hours, hosp, base, needed, available, scale, factor, prof, typeOf, source, usesCH };
+  }
+  /**
+   * Ore hospitality tipiche per il giorno k (0 = lunedì) della settimana ws: media delle 4 settimane prima
+   * (stesso giorno), dai turni pianificati; senza turni, i valori medi degli orari reali (9,5 h lun–gio, 14 h ven–dom).
+   */
+  function hospHours(shifts, ws, k) {
+    const vals = [];
+    for (let w = 1; w <= 4; w++) {
+      const day = ws - 7 * w + k, list = shifts.filter((s) => s.day === day);
+      if (!list.length) continue;
+      vals.push(list.filter((s) => s.station === 'HOSPITALITY').reduce((t, s) => t + (s.end - s.start), 0) / 60);
+    }
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : k >= 4 ? 14 : 9.5;
   }
   /** Crew necessari in un quarto d'ora di un giorno (0 = lunedì) secondo le previsioni. */
   function forecastPeople(fc, k, t) {
