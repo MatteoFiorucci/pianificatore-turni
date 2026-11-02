@@ -1,7 +1,7 @@
 /*
  * Lineare ufficiale (modello aziendale), compilato con i turni dell'app.
  * Quando si stampa il lineare giornaliero, dopo il nostro foglio esce anche il lineare ufficiale (A4 verticale).
- * Manager dai loro turni (scheda Manager); VLH, cambi turno, compleanni, training, pulizie e note restano vuoti: si compilano a mano.
+ * Manager, VLH, cambi turno, compleanni, training, pulizie e note restano vuoti: si compilano a mano.
  * Marchio, nome del locale e società vengono dai dati del manager (Regole), non dal codice.
  */
 (function () {
@@ -35,10 +35,7 @@
     const doppi = all.filter((s) => s.doppio);
     const riposi = ctx.employees.filter((e) => T.started(e, day) && T.isRest(e, day) && !all.some((s) => s.employeeId === e.id));
     const assenze = ctx.employees.map((e) => ({ e, a: T.absenceOn(ctx, e.id, day) })).filter((x) => x.a && x.a.type !== 'CHIUSURA');
-    // manager: calendario a parte (state.mgrShifts)
-    const mg = (state.mgrShifts || []).filter((s) => s.day === day).map((s) => ({ s, m: (state.managers || []).find((x) => x.id === s.managerId) })).filter((x) => x.m)
-      .sort((a, b) => a.s.start - b.s.start || a.s.end - b.s.end);
-    return { ctx, hosp, crewRows, doppi, riposi, assenze, all, mg };
+    return { ctx, hosp, crewRows, doppi, riposi, assenze, all };
   }
 
   /** Ore lavorate nell'ora h (5..28) da una lista di turni. */
@@ -72,15 +69,13 @@
       // turni
       rows.slice(0, n).forEach((s, i) => {
         if (!s) return;
-        const yy = y + i * RH, ty = yy + RH - 0.6;
-        let who, post, col;
-        if (s.managerId != null) { const m = (state.managers || []).find((x) => x.id === s.managerId); who = name(m); post = m.role === 'SHIFT' ? 'SHIFT' : 'RDM'; col = '#1f5f46'; }
-        else { const e = ctx.byId.get(s.employeeId), lim = T.limitOf(ctx, e.id, s.day); who = name(e); post = lim ? 'RICHIESTA' : POST[s.station] || ''; col = COL[s.station] || '#888'; }
-        t(X_NAME - 0.6, ty, post, { fs: 1.25, a: 'end' });
-        t(X_NAME + 0.6, ty, who, { fs: 1.6 });
+        const e = ctx.byId.get(s.employeeId), yy = y + i * RH, ty = yy + RH - 0.6;
+        const lim = T.limitOf(ctx, e.id, s.day);
+        t(X_NAME - 0.6, ty, lim ? 'RICHIESTA' : POST[s.station] || '', { fs: 1.25, a: 'end' });
+        t(X_NAME + 0.6, ty, name(e), { fs: 1.6 });
         t(X_T1 + 3.25, ty, fmt(s.start), { fs: 1.55, a: 'middle' }); t(X_T2 + 3.25, ty, fmt(s.end), { fs: 1.55, a: 'middle' });
         const a = Math.max(0, (s.start - 300) / 15), b = Math.min(96, (s.end - 300) / 15);
-        r(X_G + a * QW, yy + 0.3, (b - a) * QW, RH - 0.6, { f: col });
+        r(X_G + a * QW, yy + 0.3, (b - a) * QW, RH - 0.6, { f: COL[s.station] || '#888' });
       });
       return y + n * RH;
     };
@@ -117,15 +112,14 @@
     const free = H - 9 - 4 * 8 - TOT_H - (nM + nH + nD) * RH;
     const nC = Math.max(d.crewRows.length + 1, Math.floor(free / RH));
     let y = 9;
-    const yM = y; y = section(y, 'MANAGER', nM, d.mg.map((x) => x.s)) + 3;
+    const yM = y; y = section(y, 'MANAGER', nM, []) + 3;
     const yH = y; y = section(y, 'HOSPITALITY', nH, d.hosp) + 3;
     const yC = y; y = section(y, 'CREW', nC, d.crewRows) + 3;
     const yD = y; y = section(y, 'DOPPI TURNI', nD, d.doppi) + 2.5;
 
     // ore per fascia oraria (manager e VLH non si contano)
     const hosp = d.hosp, crew = d.crewRows.filter(Boolean), dop = d.doppi;
-    const mgS = d.mg.map((x) => x.s);
-    const rowsT = [['ORE MANAGER', mgS.length ? mgS : null], ['ORE HOSPITALITY', hosp], ['ORE CREW', crew], ['ORE DOPPI TURNI', dop], ['Totali', mgS.concat(hosp, crew, dop)]];
+    const rowsT = [['ORE MANAGER', null], ['ORE HOSPITALITY', hosp], ['ORE CREW', crew], ['ORE DOPPI TURNI', dop], ['Totali', hosp.concat(crew, dop)]];
     rowsT.forEach(([lab, list], i) => {
       const yy = y + i * 2.6, bold = lab === 'Totali';
       t(X_T2 - 1, yy + 2, lab, { fs: 1.5, b: 1, i: 1, a: 'end' });
