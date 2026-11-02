@@ -1486,6 +1486,18 @@
       }
     }
 
+    // 8. McCafé troppo pieno (es. dopo aver coperto la chiusura): chi non apre e non chiude passa a un'altra postazione in cui è formato
+    for (const s of [...added].sort((a, b) => a.start - b.start)) {
+      if (s.station !== 'MCCAFE' || s.start <= OPEN || s.end >= CLOSE) continue;
+      let over = false;
+      for (let m = Math.floor(s.start / 15) * 15; m < s.end && !over; m += 15) over = mcCafeAt(shifts, s.day, m) > mcCafeMax(cfg, s.day, m);
+      if (!over) continue;
+      const e = ctx.byId.get(s.employeeId);
+      const alt = e && CREW_STATIONS.filter((x) => x !== 'MCCAFE' && e.trainings.includes(x))
+        .sort((x, y) => shifts.filter((t) => t.day === s.day && t.station === x && t.start < s.end && t.end > s.start).length - shifts.filter((t) => t.day === s.day && t.station === y && t.start < s.end && t.end > s.start).length)[0];
+      if (alt) s.station = alt;
+    }
+
     for (const e of emps) {
       const left = remaining(e);
       if (left > 0) notes.push(`${fullName(e)}: mancano ${fmtDur(left)} (nessuno spazio valido trovato)`);
