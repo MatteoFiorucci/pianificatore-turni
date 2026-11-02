@@ -322,17 +322,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611030012"></script>
-<script src="turni-core.js?v=202611030012"></script>
-<script src="turni-manager.js?v=202611030012"></script>
-<script src="turni-vlh.js?v=202611030012"></script>
+<script src="turni-storico.js?v=202611022355"></script>
+<script src="turni-core.js?v=202611022355"></script>
+<script src="turni-manager.js?v=202611022355"></script>
+<script src="turni-vlh.js?v=202611022355"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611030012"></script>
-<script src="turni-cloud-config.js?v=202611030012"></script>
-<script src="turni-cloud.js?v=202611030012"></script>
-<script src="turni-cripto.js?v=202611030012"></script>
-<script src="lineare-ufficiale.js?v=202611030012"></script>
+<script src="turni-data.js?v=202611022355"></script>
+<script src="turni-cloud-config.js?v=202611022355"></script>
+<script src="turni-cloud.js?v=202611022355"></script>
+<script src="turni-cripto.js?v=202611022355"></script>
+<script src="lineare-ufficiale.js?v=202611022355"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1046,7 +1046,7 @@ function renderVLH() {
   const people = (h) => shifts.filter((s) => Math.min(s.end, (h + 1) * 60) - Math.max(s.start, h * 60) >= 30)
     .map((s) => ({ id: s.employeeId, station: s.station, trainings: ctx.byId.get(s.employeeId).trainings || [], name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
   const allHours = [...new Set(VLH_SHEETS.flat())];
-  const info = {}; for (const h of allHours) { const g = vlhGC(day, h); info[h] = { ...g, r: V.forHour(state.vlh, dow, h, g.gc || 0, state.config) }; }
+  const info = {}; for (const h of allHours) { const g = vlhGC(day, h); info[h] = { ...g, r: V.forHour(state.vlh, dow, h, g.gc || 0) }; }
   const names = ui.vlhNomi !== false ? V.assign(allHours, (h) => (info[h].r ? info[h].r.open : []), people) : {};
   const anyMan = Object.keys((state.vlhGC || {})[T.toIso(day)] || {}).length;
   const mgrAt = (h) => (state.mgrShifts || []).filter((x) => x.day === day && x.start <= h * 60 && x.end > h * 60 && mgrById(x.managerId)).map((x) => mgrById(x.managerId).lastName).join(', ');
@@ -1083,7 +1083,7 @@ function renderVLH() {
       ${[0, 1, 2].map((j) => `<tr class="nx"><td class="lab" colspan="2">+${j + 1}</td>${cols.map((c) => `<td class="next">${c.r.next[j] ? esc(c.r.next[j].name) : ''}</td>`).join('')}</tr>`).join('')}`;
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
-  return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. Al McCafé al massimo 2 persone il sabato e la domenica fino a prima del rush del pranzo (12:00), 1 in tutte le altre ore: le altre postazioni McCafé della tabella non si aprono. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta: in Production solo i formati MFY, in Front Counter i formati OA (alle patatine anche MFY, al servizio al tavolo anche sala e hospitality), al McCafé solo i formati McCafé. In stampa puoi correggerli a penna.</div>
+  return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta: in Production solo i formati MFY, in Front Counter i formati OA (alle patatine anche MFY, al servizio al tavolo anche sala e hospitality), al McCafé solo i formati McCafé. In stampa puoi correggerli a penna.</div>
     ${VLH_SHEETS.map((hs) => `<div class="card vlhsheet">${sheet(hs)}</div>`).join('')}`;
 }
 
