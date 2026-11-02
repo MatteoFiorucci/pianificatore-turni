@@ -272,7 +272,7 @@
   table.vlh tr.hdr th { background: #f4f4f6; color: #000; }
   table.vlh tr.area td { font-weight: 800; font-size: 13px; padding: 3px 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   table.vlh tr.area.FC td { background: #f6a19a; } table.vlh tr.area.PR td { background: #9db9dd; } table.vlh tr.area.MC td { background: #d23b3b; color: #fff; }
-  table.vlh .pos { font-size: 9.5px; color: #444; white-space: nowrap; } table.vlh .pos.new { text-decoration: underline; font-weight: 700; font-style: italic; }
+  table.vlh .pos { font-size: 9px; line-height: 1.15; color: #444; } table.vlh .pos.new { text-decoration: underline; font-weight: 700; font-style: italic; }
   table.vlh .who { font-weight: 700; font-size: 12px; min-height: 15px; white-space: nowrap; }
   table.vlh td.num { text-align: right; font-weight: 700; } table.vlh td.short { background: var(--err); color: var(--err-ink); }
   table.vlh td.next { font-size: 10px; white-space: nowrap; }
@@ -314,17 +314,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611022315"></script>
-<script src="turni-core.js?v=202611022315"></script>
-<script src="turni-manager.js?v=202611022315"></script>
-<script src="turni-vlh.js?v=202611022315"></script>
+<script src="turni-storico.js?v=202611022318"></script>
+<script src="turni-core.js?v=202611022318"></script>
+<script src="turni-manager.js?v=202611022318"></script>
+<script src="turni-vlh.js?v=202611022318"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611022315"></script>
-<script src="turni-cloud-config.js?v=202611022315"></script>
-<script src="turni-cloud.js?v=202611022315"></script>
-<script src="turni-cripto.js?v=202611022315"></script>
-<script src="lineare-ufficiale.js?v=202611022315"></script>
+<script src="turni-data.js?v=202611022318"></script>
+<script src="turni-cloud-config.js?v=202611022318"></script>
+<script src="turni-cloud.js?v=202611022318"></script>
+<script src="turni-cripto.js?v=202611022318"></script>
+<script src="lineare-ufficiale.js?v=202611022318"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1045,7 +1045,7 @@ function renderVLH() {
     const cols = hours.map((h) => info[h]);
     if (cols.some((c) => !c.r)) return '<p class="muted">Manca la tabella per questo giorno.</p>';
     const prevOpen = (i) => { const h = hours[i]; const pi = info[h - 1]; return pi && pi.r && pi.r.part === cols[i].r.part ? new Set(pi.r.open.map((p) => p.code)) : null; };
-    const head = `<thead><tr><th class="lab">${T.DOW_SHORT[dow]} ${T.shortDate(day)}</th>${cols.map((c) => `<th>${V.PART_TXT[c.r.part]}</th>`).join('')}</tr></thead>
+    const head = `<thead><tr><th class="lab">${T.shortDate(day)}</th>${cols.map((c) => `<th>${V.PART_TXT[c.r.part]}</th>`).join('')}</tr></thead>
       <tr class="hdr"><th class="lab">Ora</th>${hours.map((h) => `<th>${String(h).padStart(2, '0')}:00</th>`).join('')}</tr>
       <tr><td class="lab">GC previsti</td>${hours.map((h, i) => `<td><input class="${cols[i].man ? 'man' : ''}" value="${cols[i].gc ?? ''}" placeholder="–" title="${cols[i].man ? 'Scritto a mano (cancella per tornare alla previsione)' : 'Previsione: puoi correggerla'}" onchange="setVlhGC(${day},${h},this.value)"></td>`).join('')}</tr>`;
     const areas = V.AREAS.map(([a, label]) => {
