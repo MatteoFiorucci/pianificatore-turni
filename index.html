@@ -292,15 +292,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202610311834"></script>
-<script src="turni-core.js?v=202610311834"></script>
+<script src="turni-storico.js?v=202611021704"></script>
+<script src="turni-core.js?v=202611021704"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202610311834"></script>
-<script src="turni-cloud-config.js?v=202610311834"></script>
-<script src="turni-cloud.js?v=202610311834"></script>
-<script src="turni-cripto.js?v=202610311834"></script>
-<script src="lineare-ufficiale.js?v=202610311834"></script>
+<script src="turni-data.js?v=202611021704"></script>
+<script src="turni-cloud-config.js?v=202611021704"></script>
+<script src="turni-cloud.js?v=202611021704"></script>
+<script src="turni-cripto.js?v=202611021704"></script>
+<script src="lineare-ufficiale.js?v=202611021704"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -346,7 +346,7 @@ const INFO = {
   I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica. <b>Chi apre</b> (turno delle 7:30) quel giorno non fa il doppio.`],
   'ferie': [`Ferie e malattie`, `Inserisci ferie, malattie, infortuni e assenze. In quei giorni la persona non può avere turni (il generatore non la usa) e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno). Una malattia o un infortunio in corso si può inserire anche a settimana già fatta: i suoi turni di quei giorni diventano errori da coprire (usa 🛠 Risolvi problemi).`],
   'fasce': [`Fasce di copertura`, `Numero minimo di persone presenti per tutta la durata della fascia, giorno per giorno (0 = nessun minimo). Nei giorni con le Ore totali (sezione Previsioni), i minimi delle fasce senza postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality. I valori iniziali vengono dagli orari reali delle settimane 39–44. Contano crew e hospitality messe in una postazione crew (non quelle in sala). Con una postazione indicata contano solo i presenti in quella postazione; con "Solo formati apertura" solo chi è segnato nella sezione Aperture.<br><br>Le fasce segnate <b>"consiglio"</b> (es. Postazione MFY) non sono obbligatorie: il generatore cerca di rispettarle, ma se mancano compaiono in <b>giallo</b> tra gli avvisi, non in rosso tra gli errori.`],
-  'richieste': [`Richieste del personale`, `I dipendenti, dall'app del personale (con il loro nome utente e password), chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.`],
+  'richieste': [`Richieste del personale`, `I dipendenti, dall'app del personale (con il loro nome utente e password), chiedono un turno compatibile con i loro impegni (es. "concerto alle 21:00"). Le richieste arrivate a voce o per messaggio le puoi inserire tu con <b>✍️ Aggiungi richiesta</b>: poi funzionano come le altre (proposte di turno, accetta o rifiuta). Per ognuna il generatore propone un turno; tu accetti, modifichi o rifiuti. <b>Niente cambia nei turni finché non accetti.</b> Le accettate vengono rispettate da "Genera turni" e dai controlli.`],
   'cfg-crewMaxWeekday': [`Max ore turno Crew lun–gio`, `Durata massima di un turno normale di un crew da <b>lunedì a giovedì</b> (di solito 4h). Ognuno può fare ogni tanto un turno più lungo: vedi "Turni lunghi lun–gio a testa a settimana". Il doppio non conta: ha il suo limite.`],
   'cfg-crewMax': [`Max ore turno Crew (turni lunghi e ven–dom)`, `Durata massima di un turno di un crew da <b>venerdì a domenica</b> e dei <b>turni lunghi</b> da lunedì a giovedì (di solito 5h). Il doppio non conta: ha il suo limite.`],
   'cfg-hospMax': [`Max ore turno Hospitality`, `Durata massima di un turno di un'hospitality, tutti i giorni.`],
@@ -2128,7 +2128,7 @@ function renderRichieste() {
     }
     const st = q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : q.status === 'rifiutata' ? '<span class="chip err">Rifiutata</span>' : '<span class="chip warn">In attesa</span>';
     return `<div class="card reqcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div>
-      <div class="when">${esc(name)} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}</div>
+      <div class="when">${esc(name)} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</div>
       <div>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.note ? ` <span class="muted">· "${esc(q.note)}"</span>` : ''}</div>
       ${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</div>${st}</div>
       ${prop}
@@ -2143,6 +2143,7 @@ function renderRichieste() {
     : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>`
     : `${ntfyBox()}<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
         ${window.Notification && Notification.permission !== 'granted' ? '<button class="btn" onclick="Notification.requestPermission().then(()=>render())">🔔 Avvisami anche con le notifiche del browser</button>' : ''}</div>`}
+  <div class="card section" style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:220px"><b>✍️ Richiesta a mano</b><div class="small muted">Per le richieste arrivate a voce, per messaggio o da chi non usa l'app.</div></div><button class="btn primary" onclick="newManualRequest()">+ Aggiungi richiesta</button></div>
   <h3 style="margin:18px 0 8px">Da decidere (${pend.length})</h3>
   ${pend.map(card).join('') || '<p class="muted">Nessuna richiesta in attesa.</p>'}
   ${done.length ? `<details style="margin-top:18px" ${ui.showDone ? 'open' : ''} ontoggle="ui.showDone=this.open"><summary style="cursor:pointer;font-weight:700;font-size:15px;margin-bottom:8px">Già decise (${reqs.length - pend.length})</summary>
@@ -2229,7 +2230,56 @@ async function doAccept(id) {
       <p class="notice warn">Ricordati di avvisare <b>${esc(T.fullName(other))}</b> che il suo turno di ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)} è cambiato.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
   }
   pushOrari([q.employeeId]).catch(() => null);
-  try { await TurniCloud.answerRequest(q.rid, 'accettata', q.reply); } catch (e) { alert('Accettata qui, ma la risposta al dipendente non è partita (connessione?). Riprova più tardi da "Rimetti in attesa" → Accetta.'); }
+  if (q.rid) try { await TurniCloud.answerRequest(q.rid, 'accettata', q.reply); } catch (e) { alert('Accettata qui, ma la risposta al dipendente non è partita (connessione?). Riprova più tardi da "Rimetti in attesa" → Accetta.'); }
+}
+// --- richieste inserite a mano dal manager (stesso percorso di quelle dall'app: proposte, accetta, rifiuta) ---
+function newManualRequest() {
+  const tomorrow = T.toIso(T.todayDay() + 1);
+  ui.mr = { emp: '', kind: 'libero', date: tomorrow, to: '', time: 18 * 60, from: 17 * 60, slots: [{ d: 1, a: 17 * 60, b: 19 * 60 }], note: '' };
+  showManualRequest();
+}
+function mrSet(fld, v) { const m = ui.mr; m[fld] = ['time', 'from'].includes(fld) ? +v : v; if (fld === 'kind') showManualRequest(); }
+function mrSlot(i, fld, v) { ui.mr.slots[i][fld] = +v; }
+function mrSlotAdd() { const l = ui.mr.slots[ui.mr.slots.length - 1] || { d: 1, a: 1020, b: 1140 }; ui.mr.slots.push({ ...l, d: (l.d % 7) + 1 }); showManualRequest(); }
+function mrSlotDel(i) { ui.mr.slots.splice(i, 1); showManualRequest(); }
+function showManualRequest() {
+  const m = ui.mr, people = sortByName(state.employees.filter((e) => e.active));
+  const tSel = (v, on) => `<select onchange="${on}">${TIME_OPTIONS.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+  const KINDS = [['libero', 'Giorno libero (non può lavorare)'], ['impegno', 'Ha un impegno a una certa ora (deve finire prima)'], ['dalle', 'Può lavorare solo da una certa ora'], ['fisso', 'Impegni fissi ogni settimana (università, sport…)']];
+  const margin = state.config.requestMargin ?? 120;
+  showModal(`<h3>✍️ Nuova richiesta a mano</h3>
+    <div class="form">
+      <label class="f">Dipendente<select onchange="mrSet('emp',this.value)"><option value="">— scegli —</option>${people.map((e) => `<option value="${e.id}" ${String(e.id) === String(m.emp) ? 'selected' : ''}>${esc(T.fullName(e))}</option>`).join('')}</select></label>
+      <label class="f">Cosa chiede<select onchange="mrSet('kind',this.value)">${KINDS.map(([k, t]) => `<option value="${k}" ${m.kind === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      <div class="row"><label class="f">${m.kind === 'fisso' ? 'Dal' : 'Giorno'}<input type="date" value="${m.date}" onchange="mrSet('date',this.value)"></label>
+        ${m.kind === 'fisso' ? `<label class="f">Fino al (vuoto = senza fine)<input type="date" value="${m.to}" onchange="mrSet('to',this.value)"></label>` : ''}
+        ${m.kind === 'impegno' ? `<label class="f">Impegno alle${tSel(m.time, "mrSet('time',this.value)")}</label>` : ''}
+        ${m.kind === 'dalle' ? `<label class="f">Può iniziare dalle${tSel(m.from, "mrSet('from',this.value)")}</label>` : ''}</div>
+      ${m.kind === 'impegno' ? `<div class="small muted">Il turno dovrà finire ${margin / 60} ore prima (si può cambiare quando la accetti).</div>` : ''}
+      ${m.kind === 'fisso' ? `<div><div class="small" style="font-weight:600;color:var(--muted)">Quando è impegnato/a ogni settimana</div>${m.slots.map((sl, i) => `<div class="row" style="margin-top:6px"><select onchange="mrSlot(${i},'d',this.value)">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}" ${sl.d === d ? 'selected' : ''}>${T.DOW_LONG[d]}</option>`).join('')}</select> dalle ${tSel(sl.a, `mrSlot(${i},'a',this.value)`)} alle ${tSel(sl.b, `mrSlot(${i},'b',this.value)`)} ${m.slots.length > 1 ? `<button class="link" onclick="mrSlotDel(${i})">togli</button>` : ''}</div>`).join('')}
+        <button class="link" style="margin-top:6px" onclick="mrSlotAdd()">+ aggiungi un altro giorno</button></div>` : ''}
+      <label class="f">Nota (facoltativa)<input type="text" maxlength="300" value="${esc(m.note)}" placeholder="es. esame all'università" onchange="mrSet('note',this.value)"></label>
+    </div>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn" onclick="saveManualRequest(false)">Salva in attesa</button><button class="btn primary" onclick="saveManualRequest(true)">Salva e accetta…</button></div>`);
+}
+function saveManualRequest(accept) {
+  const m = ui.mr, e = empById(+m.emp);
+  if (!e) return alert('Scegli il dipendente.');
+  if (!m.date) return alert('Indica il giorno.');
+  const q = { id: newId(), manual: true, employeeId: e.id, day: T.toDay(m.date), kind: m.kind, note: String(m.note || '').trim().slice(0, 300), status: 'in attesa', createdAt: new Date().toISOString() };
+  if (m.kind === 'impegno') { q.time = m.time; q.until = Math.max(0, m.time - (state.config.requestMargin ?? 120)); }
+  if (m.kind === 'dalle') q.from = m.from;
+  if (m.kind === 'fisso') {
+    q.slots = m.slots.filter((x) => x.b > x.a).map((x) => ({ ...x }));
+    if (!q.slots.length) return alert('Controlla gli orari: "alle" deve essere dopo "dalle".');
+    q.to = m.to ? T.toDay(m.to) : null;
+    if (q.to != null && q.to < q.day) return alert('"Fino al" deve essere dopo "Dal".');
+  }
+  state.requests = state.requests || [];
+  state.requests.push(q); ui.mr = null; save();
+  pushOrari([q.employeeId]).catch(() => null);
+  closeModal(); render();
+  if (accept) askAccept(q.id);
 }
 /** Turni già pianificati (da oggi in poi) che non rispettano gli impegni fissi della richiesta. */
 function fixedConflicts(q) {
@@ -2251,7 +2301,7 @@ async function deleteRequests(ids) {
   state.requests = state.requests.filter((q) => !ids.includes(q.id)); save(); render();
   pushOrari([...new Set(list.map((q) => q.employeeId))]).catch(() => null);
   let fail = 0;
-  for (const q of list) { try { await TurniCloud.deleteRequest(q.rid); } catch (e) { fail++; } }
+  for (const q of list) { if (q.rid) try { await TurniCloud.deleteRequest(q.rid); } catch (e) { fail++; } }
   if (fail) alert(`Eliminate qui, ma ${fail} non sono state cancellate online (connessione?).`);
 }
 function askReject(id) {
@@ -2262,12 +2312,12 @@ async function doReject(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
   q.status = 'rifiutata'; q.reply = (document.getElementById('rej-msg').value || '').trim() || 'Non è possibile, parliamone.';
   closeModal(); save(); render(); pushOrari([q.employeeId]).catch(() => null);
-  try { await TurniCloud.answerRequest(q.rid, 'rifiutata', q.reply); } catch (e) { alert('Rifiutata qui, ma la risposta al dipendente non è partita (connessione?).'); }
+  if (q.rid) try { await TurniCloud.answerRequest(q.rid, 'rifiutata', q.reply); } catch (e) { alert('Rifiutata qui, ma la risposta al dipendente non è partita (connessione?).'); }
 }
 async function reopenRequest(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
   q.status = 'in attesa'; q.reply = ''; save(); render(); pushOrari([q.employeeId]).catch(() => null);
-  try { await TurniCloud.answerRequest(q.rid, 'in attesa', ''); } catch (e) { /* riprova alla prossima risposta */ }
+  if (q.rid) try { await TurniCloud.answerRequest(q.rid, 'in attesa', ''); } catch (e) { /* riprova alla prossima risposta */ }
 }
 
 // --- esporta / importa ---
