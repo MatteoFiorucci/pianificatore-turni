@@ -829,7 +829,15 @@
       if (clash(b, me.id, a) || clash(a, other.id, b)) continue;
       // postazione: se la persona non è formata in quella del turno che prende, prova le sue (non per apertura/chiusura)
       const team = (x) => x.start <= (ctx0.cfg.open ?? 450) || x.end >= (ctx0.cfg.close ?? 1290);
-      const stOpts = (x, e) => (e.type === 'HOSPITALITY' || team(x) || e.trainings.includes(x.station) || !e.trainings.length ? [x.station] : [x.station, ...e.trainings.filter((t) => t !== x.station)]);
+      // solo postazioni in cui la persona è formata (per aperture e chiusure: formata per aprire / chiudere quella postazione)
+      const trained = (e, x, st) => {
+        if (x.start <= (ctx0.cfg.open ?? 450)) return (e.openings || []).includes(st) && autoOpenOk(e, st);
+        if (x.end >= (ctx0.cfg.close ?? 1290)) return canClose(ctx0, e, st);
+        if (st === 'HOSPITALITY') return e.type === 'HOSPITALITY';
+        if (st === 'SERVIZIO' && e.type === 'HOSPITALITY') return true;
+        return e.trainings.includes(st) || (e.type === 'CREW' && !e.trainings.length);
+      };
+      const stOpts = (x, e) => (team(x) || e.type === 'HOSPITALITY' ? [x.station] : [x.station, ...e.trainings.filter((t) => t !== x.station)]).filter((st) => trained(e, x, st));
       let bestHere = null;
       for (const sm of stOpts(b, me)) for (const sp of stOpts(a, other)) {
         const mine = { ...b, employeeId: me.id, station: sm }, theirs = { ...a, employeeId: other.id, station: sp };
@@ -1125,7 +1133,7 @@
     const daysByDifficulty = [...ctx.days].sort((a, b) => (supply(a) - demand(a)) - (supply(b) - demand(b)) || a - b);
     // fasce generiche (rush, picchi, intermedi): a ogni giro una persona per giorno, nella fascia più scoperta in proporzione.
     // Così pranzo e cena (e i giorni della settimana) restano bilanciati anche quando le persone non bastano per tutto.
-    const coverGenericBalanced = () => {
+    const coverBalanced = (list, who) => {
       const stuck = new Set();
       const firstHole = (d, r) => { const end = covEnd(cfg, r), need = reqMin(r, d); for (let m = r.start; m < end; m += SLOT) if (countAt(ctx, d, m, r, shifts) < need) return m; return null; };
       // copertura media della fascia (presenti / richiesti sui quarti d'ora), al massimo 1
@@ -1133,7 +1141,7 @@
       for (let round = 0; round < 60; round++) {
         let progress = false;
         for (const d of daysByDifficulty) {
-          const open = generic.filter((r) => reqMin(r, d) && !stuck.has(d + '|' + r.id) && firstHole(d, r) != null)
+          const open = list.filter((r) => reqMin(r, d) && !stuck.has(d + '|' + r.id) && firstHole(d, r) != null)
             .sort((x, y) => ratio(d, x) - ratio(d, y) || x.start - y.start);
           for (const r of open) {
             const m = firstHole(d, r), sl = coverSlot(d, m, r);
@@ -1142,15 +1150,17 @@
             const c = countAt(ctx, d, m, r, shifts), need = reqMin(r, d);
             let n = m + SLOT; const endC = covEnd(cfg, r);
             while (n < endC && countAt(ctx, d, n, r, shifts) < need) n += SLOT;
-            notes.push(`${dayLabel(d)} · ${r.name}: dalle ${fmtTime(m)} alle ${fmtTime(n)} ci sono solo ${c}/${need} crew (nessuno disponibile)`);
+            notes.push(`${dayLabel(d)} · ${r.name}: dalle ${fmtTime(m)} alle ${fmtTime(n)} ci sono solo ${c}/${need} ${who} (nessuno disponibile)`);
           }
         }
         if (!progress) break;
       }
     };
-    let genericDone = false;
+    let genericDone = false, hospDone = false;
     for (const req of reqs) for (const d of daysByDifficulty) {
-      if (!req.station) { if (!genericDone) { coverGenericBalanced(); genericDone = true; } continue; }
+      if (!req.station) { if (!genericDone) { coverBalanced(generic, 'crew'); genericDone = true; } continue; }
+      // hospitality: anche loro a turno tra la fascia lunga in sala e i rinforzi di pranzo e cena
+      if (isH(req)) { if (!hospDone) { coverBalanced(hospReqs, 'hospitality'); hospDone = true; } continue; }
       const need = reqMin(req, d);
       if (!need) continue;
       let m = req.start;
@@ -1181,6 +1191,14 @@
       return n ? tot / n : Infinity;
     }
 
+    // hospitality presenti a pranzo (13:00) e a cena (20:00): le ore in più vanno dove ce ne sono meno
+    const hospAt = (d, m) => shifts.filter((x) => x.day === d && x.station === 'HOSPITALITY' && x.start <= m && x.end > m).length;
+    const hospBalance = (d, a, b) => {
+      const lunch = a <= 780 && b > 780, dinner = a <= 1200 && b > 1200;
+      if (lunch === dinner) return 0;
+      const diff = hospAt(d, 780) - hospAt(d, 1200);
+      return (lunch ? diff : -diff) * 2.5;
+    };
     // 2. riempimento ore di contratto (prima gli orari dei rush)
     const fillStarts = {
       CREW: [720, 1080, 1110, 690, 750, 1050, 660, 780, 1140, 630, 840, 900, 540, 480, 450],
@@ -1208,7 +1226,7 @@
               if (Math.abs(dl - len) <= 30 && dl <= rem && dl <= max && dl >= cfg.minShift && a >= OPEN && b <= CLOSE) opts.push([d, a, b]);
             }
           }
-          const scored = opts.map(([d, a, b]) => ({ d, a, b, sc: crowd(d, a, b) - natural(e, d, a, b) * 0.35 - rushBalance(pickStation(e, d, a, b), d, a, b) * 0.5 })).sort((x, y) => x.sc - y.sc);
+          const scored = opts.map(([d, a, b]) => ({ d, a, b, sc: crowd(d, a, b) - natural(e, d, a, b) * 0.35 - rushBalance(pickStation(e, d, a, b), d, a, b) * 0.5 + (isHt ? hospBalance(d, a, b) : 0) })).sort((x, y) => x.sc - y.sc);
           for (const o of scored) {
             const s = { employeeId: e.id, day: o.d, start: o.a, end: o.b, station: pickStation(e, o.d, o.a, o.b), doppio: false };
             if (canPlace(e, s)) { placed = s; break; }
@@ -1230,7 +1248,9 @@
         if (main.length !== 1) continue;
         // il rush lontano dal turno normale; dentro il rush l'orario dove manca più gente
         const opts = [];
-        for (const [a, b] of RUSH) for (let st = a; st + D_MAX <= b; st += 30) opts.push({ start: st, end: st + D_MAX, gain: benefit(d, st, st + D_MAX) });
+        // hospitality: il doppio va nel servizio (pranzo o cena) dove ce ne sono meno
+        const hb = (st) => (e.type === 'HOSPITALITY' ? -hospBalance(d, st, st + D_MAX) * 3 : 0);
+        for (const [a, b] of RUSH) for (let st = a; st + D_MAX <= b; st += 30) opts.push({ start: st, end: st + D_MAX, gain: (e.type === 'HOSPITALITY' ? 0 : benefit(d, st, st + D_MAX)) + hb(st) });
         opts.sort((x, y) => y.gain - x.gain || x.start - y.start);
         for (const o of opts) {
           const s = { employeeId: e.id, day: d, start: o.start, end: o.end, station: pickStation(e, d, o.start, o.end), doppio: true };
