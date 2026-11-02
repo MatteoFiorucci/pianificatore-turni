@@ -393,7 +393,7 @@
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
     DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena', REQUEST: 'Richiesta del personale',
-    CLOSED: 'Locale chiuso',
+    CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé',
   };
   const V = (rule, sev, msg, emp = null, day = null) => ({ rule, sev, msg, emp, day });
 
@@ -628,6 +628,26 @@
     }
     return out;
   }
+  /**
+   * Quante persone al McCafé al massimo nello stesso momento: 2 il sabato e la domenica dall'apertura fino a prima
+   * del rush del pranzo (cfg.mcMaxFino, di default le 12:00), 1 in tutti gli altri momenti.
+   */
+  const mcCafeMax = (cfg, d, m) => (dow(d) >= 6 && m < (cfg.mcMaxFino ?? 720) ? 2 : 1);
+  const mcCafeAt = (list, d, m, except = null) => list.filter((x) => x !== except && x.day === d && x.station === 'MCCAFE' && x.start <= m && x.end > m).length;
+  function ruleMcCafeMax(ctx) {
+    const out = [];
+    for (const d of ctx.days) {
+      for (let m = 0; m < 1440; m += 15) {
+        const n = mcCafeAt(ctx.shifts, d, m), max = mcCafeMax(ctx.cfg, d, m);
+        if (n > max) {
+          const p = parts(d);
+          out.push(V('MCCAFE_MAX', 'WARNING', `${DOW_LONG[dow(d)]} ${p.d}/${p.m} · McCafé: alle ${fmtTime(m)} ci sono ${n} persone, ne basta${max > 1 ? 'no' : ''} ${max}${max > 1 ? '' : ' (2 solo sabato e domenica prima del pranzo)'}`, null, d));
+          break;
+        }
+      }
+    }
+    return out;
+  }
   function ruleRushSplit(ctx) {
     const out = [];
     const [L, D] = peaksOf(ctx.cfg);
@@ -782,7 +802,7 @@
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -961,8 +981,11 @@
     const stationFor = (e) => (e.type === 'HOSPITALITY' ? 'HOSPITALITY' : ['FRONT', 'CUCINA', 'MCCAFE', 'SERVIZIO'].find((s) => e.trainings.includes(s)) || 'FRONT');
     function pickStation(e, d, from, to) {
       if (e.type === 'HOSPITALITY') return 'HOSPITALITY';
+      // al McCafé non più di 1 persona alla volta (2 sabato e domenica prima del pranzo)
+      const mcFull = () => { for (let m = Math.floor(from / 15) * 15; m < to; m += 15) if (mcCafeAt(shifts, d, m) + 1 > mcCafeMax(cfg, d, m)) return true; return false; };
       const opts = CREW_STATIONS.filter((s) => e.trainings.includes(s));
-      const list = opts.length ? opts : ['FRONT'];
+      const ok = opts.filter((s) => s !== 'MCCAFE' || !mcFull());
+      const list = ok.length ? ok : opts.length ? opts : ['FRONT'];
       let best = list[0], bestN = Infinity;
       for (const st of list) {
         const n = shifts.filter((s) => s.day === d && s.station === st && s.start < to && s.end > from).length;
