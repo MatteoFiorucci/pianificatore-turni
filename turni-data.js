@@ -41,6 +41,8 @@
     // v26: eventi e chiusure (sezione Previsioni) e suggerimenti ignorati
     st.eventi = st.eventi || [];
     st.eventiIgnorati = st.eventiIgnorati || [];
+    // riposi spostati per una sola settimana: { lunedì: { idDipendente: [giorni] } }
+    st.restWeek = st.restWeek || {};
     for (const e of st.employees || []) {
       for (const [k, v] of Object.entries({ trainings: [], openings: [], closings: [], restDays: [], doubleDays: 0, fixedShift: null, trainee: false, traineeUntil: null, startDate: null, active: true })) {
         if (e[k] === undefined) e[k] = Array.isArray(v) ? [] : v;

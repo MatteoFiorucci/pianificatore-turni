@@ -197,8 +197,11 @@
   const limitOf = (ctx, id, day) => (ctx.limits ? ctx.limits.get(id + '|' + day) : null);
   /** Il turno rispetta la richiesta accettata di quella persona per quel giorno? */
   const fitsLimit = (ctx, s) => { const l = limitOf(ctx, s.employeeId, s.day); return !l || (!l.off && (l.until == null || s.end <= l.until) && (l.from == null || s.start >= l.from) && !(l.busy || []).some(([a, b]) => s.start < b && a < s.end)); };
+  /** Riposi della persona nella settimana ws: quelli spostati a mano per quella settimana, altrimenti quelli fissi. */
+  const restFor = (state, e, ws) => { const o = state.restWeek && state.restWeek[ws] && state.restWeek[ws][e.id]; return Array.isArray(o) ? o : e.restDays; };
   function makeCtx(state, ws) {
-    const employees = state.employees.filter((e) => e.active);
+    // riposi spostati solo per questa settimana (sezione Turni): la persona vale con quei riposi solo qui
+    const employees = state.employees.filter((e) => e.active).map((e) => (restFor(state, e, ws) === e.restDays ? e : { ...e, restDays: restFor(state, e, ws), restMoved: true }));
     // postazioni per cui qualcuno è segnato come formato alla chiusura (se nessuno: chiudono tutti i formati)
     const closingMarked = new Set(employees.flatMap((e) => e.closings || []));
     const ctx = {
@@ -1337,6 +1340,60 @@
       if (!improved) break;
     }
 
+    // 7. aperture e chiusure sempre coperte: se una squadra è ancora incompleta si copre comunque, anche con ore in più
+    //    o spostando il turno di quel giorno della persona. Restano obbligatori: disponibilità (riposi, ferie, richieste),
+    //    formazione per l'apertura/chiusura, ore massime al giorno, stacco tra i turni, squadra esatta.
+    function canPlaceTeam(e, cand, replacing = null) {
+      if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
+      if (isTrainee(e, cand.day) || dur(cand) <= 0) return false;
+      if (!cand.doppio && cand.start <= OPEN && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false;
+      const others = dayMain(e.id, cand.day).filter((s) => s !== replacing);
+      if (!replacing && others.length) return false;
+      if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
+      const dbl = shifts.find((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s));
+      if (dbl && Math.max(dbl.start - cand.end, cand.start - dbl.end) < D_GAP) return false;
+      const cf = closingFit(ctx, cand, shifts.filter((s) => s !== replacing));
+      if (cf && cf !== 'ok') return false;
+      return restOk(e, cand, replacing);
+    }
+    const teamReqs = ctx.coverage.filter((r) => (r.opening || r.closing) && r.station);
+    for (let pass = 0; pass < 2; pass++) for (const d of ctx.days) for (const r of teamReqs) {
+      const need = reqMin(r, d);
+      if (!need) continue;
+      const endW = r.closing ? r.end : covEnd(cfg, r);
+      // primo quarto d'ora scoperto della fascia (null = coperta tutta)
+      const hole = () => { for (let m = r.start; m < endW; m += SLOT) if (countAt(ctx, d, m, r, shifts) < need) return m; return null; };
+      const okFor = (e) => (r.opening ? (e.openings || []).includes(r.station) && autoOpenOk(e, r.station) : canClose(ctx, e, r.station));
+      const mv = new Set(movable());
+      for (let guard = 0; guard < 6 && hole() != null; guard++) {
+        const m0 = hole();
+        const inTeam = (e) => dayMain(e.id, d).some((x) => countsFor(ctx, x, r));
+        const pool = flexible.filter((e) => okFor(e) && isAvail(ctx, e, d) && !isTrainee(e, d))
+          // prima chi è già in questa squadra (si allunga o si sposta il suo turno), poi chi quel giorno non lavora, poi chi ha meno ore in più
+          .sort((a, b) => (inTeam(b) - inTeam(a)) || (dayMain(a.id, d).length - dayMain(b.id, d).length) || (remaining(b) - remaining(a)));
+        let done = false;
+        for (const e of pool) {
+          const old = dayMain(e.id, d)[0];
+          // non si sposta un turno che sta già aprendo o chiudendo (scoprirebbe un'altra squadra)
+          // (si può solo allungare o spostare il turno che serve proprio questa squadra)
+          const team = (x) => x.start <= OPEN || x.end >= CLOSE;
+          if (old && (!mv.has(old) || (team(old) && !countsFor(ctx, old, r)))) continue;
+          const lens = [...new Set([old ? dur(old) : 0, endW - r.start, 240, 210, 180, 270, 300].filter((l) => l >= cfg.minShift))];
+          for (const len of lens) {
+            // apertura: dall'inizio della fascia; chiusura: fino alla chiusura, entrando entro il primo buco
+            const start = r.opening ? r.start : Math.min(CLOSE - len, m0);
+            if (r.opening ? start + len < Math.min(endW, m0 + SLOT) : start + len < endW) continue;
+            const cand = { employeeId: e.id, day: d, start, end: start + len, station: closeStation(e, r.station), doppio: false };
+            if (!countsFor(ctx, cand, r) || !canPlaceTeam(e, cand, old || null)) continue;
+            if (old) swapIn(old, cand); else place(cand);
+            done = true; break;
+          }
+          if (done) break;
+        }
+        if (!done) { if (pass) notes.push(`${DOW_LONG[dow(d)]} ${shortDate(d)}: ${r.name} scoperta, nessuno dei formati è disponibile (riposi, ferie, richieste o stacco di 11 ore)`); break; }
+      }
+    }
+
     for (const e of emps) {
       const left = remaining(e);
       if (left > 0) notes.push(`${fullName(e)}: mancano ${fmtDur(left)} (nessuno spazio valido trovato)`);
@@ -1345,7 +1402,7 @@
   }
 
   root.Turni = {
-    ABSENCE_TYPES, absenceInfo, eventsOn, closureOf,
+    ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor,
     STATIONS, CREW_STATIONS, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
