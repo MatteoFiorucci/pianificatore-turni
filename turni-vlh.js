@@ -32,9 +32,11 @@
   /** Fascia della giornata di un'ora (come nel foglio aziendale). */
   const partOf = (h) => (h <= 10 ? 'B' : h <= 14 ? 'L' : h <= 18 ? 'A' : 'D');
   // formazione richiesta per ogni postazione: Production → MFY, Front Counter → OA, McCafé → McCafé.
+  // Eccezione: le patatine (Fries) le fa chi è formato in OA oppure in MFY.
   // Il servizio al tavolo (Table Server) può essere fatto anche da chi è formato in sala o è hospitality.
   const STATION_OF = (code) => {
     if (POS[code][1] === 'MC') return ['MCCAFE'];
+    if (code[0] === 'F') return ['FRONT', 'CUCINA']; // patatine (Fries): formati OA oppure MFY
     if (POS[code][1] === 'PR') return ['CUCINA'];
     if (code[0] === 'T') return ['FRONT', 'SERVIZIO', 'HOSPITALITY'];
     return ['FRONT'];
