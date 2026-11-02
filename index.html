@@ -237,9 +237,10 @@
   .dayside .card { padding: 12px; margin-bottom: 12px; } .dayside h3 { margin: 0 0 6px; font-size: 14px; }
   .dayside ul { margin: 0; padding-left: 18px; } .dayside li { margin: 2px 0; }
   @media print {
-    @page { size: A4 portrait; margin: 8mm; }
+    /* margine della pagina a zero: così il browser non stampa intestazione e piè di pagina (titolo, indirizzo, data, numero di pagina) */
+    @page { size: A4 portrait; margin: 0; }
     header, .toolbar, .no-print, #modal { display: none !important; }
-    body { background: #fff; } main { padding: 0; }
+    body { background: #fff; margin: 0; } main { padding: 8mm; }
     /* lineare stampato: solo griglia, ore e aree; in testa la previsione, sotto riposi e assenze */
     .daily { display: block; } .card { border: 0; box-shadow: none; }
     .sheet { padding: 0; }
@@ -292,15 +293,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611021747"></script>
-<script src="turni-core.js?v=202611021747"></script>
+<script src="turni-storico.js?v=202611021802"></script>
+<script src="turni-core.js?v=202611021802"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611021747"></script>
-<script src="turni-cloud-config.js?v=202611021747"></script>
-<script src="turni-cloud.js?v=202611021747"></script>
-<script src="turni-cripto.js?v=202611021747"></script>
-<script src="lineare-ufficiale.js?v=202611021747"></script>
+<script src="turni-data.js?v=202611021802"></script>
+<script src="turni-cloud-config.js?v=202611021802"></script>
+<script src="turni-cloud.js?v=202611021802"></script>
+<script src="turni-cripto.js?v=202611021802"></script>
+<script src="lineare-ufficiale.js?v=202611021802"></script>
 <script>
 'use strict';
 const T = window.Turni;
