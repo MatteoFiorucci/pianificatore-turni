@@ -293,15 +293,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611021821"></script>
-<script src="turni-core.js?v=202611021821"></script>
+<script src="turni-storico.js?v=202611021919"></script>
+<script src="turni-core.js?v=202611021919"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611021821"></script>
-<script src="turni-cloud-config.js?v=202611021821"></script>
-<script src="turni-cloud.js?v=202611021821"></script>
-<script src="turni-cripto.js?v=202611021821"></script>
-<script src="lineare-ufficiale.js?v=202611021821"></script>
+<script src="turni-data.js?v=202611021919"></script>
+<script src="turni-cloud-config.js?v=202611021919"></script>
+<script src="turni-cloud.js?v=202611021919"></script>
+<script src="turni-cripto.js?v=202611021919"></script>
+<script src="lineare-ufficiale.js?v=202611021919"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -343,7 +343,7 @@ const INFO = {
   'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero; il generatore non mette turni e conta quel giorno come una giornata di ferie per tutti.<br><b>🕒 Chiusura parziale</b> (manutenzione, chiusura anticipata): le previsioni calano della quota di clienti che di solito entra in quelle ore; niente turni e niente minimi in quegli orari.<br><b>⭐ Evento o ricorrenza</b> (Black Friday, promozioni, festa locale): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno (es. apertura +65% il primo giorno, +20% in settimana, +50% nel weekend) con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni (⭐ +434 (+60%)), nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto almeno il 30% di clienti in più.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> (dalle 7:30) e per <b>chiudere</b> (alle 21:30) ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
-  'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana.
+  'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana. In <b>Ore massime per doppio</b> puoi abbassare la durata per chi non può fare il doppio standard (es. 2 ore invece di 3): il generatore e i controlli ne tengono conto.
   I numeri di partenza vengono dagli orari reali delle settimane 38–44: controllali. Il generatore mette i doppi solo a queste persone, nei rush di pranzo o cena e preferibilmente sabato e domenica. <b>Chi apre</b> (turno delle 7:30) quel giorno non fa il doppio.`],
   'ferie': [`Ferie e malattie`, `Inserisci ferie, malattie, infortuni e assenze. In quei giorni la persona non può avere turni (il generatore non la usa) e le ore da fare in quella settimana calano della quota giornaliera (18h su 6 giorni lavorativi → 3h per giorno). Una malattia o un infortunio in corso si può inserire anche a settimana già fatta: i suoi turni di quei giorni diventano errori da coprire (usa 🛠 Risolvi problemi).`],
   'fasce': [`Fasce di copertura`, `Numero minimo di persone presenti per tutta la durata della fascia, giorno per giorno (0 = nessun minimo). Nei giorni con le Ore totali (sezione Previsioni), i minimi delle fasce senza postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality. I valori iniziali vengono dagli orari reali delle settimane 39–44. Contano crew e hospitality messe in una postazione crew (non quelle in sala). Con una postazione indicata contano solo i presenti in quella postazione; con "Solo formati apertura" solo chi è segnato nella sezione Aperture.<br><br>Le fasce segnate <b>"consiglio"</b> (es. Postazione MFY) non sono obbligatorie: il generatore cerca di rispettarle, ma se mancano compaiono in <b>giallo</b> tra gli avvisi, non in rosso tra gli errori.`],
@@ -521,7 +521,7 @@ function renderDayModal() {
   const { empId, day, list } = ui.draft;
   const ctx = T.makeCtx(state, T.mondayOf(day)), e = ctx.byId.get(empId) || empById(empId);
   const max = T.maxDaily(state.config, e.type), total = list.length ? list[0].end - list[0].start : 0;
-  const dMax = state.config.doubleMax ?? 180, dGap = state.config.doubleGap ?? 120;
+  const dMax = T.doubleMaxOf(state.config, e), dGap = state.config.doubleGap ?? 120;
   const ab = T.absenceOn(ctx, e.id, day);
   const boxes = list.map((s, i) => `
     <div class="shiftbox">
@@ -1406,12 +1406,16 @@ function renderDoppi() {
   return `
   <h2>Doppi ${ib('doppi')}</h2>
   <p><span class="pill on">Persone con doppi: ${tot}</span></p>
-  <div class="card"><table class="list"><thead><tr><th>Dipendente</th><th>Ruolo</th><th>Giorni di doppio a settimana</th></tr></thead><tbody>
+  <div class="card"><table class="list"><thead><tr><th>Dipendente</th><th>Ruolo</th><th>Giorni di doppio a settimana</th><th>Ore massime per doppio</th></tr></thead><tbody>
     ${list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${T.TYPES[e.type]}</td>
-      <td><select onchange="setDoubles(${e.id},+this.value)">${[0, 1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${(e.doubleDays || 0) === n ? 'selected' : ''}>${n === 0 ? 'nessuno' : n}</option>`).join('')}</select></td></tr>`).join('')}
+      <td><select onchange="setDoubles(${e.id},+this.value)">${[0, 1, 2, 3, 4, 5, 6, 7].map((n) => `<option value="${n}" ${(e.doubleDays || 0) === n ? 'selected' : ''}>${n === 0 ? 'nessuno' : n}</option>`).join('')}</select></td>
+      <td>${e.doubleDays ? `<select onchange="setDoubleMax(${e.id},+this.value)">${DMAX_OPTS().map(([v, l]) => `<option value="${v}" ${(e.doubleMax || 0) === v ? 'selected' : ''}>${l}</option>`).join('')}</select>` : '<span class="muted small">—</span>'}</td></tr>`).join('')}
   </tbody></table></div>`;
 }
 function setDoubles(id, n) { empById(id).doubleDays = n; save(); render(); }
+/** Ore massime del doppio: 0 = standard (quella di Regole), altrimenti un valore più basso per quella persona. */
+const DMAX_OPTS = () => { const std = state.config.doubleMax ?? 180, out = [[0, `standard (${T.fmtDur(std)})`]]; for (let m = 120; m < std; m += 30) out.push([m, T.fmtDur(m)]); return out; };
+function setDoubleMax(id, v) { const e = empById(id); if (v) e.doubleMax = v; else delete e.doubleMax; save(); render(); }
 
 // ================= FERIE =================
 function renderFerie() {

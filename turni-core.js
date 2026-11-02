@@ -209,6 +209,8 @@
   /** Il turno rispetta la richiesta accettata di quella persona per quel giorno? */
   const fitsLimit = (ctx, s) => { const l = limitOf(ctx, s.employeeId, s.day); return !l || (!l.off && (l.until == null || s.end <= l.until) && (l.from == null || s.start >= l.from) && !(l.busy || []).some(([a, b]) => s.start < b && a < s.end)); };
   /** Riposi della persona nella settimana ws: quelli spostati a mano per quella settimana, altrimenti quelli fissi. */
+  /** Durata massima del doppio della persona: la sua (sezione Doppi) se è impostata, altrimenti quella di Regole. */
+  const doubleMaxOf = (cfg, e) => (e && e.doubleMax > 0 ? Math.min(e.doubleMax, cfg.doubleMax ?? 180) : cfg.doubleMax ?? 180);
   const restFor = (state, e, ws) => { const o = state.restWeek && state.restWeek[ws] && state.restWeek[ws][e.id]; return Array.isArray(o) ? o : e.restDays; };
   function makeCtx(state, ws) {
     // riposi spostati solo per questa settimana (sezione Turni): la persona vale con quei riposi solo qui
@@ -296,7 +298,7 @@
     const base = days.map((k) => (typeOf(k) === 'weekend' ? prof.hoursWeekend : prof.hoursWeekday));
     const needed = days.reduce((tt, k) => tt + (hours[k] || base[k]), 0);
     const crew = ctx.employees.filter((e) => e.type === 'CREW');
-    const available = crew.reduce((tt, e) => tt + target(ctx, e) + (e.doubleDays || 0) * (state.config.doubleMax ?? 180), 0) / 60;
+    const available = crew.reduce((tt, e) => tt + target(ctx, e) + (e.doubleDays || 0) * doubleMaxOf(state.config, e), 0) / 60;
     // le Crew Hours dell'azienda si usano così come sono; la riduzione vale solo per i giorni calcolati da vendite/clienti
     const usesCH = source.some((x) => x === 'ch');
     const scale = !usesCH && needed > available ? available / needed : 1;
@@ -432,7 +434,7 @@
       // chi apre (turno che inizia all'apertura del locale) quel giorno non fa il doppio
       if (dbl.length && day.some((s) => s.start <= (cfg.open ?? 450))) out.push(V('DOUBLES', 'ERROR', `${who}: apre il ${when} e fa anche il doppio (chi apre non fa il doppio)`, e.id, d));
       for (const x of dbl) {
-        if (dur(x) > dMax) out.push(V('DOUBLES', 'ERROR', `${who}: doppio di ${fmtDur(dur(x))} il ${when} (massimo ${fmtDur(dMax)})`, e.id, d));
+        if (dur(x) > doubleMaxOf(cfg, e)) out.push(V('DOUBLES', 'ERROR', `${who}: doppio di ${fmtDur(dur(x))} il ${when} (massimo ${fmtDur(doubleMaxOf(cfg, e))})`, e.id, d));
         if (!main.length) out.push(V('DOUBLES', 'WARNING', `${who}: doppio senza turno normale il ${when}`, e.id, d));
         for (const m of main) {
           const gap = Math.max(x.start - m.end, m.start - x.end);
@@ -940,7 +942,7 @@
     /** Doppio: solo per chi lo fa, nello stesso giorno del turno normale, con la pausa minima. */
     function canPlaceDouble(e, cand) {
       if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
-      if (dur(cand) <= 0 || dur(cand) > D_MAX || cand.start < OPEN || cand.end > CLOSE) return false;
+      if (dur(cand) <= 0 || dur(cand) > doubleMaxOf(cfg, e) || cand.start < OPEN || cand.end > CLOSE) return false;
       if (lateEnd(cand.end)) return false;
       const main = dayMain(e.id, cand.day);
       if (main.length !== 1 || shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s))) return false;
@@ -1125,7 +1127,7 @@
       if (s1) return s1;
       // nessuno libero: prova un doppio
       const dCands = crew.filter((e) => doublesLeft(e) > 0);
-      const dWins = windowsFor(d, m, [D_MAX, 150, 120].filter((l) => l <= D_MAX), generic, 0, 'CREW', D_MAX);
+      const dWins = windowsFor(d, m, [...new Set([D_MAX, 150, 120])].filter((l) => l <= D_MAX), generic, 0, 'CREW', D_MAX);
       return pickPair(d, dWins, dCands, (e, a, b) => pickStation(e, d, a, b), true, canPlaceDouble);
     }
     const demand = (d) => generic.reduce((t, r) => t + reqMin(r, d) * (r.end - r.start), 0) / 60;
@@ -1249,8 +1251,9 @@
         // il rush lontano dal turno normale; dentro il rush l'orario dove manca più gente
         const opts = [];
         // hospitality: il doppio va nel servizio (pranzo o cena) dove ce ne sono meno
-        const hb = (st) => (e.type === 'HOSPITALITY' ? -hospBalance(d, st, st + D_MAX) * 3 : 0);
-        for (const [a, b] of RUSH) for (let st = a; st + D_MAX <= b; st += 30) opts.push({ start: st, end: st + D_MAX, gain: (e.type === 'HOSPITALITY' ? 0 : benefit(d, st, st + D_MAX)) + hb(st) });
+        const DL = doubleMaxOf(cfg, e);
+        const hb = (st) => (e.type === 'HOSPITALITY' ? -hospBalance(d, st, st + DL) * 3 : 0);
+        for (const [a, b] of RUSH) for (let st = a; st + DL <= b; st += 30) opts.push({ start: st, end: st + DL, gain: (e.type === 'HOSPITALITY' ? 0 : benefit(d, st, st + DL)) + hb(st) });
         opts.sort((x, y) => y.gain - x.gain || x.start - y.start);
         for (const o of opts) {
           const s = { employeeId: e.id, day: d, start: o.start, end: o.end, station: pickStation(e, d, o.start, o.end), doppio: true };
@@ -1460,7 +1463,7 @@
   }
 
   root.Turni = {
-    ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor,
+    ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf,
     STATIONS, CREW_STATIONS, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
