@@ -151,8 +151,8 @@
   // stile: invisibile a schermo, in stampa su un foglio A4 verticale dopo il nostro lineare
   const css = document.createElement('style');
   css.textContent = `#lin-uff{display:none}
-    @page uff { size: A4 portrait; margin: 6mm; }
-    @media print { #lin-uff{display:block;page:uff;break-before:page;-webkit-print-color-adjust:exact;print-color-adjust:exact} #lin-uff svg{display:block;width:100%;height:auto;max-height:270mm;margin:0 auto} }`;
+    @page uff { size: A4 portrait; margin: 0; }
+    @media print { #lin-uff{display:block;page:uff;break-before:page;-webkit-print-color-adjust:exact;print-color-adjust:exact} #lin-uff{padding:6mm;box-sizing:border-box} #lin-uff svg{display:block;width:100%;height:auto;max-height:283mm;margin:0 auto} }`;
   document.head.appendChild(css);
 
   function prepara() {
