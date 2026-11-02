@@ -292,15 +292,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611021742"></script>
-<script src="turni-core.js?v=202611021742"></script>
+<script src="turni-storico.js?v=202611021747"></script>
+<script src="turni-core.js?v=202611021747"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611021742"></script>
-<script src="turni-cloud-config.js?v=202611021742"></script>
-<script src="turni-cloud.js?v=202611021742"></script>
-<script src="turni-cripto.js?v=202611021742"></script>
-<script src="lineare-ufficiale.js?v=202611021742"></script>
+<script src="turni-data.js?v=202611021747"></script>
+<script src="turni-cloud-config.js?v=202611021747"></script>
+<script src="turni-cloud.js?v=202611021747"></script>
+<script src="turni-cripto.js?v=202611021747"></script>
+<script src="lineare-ufficiale.js?v=202611021747"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -461,6 +461,7 @@ function renderTurni() {
       <li>Chi ha un <b>orario fisso</b> (es. 9:00–12:30 nei suoi giorni) viene messo sempre e solo in quell'orario.</li>
       <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
       <li><b>Spostare un riposo solo per una settimana</b>: clicca la casella del giorno in cui la persona deve riposare e premi <b>↔ Metti il riposo in questo giorno</b>. Le settimane dopo resta il riposo fisso; nella casella compare <b>RIPOSO ↔</b>.</li>
+      <li><b>Pranzo e cena bilanciati</b>: il generatore aggiunge le persone a turno nella fascia più scoperta (rush e picchi di pranzo e di cena), così se le persone non bastano mancano un po' in tutte e due, non tutte a pranzo.</li>
       <li><b>Aperture e chiusure sempre coperte</b>: se alla fine mancano ancora, il generatore le copre comunque, anche con ore in più per qualcuno o spostando il suo turno di quel giorno. Restano scoperte solo se nessun formato è disponibile (riposo, ferie, richiesta o stacco di 11 ore): lo trovi scritto nel riepilogo della generazione.</li>
       <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto: per esempio 18h + 3h di doppio. Nella colonna Ore sono indicati a parte.</li>
       <li>I minimi delle fasce cambiano in base al giorno (il weekend ne chiede di più): li trovi e li cambi in Regole.</li>
@@ -1942,7 +1943,7 @@ async function pushOrari(ids) {
       days: w.emp[e.id].days.map((x) => ((w.marks || {})[e.id + '|' + x.d] ? { ...x, mod: w.marks[e.id + '|' + x.d] } : x)) }));
     // le sue richieste con lo stato: così le vede da qualunque telefono o browser entri
     const reqs = (state.requests || []).filter((q) => q.employeeId === e.id).sort((a, b) => b.day - a.day).slice(0, 30)
-      .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
+      .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
       await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs }));
@@ -1958,8 +1959,8 @@ async function pushOrari(ids) {
 const DAYS_IT = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
 const SLOTS_TXT = (q) => (q.slots || []).map((x) => `${DAYS_IT[x.d]} ${T.fmtTime(x.a)}–${T.fmtTime(x.b)}`).join(', ');
 const PERIOD_TXT = (q) => `dal ${T.itDate(q.day)}${q.to != null ? ` al ${T.itDate(q.to)}` : ' (senza data di fine)'}`;
-const KIND_TXT = (q) => q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
-const LIMIT_TXT = (q) => q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.kind === 'impegno' && q.after != null ? `finire entro le ${T.fmtTime(q.until)} o iniziare dalle ${T.fmtTime(q.after)}` : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
+const KIND_TXT = (q) => q.kind === 'turno' ? `vuole fare solo ${q.label ? q.label.toLowerCase() : 'questa fascia'}${q.to != null && q.to !== q.day ? ` fino al ${T.itDate(q.to)}` : ''}` : q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
+const LIMIT_TXT = (q) => q.kind === 'turno' ? `turno tra le ${T.fmtTime(q.from)} e le ${T.fmtTime(q.until)}` : q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.kind === 'impegno' && q.after != null ? `finire entro le ${T.fmtTime(q.until)} o iniziare dalle ${T.fmtTime(q.after)}` : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
 // link unico dell'app per il personale (uguale per tutti): ?s = codice del locale (resta anche nell'app installata)
 const appLink = () => `${location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/')}richieste.html?s=${TurniCloud.uid()}`;
 const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
@@ -2208,6 +2209,7 @@ function askAccept(id) {
     <p><b>${esc(T.fullName(empById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
     <div class="form">
       ${q.kind === 'impegno' ? `<div class="row"><label class="f">Turno prima: deve finire entro le${timeSel('acc-t', q.until, 360, 1380)}</label><label class="f">oppure turno dopo: può iniziare dalle${timeSel('acc-t2', q.after ?? Math.min(1380, (q.time ?? q.until) + (state.config.requestAfter ?? 120)), 360, 1380)}</label></div>` : ''}
+      ${q.kind === 'turno' ? `<div class="row"><label class="f">Turno dalle${timeSel('acc-t', q.from, 360, 1380)}</label><label class="f">alle${timeSel('acc-t2', q.until, 360, 1440)}</label></div>` : ''}
       ${q.kind === 'dalle' ? `<label class="f">Può iniziare dalle${timeSel('acc-t', q.from, state.config.open ?? 450, (state.config.close ?? 1290) - (state.config.minShift ?? 120))}</label>` : ''}
       ${q.kind === 'libero' ? '<p style="margin:0">Quel giorno non avrà turni.</p>' : ''}
       ${weekHas && p && !p.currentOk ? `<div><b style="font-size:13px">Cosa fare con i turni di quel giorno?</b>
@@ -2231,6 +2233,7 @@ async function doAccept(id) {
   const t = document.getElementById('acc-t');
   if (t && q.kind === 'impegno') { q.until = +t.value; const t2 = document.getElementById('acc-t2'); if (t2) q.after = Math.max(q.until, +t2.value); }
   if (t && q.kind === 'dalle') q.from = +t.value;
+  if (t && q.kind === 'turno') { const t2 = document.getElementById('acc-t2'); q.from = +t.value; if (t2) q.until = Math.max(q.from + 60, +t2.value); }
   const how = (document.querySelector('input[name="acc-how"]:checked') || {}).value || 'none';
   const apply = how === 'new';
   let applied = null, swapped = null;
@@ -2266,17 +2269,24 @@ async function doAccept(id) {
 // --- richieste inserite a mano dal manager (stesso percorso di quelle dall'app: proposte, accetta, rifiuta) ---
 function newManualRequest() {
   const tomorrow = T.toIso(T.todayDay() + 1);
-  ui.mr = { emp: '', kind: 'libero', date: tomorrow, to: '', time: 18 * 60, from: 17 * 60, slots: [{ d: 1, a: 17 * 60, b: 19 * 60 }], note: '' };
+  ui.mr = { emp: '', kind: 'turno', preset: 0, tFrom: state.config.open ?? 450, tUntil: 780, tLabel: 'Solo mattina', date: tomorrow, to: '', time: 18 * 60, from: 17 * 60, slots: [{ d: 1, a: 17 * 60, b: 19 * 60 }], note: '' };
   showManualRequest();
 }
-function mrSet(fld, v) { const m = ui.mr; m[fld] = ['time', 'from'].includes(fld) ? +v : v; if (fld === 'kind') showManualRequest(); }
+function mrSet(fld, v) { const m = ui.mr; m[fld] = ['time', 'from', 'tFrom', 'tUntil'].includes(fld) ? +v : v; if (fld === 'kind') showManualRequest(); }
+/** Turni preferiti già pronti: nome, dalle, alle (null = apertura / chiusura del locale). */
+const TURNI_PRESET = [['Solo mattina', null, 780], ['Solo pranzo / pomeriggio', 660, 1080], ['Solo sera', 1020, null], ['Mattina e pranzo', null, 900]];
+function mrPreset(i) {
+  const [lab, a, b] = TURNI_PRESET[i];
+  Object.assign(ui.mr, { preset: i, tFrom: a ?? (state.config.open ?? 450), tUntil: b ?? (state.config.close ?? 1290), tLabel: lab });
+  showManualRequest();
+}
 function mrSlot(i, fld, v) { ui.mr.slots[i][fld] = +v; }
 function mrSlotAdd() { const l = ui.mr.slots[ui.mr.slots.length - 1] || { d: 1, a: 1020, b: 1140 }; ui.mr.slots.push({ ...l, d: (l.d % 7) + 1 }); showManualRequest(); }
 function mrSlotDel(i) { ui.mr.slots.splice(i, 1); showManualRequest(); }
 function showManualRequest() {
   const m = ui.mr, people = sortByName(state.employees.filter((e) => e.active));
   const tSel = (v, on) => `<select onchange="${on}">${TIME_OPTIONS.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
-  const KINDS = [['libero', 'Giorno libero (non può lavorare)'], ['impegno', 'Ha un impegno a una certa ora (deve finire prima)'], ['dalle', 'Può lavorare solo da una certa ora'], ['fisso', 'Impegni fissi ogni settimana (università, sport…)']];
+  const KINDS = [['turno', 'Vuole fare un certo turno (es. solo mattina, solo pranzo/pomeriggio)'], ['libero', 'Giorno libero (non può lavorare)'], ['impegno', 'Ha un impegno a una certa ora (deve finire prima)'], ['dalle', 'Può lavorare solo da una certa ora'], ['fisso', 'Impegni fissi ogni settimana (università, sport…)']];
   const margin = state.config.requestMargin ?? 30, after = state.config.requestAfter ?? 120;
   showModal(`<h3>✍️ Nuova richiesta a mano</h3>
     <div class="form">
@@ -2285,7 +2295,10 @@ function showManualRequest() {
       <div class="row"><label class="f">${m.kind === 'fisso' ? 'Dal' : 'Giorno'}<input type="date" value="${m.date}" onchange="mrSet('date',this.value)"></label>
         ${m.kind === 'fisso' ? `<label class="f">Fino al (vuoto = senza fine)<input type="date" value="${m.to}" onchange="mrSet('to',this.value)"></label>` : ''}
         ${m.kind === 'impegno' ? `<label class="f">Impegno alle${tSel(m.time, "mrSet('time',this.value)")}</label>` : ''}
-        ${m.kind === 'dalle' ? `<label class="f">Può iniziare dalle${tSel(m.from, "mrSet('from',this.value)")}</label>` : ''}</div>
+        ${m.kind === 'dalle' ? `<label class="f">Può iniziare dalle${tSel(m.from, "mrSet('from',this.value)")}</label>` : ''}
+        ${m.kind === 'turno' ? `<label class="f">Fino al (vuoto = solo quel giorno)<input type="date" value="${m.to}" onchange="mrSet('to',this.value)"></label>` : ''}</div>
+      ${m.kind === 'turno' ? `<div><div class="small" style="font-weight:600;color:var(--muted)">Quale turno</div><div class="row" style="margin-top:6px;flex-wrap:wrap">${TURNI_PRESET.map((x, i) => `<button class="btn ${m.preset === i ? 'primary' : ''}" onclick="mrPreset(${i})">${x[0]}</button>`).join('')}</div>
+        <div class="row" style="margin-top:8px"><label class="f">Dalle${tSel(m.tFrom, "mrSet('tFrom',this.value);ui.mr.preset=null")}</label><label class="f">alle${tSel(m.tUntil, "mrSet('tUntil',this.value);ui.mr.preset=null")}</label></div></div>` : ''}
       ${m.kind === 'impegno' ? `<div class="small muted">Il turno dovrà finire almeno ${T.fmtDur(margin)} prima dell'impegno oppure iniziare almeno ${T.fmtDur(after)} dopo (si può cambiare quando la accetti).</div>` : ''}
       ${m.kind === 'fisso' ? `<div><div class="small" style="font-weight:600;color:var(--muted)">Quando è impegnato/a ogni settimana</div>${m.slots.map((sl, i) => `<div class="row" style="margin-top:6px"><select onchange="mrSlot(${i},'d',this.value)">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}" ${sl.d === d ? 'selected' : ''}>${T.DOW_LONG[d]}</option>`).join('')}</select> dalle ${tSel(sl.a, `mrSlot(${i},'a',this.value)`)} alle ${tSel(sl.b, `mrSlot(${i},'b',this.value)`)} ${m.slots.length > 1 ? `<button class="link" onclick="mrSlotDel(${i})">togli</button>` : ''}</div>`).join('')}
         <button class="link" style="margin-top:6px" onclick="mrSlotAdd()">+ aggiungi un altro giorno</button></div>` : ''}
@@ -2300,6 +2313,12 @@ function saveManualRequest(accept) {
   const q = { id: newId(), manual: true, employeeId: e.id, day: T.toDay(m.date), kind: m.kind, note: String(m.note || '').trim().slice(0, 300), status: 'in attesa', createdAt: new Date().toISOString() };
   if (m.kind === 'impegno') { q.time = m.time; q.until = Math.max(0, m.time - (state.config.requestMargin ?? 30)); q.after = Math.min(1440, m.time + (state.config.requestAfter ?? 120)); }
   if (m.kind === 'dalle') q.from = m.from;
+  if (m.kind === 'turno') {
+    if (!(m.tUntil > m.tFrom)) return alert('Controlla gli orari del turno: "alle" deve essere dopo "dalle".');
+    q.from = m.tFrom; q.until = m.tUntil; q.label = m.preset != null ? TURNI_PRESET[m.preset][0] : 'Turno dalle ' + T.fmtTime(m.tFrom) + ' alle ' + T.fmtTime(m.tUntil);
+    q.to = m.to ? T.toDay(m.to) : null;
+    if (q.to != null && q.to < q.day) return alert('"Fino al" deve essere dopo il giorno.');
+  }
   if (m.kind === 'fisso') {
     q.slots = m.slots.filter((x) => x.b > x.a).map((x) => ({ ...x }));
     if (!q.slots.length) return alert('Controlla gli orari: "alle" deve essere dopo "dalle".');

@@ -177,6 +177,17 @@
         }
         continue;
       }
+      // turno preferito (es. solo mattina, solo pranzo/pomeriggio): lavora solo tra "from" e "until", anche per più giorni
+      if (q.kind === 'turno') {
+        for (let d = Math.max(q.day, ws - 2); d <= Math.min(q.to ?? q.day, ws + 8); d++) {
+          const k = q.employeeId + '|' + d, cur = m.get(k) || {};
+          if (q.from != null) cur.from = Math.max(cur.from ?? 0, q.from);
+          if (q.until != null) cur.until = Math.min(cur.until ?? 1440, q.until);
+          cur.label = [cur.label, `${q.label || 'turno'} (${fmtTime(q.from)}–${fmtTime(q.until)})`].filter(Boolean).join(', ');
+          m.set(k, cur);
+        }
+        continue;
+      }
       if (q.day < ws - 2 || q.day > ws + 8) continue;
       const k = q.employeeId + '|' + q.day, cur = m.get(k) || {};
       // impegno: il turno finisce entro "until" (prima dell'impegno) oppure inizia da "after" (dopo l'impegno)
@@ -1112,7 +1123,34 @@
     const demand = (d) => generic.reduce((t, r) => t + reqMin(r, d) * (r.end - r.start), 0) / 60;
     const supply = (d) => crew.filter((e) => isAvail(ctx, e, d)).length * 3 + crew.reduce((t, e) => t + (e.doubleDays || 0), 0) * 3 / 7;
     const daysByDifficulty = [...ctx.days].sort((a, b) => (supply(a) - demand(a)) - (supply(b) - demand(b)) || a - b);
+    // fasce generiche (rush, picchi, intermedi): a ogni giro una persona per giorno, nella fascia più scoperta in proporzione.
+    // Così pranzo e cena (e i giorni della settimana) restano bilanciati anche quando le persone non bastano per tutto.
+    const coverGenericBalanced = () => {
+      const stuck = new Set();
+      const firstHole = (d, r) => { const end = covEnd(cfg, r), need = reqMin(r, d); for (let m = r.start; m < end; m += SLOT) if (countAt(ctx, d, m, r, shifts) < need) return m; return null; };
+      // copertura media della fascia (presenti / richiesti sui quarti d'ora), al massimo 1
+      const ratio = (d, r) => { const end = covEnd(cfg, r), need = reqMin(r, d); let t = 0, n = 0; for (let m = r.start; m < end; m += SLOT) { t += Math.min(1, countAt(ctx, d, m, r, shifts) / need); n++; } return n ? t / n : 1; };
+      for (let round = 0; round < 60; round++) {
+        let progress = false;
+        for (const d of daysByDifficulty) {
+          const open = generic.filter((r) => reqMin(r, d) && !stuck.has(d + '|' + r.id) && firstHole(d, r) != null)
+            .sort((x, y) => ratio(d, x) - ratio(d, y) || x.start - y.start);
+          for (const r of open) {
+            const m = firstHole(d, r), sl = coverSlot(d, m, r);
+            if (sl) { place(sl); progress = true; break; }
+            stuck.add(d + '|' + r.id);
+            const c = countAt(ctx, d, m, r, shifts), need = reqMin(r, d);
+            let n = m + SLOT; const endC = covEnd(cfg, r);
+            while (n < endC && countAt(ctx, d, n, r, shifts) < need) n += SLOT;
+            notes.push(`${dayLabel(d)} · ${r.name}: dalle ${fmtTime(m)} alle ${fmtTime(n)} ci sono solo ${c}/${need} crew (nessuno disponibile)`);
+          }
+        }
+        if (!progress) break;
+      }
+    };
+    let genericDone = false;
     for (const req of reqs) for (const d of daysByDifficulty) {
+      if (!req.station) { if (!genericDone) { coverGenericBalanced(); genericDone = true; } continue; }
       const need = reqMin(req, d);
       if (!need) continue;
       let m = req.start;
