@@ -957,6 +957,7 @@
       if (unaccompanied(ctx, cand, shifts)) return false; // in formazione: mai da solo in apertura/chiusura
       const cf = closingFit(ctx, cand, shifts.filter((s) => s !== replacing));
       if (cf && cf !== 'ok') return false; // squadra di chiusura esatta
+      if (!e.fixedShift && mcOver(cand, replacing)) return false; // McCafé: 1 persona (2 sab/dom prima del pranzo)
       return restOk(e, cand, replacing);
     }
     /** Doppio: solo per chi lo fa, nello stesso giorno del turno normale, con la pausa minima. */
@@ -971,7 +972,14 @@
       if (unaccompanied(ctx, cand, shifts)) return false;
       const cf = closingFit(ctx, cand, shifts);
       if (cf && cf !== 'ok') return false;
+      if (mcOver(cand, null)) return false;
       return restOk(e, cand, null);
+    }
+    /** Il turno porterebbe al McCafé più persone del necessario? */
+    function mcOver(cand, except) {
+      if (cand.station !== 'MCCAFE') return false;
+      for (let m = Math.floor(cand.start / 15) * 15; m < cand.end; m += 15) if (mcCafeAt(shifts, cand.day, m, except) + 1 > mcCafeMax(cfg, cand.day, m)) return true;
+      return false;
     }
     const place = (s) => { shifts.push(s); added.push(s); };
     function replace(old, neu) {
