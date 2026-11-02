@@ -57,30 +57,41 @@
     return { part: partOf(h), open, next: l.slice(open.length, open.length + 3) };
   }
 
+  /** Questa persona (con la sua area del lineare) può stare su questa postazione? */
+  const fits = (code, x) => !!POS[code] && STATION_OF(code).includes(x.station);
+
   /**
    * Proposta di nomi: ogni persona va solo nelle postazioni dell'area in cui è messa sul lineare
    * (chi è in MFY solo in Production, chi è in OA solo al Front Counter, chi è al McCafé solo al McCafé; Fries: OA o MFY).
    * Le postazioni si riempiono SEMPRE in ordine di numero (1, 2, 3, ...): ogni postazione prende la persona
    * più adatta tra quelle ancora libere, prima di passare alla successiva. Tra i candidati si preferisce
    * chi era su quella postazione l'ora prima. Resta vuota solo una postazione per cui non c'è più nessuno di quell'area.
+   * fixed(h) = spostamenti fatti a mano in quell'ora: { codice: id della persona, oppure 0 = lasciala vuota }.
+   * Restituisce { ora: { codice: persona } }.
    */
-  function assign(hours, open, people) {
+  function assign(hours, open, people, fixed = () => ({})) {
     const out = {};
     let last = {}; // code → id dell'ora prima
     for (const h of hours) {
-      const pos = [...open(h)].sort((a, b) => a.n - b.n), avail = people(h), used = new Set(), res = {}, now = {};
+      const pos = [...open(h)].sort((a, b) => a.n - b.n), avail = people(h), used = new Set(), res = {}, fx = fixed(h) || {};
+      // prima gli spostamenti fatti a mano (solo se la postazione è aperta e la persona è in turno)
       for (const p of pos) {
-        const sts = STATION_OF(p.code);
-        const cand = avail.filter((x) => !used.has(x.id) && sts.includes(x.station));
-        if (!cand.length) continue;
-        const score = (x) => (x.id === last[p.code] ? 0 : 1);
-        const c = cand.sort((a, b) => score(a) - score(b))[0];
-        used.add(c.id); res[p.code] = c.name; now[p.code] = c.id;
+        if (!(p.code in fx)) continue;
+        const x = fx[p.code] ? avail.find((y) => y.id === fx[p.code] && !used.has(y.id)) : null;
+        if (x) { used.add(x.id); res[p.code] = x; } else if (fx[p.code] === 0) res[p.code] = null;
       }
-      out[h] = res; last = now;
+      for (const p of pos) {
+        if (p.code in res) continue;
+        const cand = avail.filter((x) => !used.has(x.id) && fits(p.code, x));
+        if (!cand.length) continue;
+        const c = cand.sort((a, b) => (a.id === last[p.code] ? 0 : 1) - (b.id === last[p.code] ? 0 : 1))[0];
+        used.add(c.id); res[p.code] = c;
+      }
+      for (const k of Object.keys(res)) if (!res[k]) delete res[k];
+      out[h] = res; last = Object.fromEntries(Object.entries(res).map(([k, x]) => [k, x.id]));
     }
     return out;
   }
 
-  root.TurniVLH = { POS, AREAS, PART_TXT, partOf, list, forHour, assign };
+  root.TurniVLH = { POS, AREAS, PART_TXT, partOf, list, forHour, assign, fits };
 })(typeof window !== 'undefined' ? window : globalThis);

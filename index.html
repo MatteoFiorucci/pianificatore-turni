@@ -285,6 +285,13 @@
   table.vlh tr.nx td { height: 26px; } table.vlh td.next { font-size: 11px; vertical-align: middle; }
   table.vlh input { width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; font-size: 13px; padding: 1px; border: 1px solid #ccc; border-radius: 3px; }
   table.vlh input.man { background: #fff4d6; }
+  table.vlh .who[data-id] { cursor: grab; touch-action: none; user-select: none; border-radius: 3px; }
+  table.vlh .who[data-id]:hover { background: #eef3fb; } table.vlh .who.man { color: #1d4ed8; }
+  table.vlh .who.dragging { opacity: .4; }
+  table.vlh td.droptarget { outline: 3px solid #2563eb; outline-offset: -3px; background: #e8f0ff; }
+  table.vlh td.fuori { background: #fde7c8; }
+  table.vlh tr.free td { vertical-align: top; background: #f7f7f5; } table.vlh tr.free td.lab { vertical-align: middle; }
+  table.vlh .who.chip { font-size: 12px; font-weight: 600; margin: 1px 0; padding: 1px 3px; background: #fff; border: 1px solid #ccc; white-space: nowrap; }
   @media print {
     .vlhsheet { break-after: page; border: 0; box-shadow: none; padding: 0; max-width: none; } .vlhsheet:last-child { break-after: auto; }
     table.vlh { font-size: 10px; } table.vlh input { border: 0; background: none !important; font-size: 11px; }
@@ -322,17 +329,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611030053"></script>
-<script src="turni-core.js?v=202611030053"></script>
-<script src="turni-manager.js?v=202611030053"></script>
-<script src="turni-vlh.js?v=202611030053"></script>
+<script src="turni-storico.js?v=202611030058"></script>
+<script src="turni-core.js?v=202611030058"></script>
+<script src="turni-manager.js?v=202611030058"></script>
+<script src="turni-vlh.js?v=202611030058"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611030053"></script>
-<script src="turni-cloud-config.js?v=202611030053"></script>
-<script src="turni-cloud.js?v=202611030053"></script>
-<script src="turni-cripto.js?v=202611030053"></script>
-<script src="lineare-ufficiale.js?v=202611030053"></script>
+<script src="turni-data.js?v=202611030058"></script>
+<script src="turni-cloud-config.js?v=202611030058"></script>
+<script src="turni-cloud.js?v=202611030058"></script>
+<script src="turni-cripto.js?v=202611030058"></script>
+<script src="lineare-ufficiale.js?v=202611030058"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -989,6 +996,8 @@ function renderGiornaliero() {
 // ================= VLH (posizionamento del turno) =================
 const VLH = () => window.TurniVLH;
 const VLH_SHEETS = [[8, 9, 10, 11, 12, 13, 14, 15], [15, 16, 17, 18, 19, 20, 21, 22]];
+/** Foglio mostrato: 0 pranzo, 1 cena, 2 tutte e due. All'inizio: oggi dopo le 15 la cena, altrimenti il pranzo. */
+const vlhSheet = () => ui.vlhSheet ?? (ui.day === T.todayDay() && new Date().getHours() >= 15 ? 1 : 0);
 /** GC previsti nell'ora h: valore scritto a mano, altrimenti dalla fonte scelta (nostra previsione o SmartBusiness). */
 function vlhGC(day, h) {
   const iso = T.toIso(day), man = ((state.vlhGC || {})[iso] || {})[h];
@@ -1016,6 +1025,15 @@ function setVlhGC(day, h, v) {
   save(); render();
 }
 function clearVlhGC(day) { if (state.vlhGC) delete state.vlhGC[T.toIso(day)]; save(); render(); }
+/** Spostamenti dei nomi fatti a mano: state.vlhNomi[iso][ora] = { codice: id persona, oppure 0 = vuota }. */
+const vlhFixed = (day, h) => ((state.vlhNomi || {})[T.toIso(day)] || {})[h] || {};
+function setVlhFixed(day, h, changes) {
+  const iso = T.toIso(day); state.vlhNomi = state.vlhNomi || {};
+  const d = state.vlhNomi[iso] = state.vlhNomi[iso] || {}, o = d[h] = d[h] || {};
+  Object.assign(o, changes);
+  save(); render();
+}
+function clearVlhNomi(day) { if (state.vlhNomi) delete state.vlhNomi[T.toIso(day)]; save(); render(); }
 function importVlh(input) {
   const f = input.files && input.files[0]; if (!f) return;
   f.text().then((t) => { const d = JSON.parse(t); if (!d.giorni) throw new Error('formato'); state.vlh = d; save(); render(); })
@@ -1031,6 +1049,7 @@ function renderVLH() {
     <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
     <span class="small muted">GC orari da</span>
     <div class="seg"><button class="${(state.config.vlhFonte || 'nostra') === 'nostra' ? 'on' : ''}" onclick="state.config.vlhFonte='nostra';save();render()">Nostra previsione</button><button class="${state.config.vlhFonte === 'sb' ? 'on' : ''}" onclick="state.config.vlhFonte='sb';save();render()">SmartBusiness</button></div>
+    <div class="seg">${[['Pranzo 8–15', 0], ['Cena 15–22', 1], ['Tutte e due', 2]].map(([t, k]) => `<button class="${vlhSheet() === k ? 'on' : ''}" onclick="ui.vlhSheet=${k};render()">${t}</button>`).join('')}</div>
     <label class="small"><input type="checkbox" ${ui.vlhNomi !== false ? 'checked' : ''} onchange="ui.vlhNomi=this.checked;render()"> Proponi i nomi</label>
     <div class="spacer"></div>
     <button class="btn" onclick="go('giornaliero')">Lineare</button>
@@ -1047,8 +1066,9 @@ function renderVLH() {
     .map((s) => ({ id: s.employeeId, station: s.station, trainings: ctx.byId.get(s.employeeId).trainings || [], name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
   const allHours = [...new Set(VLH_SHEETS.flat())];
   const info = {}; for (const h of allHours) { const g = vlhGC(day, h); info[h] = { ...g, r: V.forHour(state.vlh, dow, h, g.gc || 0) }; }
-  const names = ui.vlhNomi !== false ? V.assign(allHours, (h) => (info[h].r ? info[h].r.open : []), people) : {};
+  const names = ui.vlhNomi !== false ? V.assign(allHours, (h) => (info[h].r ? info[h].r.open : []), people, (h) => vlhFixed(day, h)) : {};
   const anyMan = Object.keys((state.vlhGC || {})[T.toIso(day)] || {}).length;
+  const anyMoved = Object.keys((state.vlhNomi || {})[T.toIso(day)] || {}).length;
   const mgrAt = (h) => (state.mgrShifts || []).filter((x) => x.day === day && x.start <= h * 60 && x.end > h * 60 && mgrById(x.managerId)).map((x) => mgrById(x.managerId).lastName).join(', ');
   const sheet = (hours) => {
     const cols = hours.map((h) => info[h]);
@@ -1069,22 +1089,26 @@ function renderVLH() {
       for (let k = 0; k < rows; k++) {
         html += `<tr class="slot"><td class="bar ${a}" rowspan="2"></td><td class="rn">${k + 1}</td>${per.map((list, i) => { const p = list[k]; if (!p) return '<td></td>';
           const po = prevOpen(i), isNew = po && !po.has(p.code);
-          const who = (names[hours[i]] || {})[p.code] || '';
-          return `<td><div class="pos ${isNew ? 'new' : ''}">${p.n} ${esc(p.name)}</div><div class="who">${esc(who)}</div></td>`; }).join('')}</tr>
+          const h = hours[i], x = (names[h] || {})[p.code];
+          const out = x && !V.fits(p.code, x), man = p.code in vlhFixed(day, h);
+          return `<td class="vslot ${out ? 'fuori' : ''}" data-h="${h}" data-code="${p.code}"${out ? ' title="Sul lineare questa persona è in un\'altra area"' : ''}><div class="pos ${isNew ? 'new' : ''}">${p.n} ${esc(p.name)}</div>${x ? `<div class="who ${man ? 'man' : ''}" data-h="${h}" data-code="${p.code}" data-id="${x.id}" onpointerdown="vlhDragStart(event)">${esc(x.name)}</div>` : ''}</td>`; }).join('')}</tr>
           <tr class="sec"><td class="rn">2ndry</td>${hours.map(() => '<td></td>').join('')}</tr>`;
       }
       return html;
     }).join('');
     const rec = cols.map((c) => c.r.open.length), act = hours.map((h) => people(h).length);
-    const foot = `<tr class="gap"><td colspan="${n + 2}"></td></tr>
+    // chi è in turno in quell'ora ma non ha postazione: si trascina da qui nelle caselle (e si rimette qui)
+    const free = ui.vlhNomi !== false ? `<tr class="free no-print"><td class="lab" colspan="2">Liberi</td>${hours.map((h) => { const placed = new Set(Object.values(names[h] || {}).map((x) => x.id));
+      return `<td class="vfree" data-h="${h}">${people(h).filter((x) => !placed.has(x.id)).map((x) => `<div class="who chip" data-h="${h}" data-code="" data-id="${x.id}" onpointerdown="vlhDragStart(event)">${esc(x.name)}</div>`).join('')}</td>`; }).join('')}</tr>` : '';
+    const foot = `${free}<tr class="gap"><td colspan="${n + 2}"></td></tr>
       <tr class="tot"><td class="lab" colspan="2">Recom. Crew</td>${rec.map((x) => `<td class="num">${x}</td>`).join('')}</tr>
       <tr class="tot"><td class="lab" colspan="2">Actual Crew</td>${act.map((x, i) => `<td class="num ${x < rec[i] ? 'short' : ''}" title="Crew e hospitality in turno almeno mezz'ora in quest'ora">${x}</td>`).join('')}</tr>
       <tr><td class="lab" colspan="${n + 2}">Next 3 Crew Positions</td></tr>
       ${[0, 1, 2].map((j) => `<tr class="nx"><td class="lab" colspan="2">+${j + 1}</td>${cols.map((c) => `<td class="next">${c.r.next[j] ? esc(c.r.next[j].name) : ''}</td>`).join('')}</tr>`).join('')}`;
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
-  return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. In stampa puoi correggerli a penna.</div>
-    ${VLH_SHEETS.map((hs) => `<div class="card vlhsheet">${sheet(hs)}</div>`).join('')}`;
+  return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">torna alla proposta automatica</a>` : ''}. In stampa puoi correggerli a penna.</div>
+    ${VLH_SHEETS.filter((hs, k) => vlhSheet() === 2 || vlhSheet() === k).map((hs) => `<div class="card vlhsheet">${sheet(hs)}</div>`).join('')}`;
 }
 
 // ================= PREVISIONI =================
@@ -2025,6 +2049,47 @@ setInterval(() => {
   const a = document.activeElement;
   if (document.visibilityState === 'visible' && !modalOpen() && !(a && /INPUT|SELECT|TEXTAREA/.test(a.tagName))) cloudPull().then(() => checkInbox(true));
 }, 60000);
+
+// ================= VLH: SPOSTARE I NOMI TRASCINANDO (tablet, dito o mouse) =================
+let vdrag = null;
+function vlhDragStart(ev) {
+  const el = ev.currentTarget;
+  ev.preventDefault(); el.setPointerCapture(ev.pointerId);
+  vdrag = { el, h: +el.dataset.h, code: el.dataset.code, id: +el.dataset.id, x0: ev.clientX, y0: ev.clientY, moved: false, target: null, tip: document.createElement('div') };
+  vdrag.tip.className = 'dragtip'; vdrag.tip.textContent = el.textContent; document.body.appendChild(vdrag.tip);
+  el.classList.add('dragging');
+  el.addEventListener('pointermove', vlhDragMove); el.addEventListener('pointerup', vlhDragEnd); el.addEventListener('pointercancel', vlhDragEnd);
+}
+function vlhDragMove(ev) {
+  if (!vdrag) return;
+  if (Math.abs(ev.clientX - vdrag.x0) > 6 || Math.abs(ev.clientY - vdrag.y0) > 6) vdrag.moved = true;
+  const edge = 70;
+  if (ev.clientY > window.innerHeight - edge) window.scrollBy(0, 18); else if (ev.clientY < edge) window.scrollBy(0, -18);
+  document.querySelectorAll('.vslot.droptarget, .vfree.droptarget').forEach((x) => x.classList.remove('droptarget'));
+  vdrag.target = null;
+  const under = document.elementFromPoint(ev.clientX, ev.clientY);
+  const cell = under && under.closest('td.vslot, td.vfree');
+  // solo nella stessa ora (stessa colonna)
+  if (cell && +cell.dataset.h === vdrag.h && (cell.dataset.code || '') !== vdrag.code) { cell.classList.add('droptarget'); vdrag.target = cell; }
+  const occ = vdrag.target && vdrag.target.querySelector('.who');
+  vdrag.tip.textContent = vdrag.el.textContent + (occ ? ` ↔ ${occ.textContent}` : '');
+  vdrag.tip.style.left = ev.clientX + 'px'; vdrag.tip.style.top = ev.clientY + 'px';
+}
+function vlhDragEnd() {
+  if (!vdrag) return;
+  const d = vdrag; vdrag = null;
+  d.tip.remove(); d.el.classList.remove('dragging');
+  document.querySelectorAll('.vslot.droptarget, .vfree.droptarget').forEach((x) => x.classList.remove('droptarget'));
+  if (!d.moved || !d.target) return;
+  const to = d.target.dataset.code || '', occ = d.target.querySelector('.who'), ch = {};
+  if (!to) ch[d.code] = 0; // nella riga «Liberi»: la casella resta vuota
+  else {
+    ch[to] = d.id;
+    // casella occupata: scambio (chi c'era va al posto di partenza, oppure tra i liberi)
+    if (d.code) ch[d.code] = occ ? +occ.dataset.id : 0;
+  }
+  setVlhFixed(ui.day, d.h, ch);
+}
 
 // ================= GIORNALIERO: MODIFICA TRASCINANDO (tablet, dito o mouse) =================
 let drag = null;
