@@ -55,25 +55,27 @@
   }
 
   /**
-   * Proposta di nomi: per ogni ora mette le persone in turno sulle postazioni aperte, secondo la loro area,
-   * tenendo la stessa persona sulla stessa postazione da un'ora all'altra quando possibile.
-   * people(h) → [{ id, name, station }]; hours → [h...]; open(h) → [postazioni]. Restituisce { h: { code: nome } }.
+   * Proposta di nomi. Le postazioni si riempiono SEMPRE in ordine di numero (1, 2, 3, ...): non si lascia vuota
+   * una postazione per riempirne una successiva. Per ognuna si sceglie, in quest'ordine:
+   * chi c'era già l'ora prima, chi è in turno in quell'area, chi è formato per quell'area, chiunque sia rimasto.
+   * people(h) → [{ id, name, station, trainings }]; open(h) → postazioni aperte. Restituisce { h: { code: nome } }.
    */
   function assign(hours, open, people) {
-    const out = {}, last = {}; // code → id dell'ora prima
+    const out = {};
+    let last = {}; // code → id dell'ora prima
     for (const h of hours) {
-      const pos = open(h), avail = people(h), used = new Set(), res = {};
-      out[h] = res;
-      const take = (code, id) => { const p = avail.find((x) => x.id === id); used.add(id); res[code] = p.name; last[code] = id; };
-      for (const p of pos) if (last[p.code] != null && avail.some((x) => x.id === last[p.code] && !used.has(x.id))) take(p.code, last[p.code]);
+      const pos = [...open(h)].sort((a, b) => a.n - b.n), avail = people(h), used = new Set(), res = {}, now = {};
+      const free = (f) => avail.find((x) => !used.has(x.id) && f(x));
       for (const p of pos) {
-        if (res[p.code]) continue;
-        for (const st of STATION_OF(p.code)) {
-          const c = avail.find((x) => x.station === st && !used.has(x.id));
-          if (c) { take(p.code, c.id); break; }
-        }
+        const sts = STATION_OF(p.code);
+        const c = (last[p.code] != null && free((x) => x.id === last[p.code]))
+          || sts.map((st) => free((x) => x.station === st)).find(Boolean)
+          || sts.map((st) => free((x) => (x.trainings || []).includes(st))).find(Boolean)
+          || free(() => true);
+        if (!c) break; // finite le persone: le postazioni successive restano vuote
+        used.add(c.id); res[p.code] = c.name; now[p.code] = c.id;
       }
-      for (const k of Object.keys(last)) if (!pos.some((p) => p.code === k)) delete last[k];
+      out[h] = res; last = now;
     }
     return out;
   }

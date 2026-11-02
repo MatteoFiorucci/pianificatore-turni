@@ -264,25 +264,33 @@
     .dayside h3 { font-size: 11px; margin-bottom: 2px; } .dayside ul { columns: 2; }
   }
 
-  /* ---- VLH ---- */
-  table.vlh { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 12px; }
-  table.vlh td, table.vlh th { border: 1px solid #c8c8d0; padding: 2px 4px; vertical-align: top; overflow: hidden; }
-  table.vlh th.lab, table.vlh td.lab { width: 92px; text-align: left; background: #f4f4f6; font-weight: 700; font-size: 11px; }
-  table.vlh thead th { background: #222; color: #fff; text-align: center; }
-  table.vlh tr.hdr th { background: #f4f4f6; color: #000; }
-  table.vlh tr.area td { font-weight: 800; font-size: 13px; padding: 3px 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  table.vlh tr.area.FC td { background: #f6a19a; } table.vlh tr.area.PR td { background: #9db9dd; } table.vlh tr.area.MC td { background: #d23b3b; color: #fff; }
-  table.vlh .pos { font-size: 9px; line-height: 1.15; color: #444; } table.vlh .pos.new { text-decoration: underline; font-weight: 700; font-style: italic; }
-  table.vlh .who { font-weight: 700; font-size: 12px; min-height: 15px; white-space: nowrap; }
-  table.vlh td.num { text-align: right; font-weight: 700; } table.vlh td.short { background: var(--err); color: var(--err-ink); }
-  table.vlh td.next { font-size: 10px; white-space: nowrap; }
-  table.vlh input { width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; padding: 1px; border: 1px solid #ccc; border-radius: 3px; }
+  /* ---- VLH: come il foglio aziendale ---- */
+  .vlhsheet { margin-bottom: 16px; max-width: 980px; padding: 10px; }
+  table.vlh { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 12px; font-family: Calibri, Arial, sans-serif; }
+  table.vlh td { border: 1px solid #555; padding: 1px 4px; vertical-align: top; overflow: hidden; }
+  table.vlh tr.ttl td { font-weight: 800; font-size: 15px; border: 1px solid #000; padding: 3px 6px; }
+  table.vlh .blk, table.vlh tr.blk td { background: #111; color: #fff; font-weight: 700; }
+  table.vlh td.lab { font-weight: 700; font-size: 11.5px; vertical-align: middle; }
+  table.vlh td.c { text-align: center; vertical-align: middle; } table.vlh td.sm { font-size: 11px; } table.vlh td.hr { font-weight: 800; font-size: 14px; }
+  table.vlh tr.area td { font-weight: 800; font-size: 17px; padding: 2px 8px; }
+  table.vlh tr.area.FC td, table.vlh td.bar.FC { background: #f59b94; } table.vlh tr.area.PR td, table.vlh td.bar.PR { background: #94b6de; }
+  table.vlh tr.area.MC td, table.vlh td.bar.MC { background: #c8262c; color: #fff; }
+  table.vlh tr.slot td { height: 46px; } table.vlh tr.sec td { height: 12px; font-size: 9px; padding: 0 4px; }
+  table.vlh td.rn { text-align: right; vertical-align: bottom; font-weight: 700; font-size: 11px; }
+  table.vlh .pos { font-size: 9.5px; line-height: 1.1; color: #222; } table.vlh .pos.new { text-decoration: underline; font-weight: 700; font-style: italic; }
+  table.vlh .who { font-weight: 700; font-size: 16px; margin-top: 2px; white-space: nowrap; letter-spacing: .3px; }
+  table.vlh tr.gap td { border: 0; height: 10px; }
+  table.vlh tr.tot td { height: 28px; vertical-align: middle; } table.vlh td.num { text-align: right; font-weight: 700; font-size: 14px; }
+  table.vlh td.short { background: var(--err); color: var(--err-ink); }
+  table.vlh tr.nx td { height: 26px; } table.vlh td.next { font-size: 11px; vertical-align: middle; }
+  table.vlh input { width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; font-size: 13px; padding: 1px; border: 1px solid #ccc; border-radius: 3px; }
   table.vlh input.man { background: #fff4d6; }
-  .vlhsheet { margin-bottom: 14px; }
   @media print {
-    .vlhsheet { break-after: page; border: 0; box-shadow: none; padding: 0; } .vlhsheet:last-child { break-after: auto; }
-    table.vlh { font-size: 10px; } table.vlh input { border: 0; background: none !important; }
-    table.vlh thead th, table.vlh th.lab, table.vlh td.lab, table.vlh td.short { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .vlhsheet { break-after: page; border: 0; box-shadow: none; padding: 0; max-width: none; } .vlhsheet:last-child { break-after: auto; }
+    table.vlh { font-size: 10px; } table.vlh input { border: 0; background: none !important; font-size: 11px; }
+    table.vlh tr.slot td { height: 9mm; } table.vlh tr.sec td { height: 2.6mm; } table.vlh tr.tot td, table.vlh tr.nx td { height: 6mm; }
+    table.vlh .who { font-size: 13px; }
+    table.vlh td, table.vlh tr td { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
   /* ---- tabelle: la riga dei titoli resta visibile scorrendo ---- */
   .list thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--line); }
@@ -314,17 +322,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611022318"></script>
-<script src="turni-core.js?v=202611022318"></script>
-<script src="turni-manager.js?v=202611022318"></script>
-<script src="turni-vlh.js?v=202611022318"></script>
+<script src="turni-storico.js?v=202611022334"></script>
+<script src="turni-core.js?v=202611022334"></script>
+<script src="turni-manager.js?v=202611022334"></script>
+<script src="turni-vlh.js?v=202611022334"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611022318"></script>
-<script src="turni-cloud-config.js?v=202611022318"></script>
-<script src="turni-cloud.js?v=202611022318"></script>
-<script src="turni-cripto.js?v=202611022318"></script>
-<script src="lineare-ufficiale.js?v=202611022318"></script>
+<script src="turni-data.js?v=202611022334"></script>
+<script src="turni-cloud-config.js?v=202611022334"></script>
+<script src="turni-cloud.js?v=202611022334"></script>
+<script src="turni-cripto.js?v=202611022334"></script>
+<script src="lineare-ufficiale.js?v=202611022334"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1036,38 +1044,47 @@ function renderVLH() {
   const shifts = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
   // in turno nell'ora h: crew e hospitality (doppi compresi) presenti almeno mezz'ora
   const people = (h) => shifts.filter((s) => Math.min(s.end, (h + 1) * 60) - Math.max(s.start, h * 60) >= 30)
-    .map((s) => ({ id: s.employeeId, station: s.station, name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
+    .map((s) => ({ id: s.employeeId, station: s.station, trainings: ctx.byId.get(s.employeeId).trainings || [], name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
   const allHours = [...new Set(VLH_SHEETS.flat())];
   const info = {}; for (const h of allHours) { const g = vlhGC(day, h); info[h] = { ...g, r: V.forHour(state.vlh, dow, h, g.gc || 0) }; }
   const names = ui.vlhNomi !== false ? V.assign(allHours, (h) => (info[h].r ? info[h].r.open : []), people) : {};
   const anyMan = Object.keys((state.vlhGC || {})[T.toIso(day)] || {}).length;
+  const mgrAt = (h) => (state.mgrShifts || []).filter((x) => x.day === day && x.start <= h * 60 && x.end > h * 60 && mgrById(x.managerId)).map((x) => mgrById(x.managerId).lastName).join(', ');
   const sheet = (hours) => {
     const cols = hours.map((h) => info[h]);
     if (cols.some((c) => !c.r)) return '<p class="muted">Manca la tabella per questo giorno.</p>';
-    const prevOpen = (i) => { const h = hours[i]; const pi = info[h - 1]; return pi && pi.r && pi.r.part === cols[i].r.part ? new Set(pi.r.open.map((p) => p.code)) : null; };
-    const head = `<thead><tr><th class="lab">${T.shortDate(day)}</th>${cols.map((c) => `<th>${V.PART_TXT[c.r.part]}</th>`).join('')}</tr></thead>
-      <tr class="hdr"><th class="lab">Ora</th>${hours.map((h) => `<th>${String(h).padStart(2, '0')}:00</th>`).join('')}</tr>
-      <tr><td class="lab">GC previsti</td>${hours.map((h, i) => `<td><input class="${cols[i].man ? 'man' : ''}" value="${cols[i].gc ?? ''}" placeholder="–" title="${cols[i].man ? 'Scritto a mano (cancella per tornare alla previsione)' : 'Previsione: puoi correggerla'}" onchange="setVlhGC(${day},${h},this.value)"></td>`).join('')}</tr>`;
+    const prevOpen = (i) => { const pi = info[hours[i] - 1]; return pi && pi.r && pi.r.part === cols[i].r.part ? new Set(pi.r.open.map((p) => p.code)) : null; };
+    const n = hours.length;
+    const head = `<tr class="ttl"><td colspan="${n + 2}">Manually Adjustable Shift Positioning Tool</td></tr>
+      <tr class="blk"><td colspan="${n + 2}">Shift Information:</td></tr>
+      <tr><td class="lab" colspan="2">Date:</td><td class="c">${T.shortDate(day)}</td><td class="lab">Shift Manager:</td><td colspan="${n - 2}">${esc(mgrAt(hours[0]) || '')}</td></tr>
+      <tr><td class="lab blk" colspan="2">DayPart</td>${cols.map((c) => `<td class="c sm">${V.PART_TXT[c.r.part]}</td>`).join('')}</tr>
+      <tr><td class="lab blk" colspan="2">Starting Hour</td>${hours.map((h) => `<td class="c hr">${String(h).padStart(2, '0')}:00</td>`).join('')}</tr>
+      <tr><td class="lab blk" colspan="2">Proj GC</td>${hours.map((h, i) => `<td class="c"><input class="${cols[i].man ? 'man' : ''}" value="${cols[i].gc ?? ''}" placeholder="–" title="${cols[i].man ? 'Scritto a mano (cancella per tornare alla previsione)' : 'Previsione: puoi correggerla'}" onchange="setVlhGC(${day},${h},this.value)"></td>`).join('')}</tr>
+      <tr><td class="lab blk" colspan="2">Act GC</td>${hours.map(() => '<td></td>').join('')}</tr>`;
     const areas = V.AREAS.map(([a, label]) => {
       const per = cols.map((c) => c.r.open.filter((p) => p.area === a));
       const rows = Math.max(1, ...per.map((x) => x.length));
-      let html = `<tr class="area ${a}"><td colspan="${hours.length + 1}">${label}</td></tr>`;
+      let html = `<tr class="area ${a}"><td colspan="${n + 2}">${label}</td></tr>`;
       for (let k = 0; k < rows; k++) {
-        html += `<tr><td class="lab">${k + 1}</td>${per.map((list, i) => { const p = list[k]; if (!p) return '<td></td>';
+        html += `<tr class="slot"><td class="bar ${a}" rowspan="2"></td><td class="rn">${k + 1}</td>${per.map((list, i) => { const p = list[k]; if (!p) return '<td></td>';
           const po = prevOpen(i), isNew = po && !po.has(p.code);
           const who = (names[hours[i]] || {})[p.code] || '';
-          return `<td><div class="pos ${isNew ? 'new' : ''}">${p.n} ${esc(p.name)}</div><div class="who">${esc(who)}</div></td>`; }).join('')}</tr>`;
+          return `<td><div class="pos ${isNew ? 'new' : ''}">${p.n} ${esc(p.name)}</div><div class="who">${esc(who)}</div></td>`; }).join('')}</tr>
+          <tr class="sec"><td class="rn">2ndry</td>${hours.map(() => '<td></td>').join('')}</tr>`;
       }
       return html;
     }).join('');
     const rec = cols.map((c) => c.r.open.length), act = hours.map((h) => people(h).length);
-    const foot = `<tr><td class="lab">Crew consigliati</td>${rec.map((n) => `<td class="num">${n}</td>`).join('')}</tr>
-      <tr><td class="lab">In turno</td>${act.map((n, i) => `<td class="num ${n < rec[i] ? 'short' : ''}" title="Crew e hospitality in turno almeno mezz'ora in quest'ora">${n}</td>`).join('')}</tr>
-      ${[0, 1, 2].map((j) => `<tr><td class="lab">${j === 0 ? 'Prossime' : ''} +${j + 1}</td>${cols.map((c) => `<td class="next">${c.r.next[j] ? esc(c.r.next[j].name) : ''}</td>`).join('')}</tr>`).join('')}`;
-    return `<table class="vlh">${head}${areas}${foot}</table>`;
+    const foot = `<tr class="gap"><td colspan="${n + 2}"></td></tr>
+      <tr class="tot"><td class="lab" colspan="2">Recom. Crew</td>${rec.map((x) => `<td class="num">${x}</td>`).join('')}</tr>
+      <tr class="tot"><td class="lab" colspan="2">Actual Crew</td>${act.map((x, i) => `<td class="num ${x < rec[i] ? 'short' : ''}" title="Crew e hospitality in turno almeno mezz'ora in quest'ora">${x}</td>`).join('')}</tr>
+      <tr><td class="lab" colspan="${n + 2}">Next 3 Crew Positions</td></tr>
+      ${[0, 1, 2].map((j) => `<tr class="nx"><td class="lab" colspan="2">+${j + 1}</td>${cols.map((c) => `<td class="next">${c.r.next[j] ? esc(c.r.next[j].name) : ''}</td>`).join('')}</tr>`).join('')}`;
+    return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
   return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta in base all'area del turno: in stampa puoi correggerli a penna.</div>
-    ${VLH_SHEETS.map((hs) => `<div class="card vlhsheet"><div style="display:flex;justify-content:space-between"><b>VLH – POSIZIONAMENTO DEL TURNO</b><span>${T.DOW_LONG[dow]} ${T.itDate(day)} · ${String(hs[0]).padStart(2, '0')}:00–${hs[hs.length - 1]}:00</span></div>${sheet(hs)}</div>`).join('')}`;
+    ${VLH_SHEETS.map((hs) => `<div class="card vlhsheet">${sheet(hs)}</div>`).join('')}`;
 }
 
 // ================= PREVISIONI =================
