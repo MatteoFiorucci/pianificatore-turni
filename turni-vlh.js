@@ -58,27 +58,24 @@
   }
 
   /**
-   * Proposta di nomi: solo persone formate per l'area della postazione (MFY, OA, McCafé). Le postazioni si
-   * riempiono in ordine di numero; resta vuota solo quella per cui non c'è nessun formato libero in turno.
-   * Prima resta chi c'era l'ora prima, poi chi è in turno in quell'area, poi chi è comunque formato.
-   * people(h) → [{ id, name, station, trainings }]; open(h) → postazioni aperte. Restituisce { h: { code: nome } }.
+   * Proposta di nomi: solo persone formate per l'area della postazione (MFY, OA, McCafé; Fries anche MFY).
+   * Le postazioni si riempiono SEMPRE in ordine di numero (1, 2, 3, ...): ogni postazione prende la persona
+   * più adatta tra quelle ancora libere, prima di passare alla successiva. Tra i candidati si preferisce, nell'ordine:
+   * chi era su quella postazione l'ora prima, chi ha il turno in quell'area, chi è comunque formato.
+   * Resta vuota solo una postazione per cui non c'è più nessun formato libero.
    */
   function assign(hours, open, people) {
     const out = {};
     let last = {}; // code → id dell'ora prima
     for (const h of hours) {
       const pos = [...open(h)].sort((a, b) => a.n - b.n), avail = people(h), used = new Set(), res = {}, now = {};
-      const ok = (x, code) => STATION_OF(code).some((st) => x.station === st || (x.trainings || []).includes(st));
-      const put = (p, c) => { used.add(c.id); res[p.code] = c.name; now[p.code] = c.id; };
-      // 1. chi era sulla stessa postazione l'ora prima resta lì
-      for (const p of pos) { const c = avail.find((x) => x.id === last[p.code] && !used.has(x.id) && ok(x, p.code)); if (c) put(p, c); }
-      // 2. in ordine di numero: prima chi è in turno in quell'area, poi chi è formato per quell'area
-      for (const pass of [(x, p) => STATION_OF(p.code).includes(x.station), (x, p) => ok(x, p.code)]) {
-        for (const p of pos) {
-          if (res[p.code]) continue;
-          const c = avail.find((x) => !used.has(x.id) && pass(x, p));
-          if (c) put(p, c);
-        }
+      for (const p of pos) {
+        const sts = STATION_OF(p.code);
+        const cand = avail.filter((x) => !used.has(x.id) && sts.some((st) => x.station === st || (x.trainings || []).includes(st)));
+        if (!cand.length) continue;
+        const score = (x) => (x.id === last[p.code] ? 0 : sts.includes(x.station) ? 1 : 2);
+        const c = cand.sort((a, b) => score(a) - score(b))[0];
+        used.add(c.id); res[p.code] = c.name; now[p.code] = c.id;
       }
       out[h] = res; last = now;
     }
