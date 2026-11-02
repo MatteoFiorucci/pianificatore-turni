@@ -31,12 +31,13 @@
   const PART_TXT = { B: 'Breakfast', L: 'Lunch', A: 'Afternoon', D: 'Dinner' };
   /** Fascia della giornata di un'ora (come nel foglio aziendale). */
   const partOf = (h) => (h <= 10 ? 'B' : h <= 14 ? 'L' : h <= 18 ? 'A' : 'D');
-  // postazioni dell'app da cui prendere le persone, in ordine di preferenza
+  // formazione richiesta per ogni postazione: Production → MFY, Front Counter → OA, McCafé → McCafé.
+  // Il servizio al tavolo (Table Server) può essere fatto anche da chi è formato in sala o è hospitality.
   const STATION_OF = (code) => {
-    if (code[0] === 'M') return ['MCCAFE'];
-    if (code[0] === 'T') return ['SERVIZIO', 'HOSPITALITY', 'FRONT'];
-    if (code === 'F1') return ['CUCINA', 'FRONT'];
-    return POS[code][1] === 'PR' ? ['CUCINA'] : ['FRONT', 'SERVIZIO', 'HOSPITALITY'];
+    if (POS[code][1] === 'MC') return ['MCCAFE'];
+    if (POS[code][1] === 'PR') return ['CUCINA'];
+    if (code[0] === 'T') return ['FRONT', 'SERVIZIO', 'HOSPITALITY'];
+    return ['FRONT'];
   };
 
   /** Elenco ordinato delle postazioni di un giorno (1–7) e fascia: [{ code, name, area, gc, n }]. */
@@ -55,9 +56,9 @@
   }
 
   /**
-   * Proposta di nomi. Le postazioni si riempiono SEMPRE in ordine di numero (1, 2, 3, ...): non si lascia vuota
-   * una postazione per riempirne una successiva. Per ognuna si sceglie, in quest'ordine:
-   * chi c'era già l'ora prima, chi è in turno in quell'area, chi è formato per quell'area, chiunque sia rimasto.
+   * Proposta di nomi: solo persone formate per l'area della postazione (MFY, OA, McCafé). Le postazioni si
+   * riempiono in ordine di numero; resta vuota solo quella per cui non c'è nessun formato libero in turno.
+   * Prima resta chi c'era l'ora prima, poi chi è in turno in quell'area, poi chi è comunque formato.
    * people(h) → [{ id, name, station, trainings }]; open(h) → postazioni aperte. Restituisce { h: { code: nome } }.
    */
   function assign(hours, open, people) {
@@ -65,15 +66,17 @@
     let last = {}; // code → id dell'ora prima
     for (const h of hours) {
       const pos = [...open(h)].sort((a, b) => a.n - b.n), avail = people(h), used = new Set(), res = {}, now = {};
-      const free = (f) => avail.find((x) => !used.has(x.id) && f(x));
-      for (const p of pos) {
-        const sts = STATION_OF(p.code);
-        const c = (last[p.code] != null && free((x) => x.id === last[p.code]))
-          || sts.map((st) => free((x) => x.station === st)).find(Boolean)
-          || sts.map((st) => free((x) => (x.trainings || []).includes(st))).find(Boolean)
-          || free(() => true);
-        if (!c) break; // finite le persone: le postazioni successive restano vuote
-        used.add(c.id); res[p.code] = c.name; now[p.code] = c.id;
+      const ok = (x, code) => STATION_OF(code).some((st) => x.station === st || (x.trainings || []).includes(st));
+      const put = (p, c) => { used.add(c.id); res[p.code] = c.name; now[p.code] = c.id; };
+      // 1. chi era sulla stessa postazione l'ora prima resta lì
+      for (const p of pos) { const c = avail.find((x) => x.id === last[p.code] && !used.has(x.id) && ok(x, p.code)); if (c) put(p, c); }
+      // 2. in ordine di numero: prima chi è in turno in quell'area, poi chi è formato per quell'area
+      for (const pass of [(x, p) => STATION_OF(p.code).includes(x.station), (x, p) => ok(x, p.code)]) {
+        for (const p of pos) {
+          if (res[p.code]) continue;
+          const c = avail.find((x) => !used.has(x.id) && pass(x, p));
+          if (c) put(p, c);
+        }
       }
       out[h] = res; last = now;
     }
