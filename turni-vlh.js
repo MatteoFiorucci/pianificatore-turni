@@ -49,12 +49,20 @@
     const out = [['FO', 0], ['MO', 0], ['I1', 0], ...g[part].split(',').map((x) => { const [c, v] = x.split(':'); return [c, +v]; })];
     return out.map(([code, gc], i) => ({ code, gc, n: i + 1, name: (POS[code] || [code])[0], area: (POS[code] || [0, 'FC'])[1] }));
   }
-  /** Postazioni aperte con quei GC e le tre successive. */
-  function forHour(vlh, dow, h, gc) {
+  /**
+   * Quante persone al McCafé servono al massimo nell'ora h: 2 il sabato e la domenica dall'apertura fino a prima
+   * del rush del pranzo (cfg.vlhMcFino, di default le 12:00), 1 in tutte le altre ore.
+   */
+  const mcMax = (dow, h, cfg = {}) => (dow >= 6 && h * 60 < (cfg.vlhMcFino ?? 720) ? 2 : 1);
+  /** Postazioni aperte con quei GC e le tre successive (le postazioni McCafé oltre il massimo non si aprono). */
+  function forHour(vlh, dow, h, gc, cfg) {
     const l = list(vlh, dow, partOf(h));
     if (!l) return null;
-    const open = l.filter((p) => p.gc <= (gc || 0));
-    return { part: partOf(h), open, next: l.slice(open.length, open.length + 3) };
+    const max = mcMax(dow, h, cfg);
+    let mc = 0;
+    const usable = l.filter((p) => p.area !== 'MC' || ++mc <= max);
+    const open = usable.filter((p) => p.gc <= (gc || 0));
+    return { part: partOf(h), open, next: usable.slice(open.length, open.length + 3), mcMax: max };
   }
 
   /**
