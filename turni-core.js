@@ -35,7 +35,7 @@
   // weekdayLongPerWeek = turni lunghi (oltre crewMaxWeekday) da lunedì a giovedì per persona a settimana, a rotazione
   // afternoonStart/End = post-rush del pranzo (14:30–19:00): niente turni "rigidi" tutti lì dentro, meglio sfalsati
   // dinnerPreStart = da quando può entrare chi copre la cena (pre-rush, 16:30); lunchPeak/dinnerPeak = cuore dei rush
-  const DEFAULT_CONFIG = { dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30, requestMargin: 120 };
+  const DEFAULT_CONFIG = { dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30, requestMargin: 30, requestAfter: 120 };
   // min = minimo di crew per giorno (lun→dom). Valori presi dagli orari reali delle settimane 39–44.
   const all = (n) => [n, n, n, n, n, n, n];
   const DEFAULT_COVERAGE = [
@@ -179,6 +179,13 @@
       }
       if (q.day < ws - 2 || q.day > ws + 8) continue;
       const k = q.employeeId + '|' + q.day, cur = m.get(k) || {};
+      // impegno: il turno finisce entro "until" (prima dell'impegno) oppure inizia da "after" (dopo l'impegno)
+      if (q.kind === 'impegno' && q.after != null && q.until != null) {
+        (cur.busy = cur.busy || []).push([q.until, q.after]);
+        cur.label = [cur.label, `finire entro le ${fmtTime(q.until)} o iniziare dalle ${fmtTime(q.after)}`].filter(Boolean).join(', ');
+        m.set(k, cur);
+        continue;
+      }
       if (q.kind === 'libero') cur.off = true;
       if (q.until != null) cur.until = Math.min(cur.until ?? 1440, q.until);
       if (q.from != null) cur.from = Math.max(cur.from ?? 0, q.from);

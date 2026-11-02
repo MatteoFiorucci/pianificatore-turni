@@ -60,8 +60,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202611021704"></script>
-<script src="turni-cripto.js?v=202611021704"></script>
+<script src="turni-cloud-config.js?v=202611021707"></script>
+<script src="turni-cripto.js?v=202611021707"></script>
 <script>
 'use strict';
 /*
@@ -291,7 +291,7 @@ function render() {
   <div class="card">
     <h2>Nuova richiesta</h2>
     <div class="kinds">
-      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. quel giorno ho lezione la mattina'], ['fisso', 'Ho impegni fissi ogni settimana', 'es. università o allenamenti: lunedì 11–16, martedì 7–12…']].map(([k, t, h]) =>
+      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima o che inizi dopo'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. quel giorno ho lezione la mattina'], ['fisso', 'Ho impegni fissi ogni settimana', 'es. università o allenamenti: lunedì 11–16, martedì 7–12…']].map(([k, t, h]) =>
         `<label class="${kind === k ? 'on' : ''}"><input type="radio" name="k" value="${k}" ${kind === k ? 'checked' : ''} onchange="kind=this.value;keep();render()"><span>${t}${h ? `<br><span class="muted" style="font-weight:400">${h}</span>` : ''}</span></label>`).join('')}
     </div>
     ${kind !== 'fisso' ? `<label class="f">Giorno<input type="date" id="date" min="${iso}"></label>` : `
