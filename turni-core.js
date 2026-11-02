@@ -634,11 +634,23 @@
    */
   const mcCafeMax = (cfg, d, m) => (dow(d) >= 6 && m < (cfg.mcMaxFino ?? 720) ? 2 : 1);
   const mcCafeAt = (list, d, m, except = null) => list.filter((x) => x !== except && x.day === d && x.station === 'MCCAFE' && x.start <= m && x.end > m).length;
+  /** Persone al McCafé che contano per il limite: al cambio turno (chi esce entro 30 minuti e chi è appena entrato) si conta una persona sola. */
+  function mcCafeLoad(list, d, m, extra = null, except = null) {
+    const xs = list.filter((x) => x !== except && x.day === d && x.station === 'MCCAFE' && x.start <= m && x.end > m);
+    if (extra && extra.start <= m && extra.end > m) xs.push(extra);
+    const leaving = xs.filter((x) => x.end - m <= 30), arriving = xs.filter((x) => m - x.start < 30 && x.end - m > 30);
+    return xs.length - Math.min(leaving.length, arriving.length);
+  }
+  /** Tra from e to il McCafé avrebbe più persone del necessario? */
+  function mcTooMany(cfg, list, d, from, to, extra = null, except = null) {
+    for (let m = Math.floor(from / 15) * 15; m < to; m += 15) if (mcCafeLoad(list, d, m, extra, except) > mcCafeMax(cfg, d, m)) return true;
+    return false;
+  }
   function ruleMcCafeMax(ctx) {
     const out = [];
     for (const d of ctx.days) {
       for (let m = 0; m < 1440; m += 15) {
-        const n = mcCafeAt(ctx.shifts, d, m), max = mcCafeMax(ctx.cfg, d, m);
+        const n = mcCafeLoad(ctx.shifts, d, m), max = mcCafeMax(ctx.cfg, d, m);
         if (n > max) {
           const p = parts(d);
           out.push(V('MCCAFE_MAX', 'WARNING', `${DOW_LONG[dow(d)]} ${p.d}/${p.m} · McCafé: alle ${fmtTime(m)} ci sono ${n} persone, ne basta${max > 1 ? 'no' : ''} ${max}${max > 1 ? '' : ' (2 solo sabato e domenica prima del pranzo)'}`, null, d));
@@ -978,8 +990,7 @@
     /** Il turno porterebbe al McCafé più persone del necessario? */
     function mcOver(cand, except) {
       if (cand.station !== 'MCCAFE') return false;
-      for (let m = Math.floor(cand.start / 15) * 15; m < cand.end; m += 15) if (mcCafeAt(shifts, cand.day, m, except) + 1 > mcCafeMax(cfg, cand.day, m)) return true;
-      return false;
+      return mcTooMany(cfg, shifts, cand.day, cand.start, cand.end, cand, except);
     }
     const place = (s) => { shifts.push(s); added.push(s); };
     function replace(old, neu) {
@@ -990,7 +1001,7 @@
     function pickStation(e, d, from, to) {
       if (e.type === 'HOSPITALITY') return 'HOSPITALITY';
       // al McCafé non più di 1 persona alla volta (2 sabato e domenica prima del pranzo)
-      const mcFull = () => { for (let m = Math.floor(from / 15) * 15; m < to; m += 15) if (mcCafeAt(shifts, d, m) + 1 > mcCafeMax(cfg, d, m)) return true; return false; };
+      const mcFull = () => mcTooMany(cfg, shifts, d, from, to, { day: d, start: from, end: to, station: 'MCCAFE' });
       const opts = CREW_STATIONS.filter((s) => e.trainings.includes(s));
       const ok = opts.filter((s) => s !== 'MCCAFE' || !mcFull());
       const list = ok.length ? ok : opts.length ? opts : ['FRONT'];
@@ -1138,7 +1149,13 @@
           : req.closing ? flexible.filter((e) => canClose(ctx, e, req.station))
           : flexible.filter((e) => e.trainings.includes(req.station) || (req.station === 'SERVIZIO' && e.type === 'HOSPITALITY')))
           .filter((e) => !isTrainee(e, d));
-        const wins = windowsFor(d, m, [180, 210, 240, 150, 270, 300], [req], 0, 'CREW', cfg.crewMax);
+        const lens = [180, 210, 240, 150, 270, 300];
+        if (req.station === 'MCCAFE') {
+          // al McCafé basta una persona: si prova anche il turno che finisce proprio quando entra il collega successivo
+          const next = Math.min(CLOSE, ...shifts.filter((x) => x.day === d && x.station === 'MCCAFE' && x.start > m).map((x) => x.start));
+          if (next - m >= cfg.minShift && !lens.includes(next - m)) lens.push(next - m);
+        }
+        const wins = windowsFor(d, m, lens, [req], 0, 'CREW', cfg.crewMax);
         const st = (e) => (req.station === 'SERVIZIO' && e.type === 'HOSPITALITY' && !e.trainings.includes('SERVIZIO') ? 'HOSPITALITY' : req.station);
         // aperture/chiusure: prima i crew (le hospitality servono in sala); per la Sala di chiusura crew e hospitality alla pari
         const hospBias = req.station === 'SERVIZIO' && !req.opening ? 0 : -2;
@@ -1486,16 +1503,71 @@
       }
     }
 
-    // 8. McCafé troppo pieno (es. dopo aver coperto la chiusura): chi non apre e non chiude passa a un'altra postazione in cui è formato
-    for (const s of [...added].sort((a, b) => a.start - b.start)) {
-      if (s.station !== 'MCCAFE' || s.start <= OPEN || s.end >= CLOSE) continue;
-      let over = false;
-      for (let m = Math.floor(s.start / 15) * 15; m < s.end && !over; m += 15) over = mcCafeAt(shifts, s.day, m) > mcCafeMax(cfg, s.day, m);
-      if (!over) continue;
+    // 8. McCafé troppo pieno (es. dopo aver coperto la chiusura): una delle persone in più passa a un'altra postazione
+    //    in cui è formata, purché apertura e chiusura del McCafé restino coperte da chi è formato
+    const mcTeam = ctx.coverage.filter((r) => r.station === 'MCCAFE' && (r.opening || r.closing));
+    const inMcTeam = (s) => s.station === 'MCCAFE' && mcTeam.some((r) => reqMin(r, s.day) && countsFor(ctx, s, r));
+    const teamHoles = (d) => mcTeam.reduce((t, r) => {
+      const need = reqMin(r, d), end = r.closing ? r.end : covEnd(cfg, r);
+      for (let m = r.start; m < end; m += SLOT) t += Math.max(0, need - countAt(ctx, d, m, r, shifts));
+      return t;
+    }, 0);
+    const altStation = (s) => {
       const e = ctx.byId.get(s.employeeId);
-      const alt = e && CREW_STATIONS.filter((x) => x !== 'MCCAFE' && e.trainings.includes(x))
+      return e && CREW_STATIONS.filter((x) => x !== 'MCCAFE' && e.trainings.includes(x))
         .sort((x, y) => shifts.filter((t) => t.day === s.day && t.station === x && t.start < s.end && t.end > s.start).length - shifts.filter((t) => t.day === s.day && t.station === y && t.start < s.end && t.end > s.start).length)[0];
-      if (alt) s.station = alt;
+    };
+    for (const d of ctx.days) {
+      for (let guard = 0; guard < 10; guard++) {
+        let m0 = null;
+        for (let m = OPEN; m < CLOSE && m0 == null; m += SLOT) if (mcCafeLoad(shifts, d, m) > mcCafeMax(cfg, d, m)) m0 = m;
+        if (m0 == null) break;
+        // prima chi non è nella squadra di apertura/chiusura, poi il turno più corto
+        const cands = added.filter((x) => x.day === d && x.station === 'MCCAFE' && !x.doppio && x.start > OPEN && x.start <= m0 && x.end > m0 && altStation(x))
+          .sort((x, y) => inMcTeam(x) - inMcTeam(y) || (x.end - x.start) - (y.end - y.start));
+        const base = teamHoles(d);
+        let done = false;
+        for (const x of cands) {
+          x.station = altStation(x);
+          if (teamHoles(d) <= base) { done = true; break; }
+          x.station = 'MCCAFE';
+        }
+        if (!done) break;
+      }
+    }
+    // 9. McCafé vuoto in qualche ora: si scambiano le postazioni tra i crew formati già in turno (es. chi è al banco va al McCafé
+    //    e chi era al McCafé va al banco) e si tiene lo scambio che lascia meno ore scoperte, senza mai superare il limite
+    const mcReq = ctx.coverage.find((r) => r.station === 'MCCAFE' && !r.opening && !r.closing);
+    const mcEmpty = (d) => { let n = 0; for (let m = mcReq.start; m < mcReq.end; m += 15) if (!mcCafeAt(shifts, d, m)) n++; return n; };
+    const mcOk = (d, s) => !mcTooMany(cfg, shifts, d, s.start, s.end);
+    for (const d of mcReq ? ctx.days : []) {
+      if (!reqMin(mcReq, d)) continue;
+      // crew, oppure hospitality che quel giorno lavora al banco (non in sala)
+      const free = (s) => s.day === d && !s.doppio && s.start > OPEN && s.end < CLOSE && (ctx.byId.get(s.employeeId)?.type === 'CREW' || !['HOSPITALITY', 'SERVIZIO'].includes(s.station));
+      for (let guard = 0; guard < 10; guard++) {
+        const base = mcEmpty(d);
+        if (!base) break;
+        let best = null, bestV = base;
+        for (const s of added) {
+          const e = ctx.byId.get(s.employeeId);
+          if (!free(s) || s.station === 'MCCAFE' || !e.trainings.includes('MCCAFE')) continue;
+          const was = s.station; s.station = 'MCCAFE';
+          // chi si sovrappone al McCafé passa (se può) a un'altra postazione
+          const moved = [];
+          for (const t of added) {
+            if (t === s || !free(t) || t.station !== 'MCCAFE' || t.start >= s.end || t.end <= s.start || inMcTeam(t)) continue;
+            const alt = altStation(t);
+            if (alt) { moved.push([t, t.station]); t.station = alt; }
+          }
+          const v = mcEmpty(d), ok = mcOk(d, s);
+          if (ok && v < bestV) { best = { s, alts: moved.map(([t]) => [t, t.station]) }; bestV = v; }
+          for (const [t, st0] of moved) t.station = st0;
+          s.station = was;
+        }
+        if (!best) break;
+        best.s.station = 'MCCAFE';
+        for (const [t, st1] of best.alts) t.station = st1;
+      }
     }
 
     for (const e of emps) {
