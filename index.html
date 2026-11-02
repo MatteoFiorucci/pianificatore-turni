@@ -293,15 +293,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611021802"></script>
-<script src="turni-core.js?v=202611021802"></script>
+<script src="turni-storico.js?v=202611021821"></script>
+<script src="turni-core.js?v=202611021821"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611021802"></script>
-<script src="turni-cloud-config.js?v=202611021802"></script>
-<script src="turni-cloud.js?v=202611021802"></script>
-<script src="turni-cripto.js?v=202611021802"></script>
-<script src="lineare-ufficiale.js?v=202611021802"></script>
+<script src="turni-data.js?v=202611021821"></script>
+<script src="turni-cloud-config.js?v=202611021821"></script>
+<script src="turni-cloud.js?v=202611021821"></script>
+<script src="turni-cripto.js?v=202611021821"></script>
+<script src="lineare-ufficiale.js?v=202611021821"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -462,7 +462,8 @@ function renderTurni() {
       <li>Chi ha un <b>orario fisso</b> (es. 9:00–12:30 nei suoi giorni) viene messo sempre e solo in quell'orario.</li>
       <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
       <li><b>Spostare un riposo solo per una settimana</b>: clicca la casella del giorno in cui la persona deve riposare e premi <b>↔ Metti il riposo in questo giorno</b>. Le settimane dopo resta il riposo fisso; nella casella compare <b>RIPOSO ↔</b>.</li>
-      <li><b>Pranzo e cena bilanciati</b>: il generatore aggiunge le persone a turno nella fascia più scoperta (rush e picchi di pranzo e di cena), così se le persone non bastano mancano un po' in tutte e due, non tutte a pranzo.</li>
+      <li><b>Pranzo e cena bilanciati</b>, per i crew e per le hospitality: il generatore aggiunge le persone a turno nella fascia più scoperta, così se le persone non bastano mancano un po' in tutte e due, non tutte nello stesso servizio. Anche le ore in più e i doppi delle hospitality vanno dove ce ne sono meno.</li>
+      <li><b>Cambi turno proposti</b> (Richieste): solo tra persone dello stesso ruolo e formate nella postazione del turno che prendono; per aperture e chiusure solo chi è formato per aprire o chiudere.</li>
       <li><b>Aperture e chiusure sempre coperte</b>: se alla fine mancano ancora, il generatore le copre comunque, anche con ore in più per qualcuno o spostando il suo turno di quel giorno. Restano scoperte solo se nessun formato è disponibile (riposo, ferie, richiesta o stacco di 11 ore): lo trovi scritto nel riepilogo della generazione.</li>
       <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto: per esempio 18h + 3h di doppio. Nella colonna Ore sono indicati a parte.</li>
       <li>I minimi delle fasce cambiano in base al giorno (il weekend ne chiede di più): li trovi e li cambi in Regole.</li>
