@@ -31,12 +31,12 @@
   const PART_TXT = { B: 'Breakfast', L: 'Lunch', A: 'Afternoon', D: 'Dinner' };
   /** Fascia della giornata di un'ora (come nel foglio aziendale). */
   const partOf = (h) => (h <= 10 ? 'B' : h <= 14 ? 'L' : h <= 18 ? 'A' : 'D');
-  // formazione richiesta per ogni postazione: Production → MFY, Front Counter → OA, McCafé → McCafé.
-  // Eccezione: le patatine (Fries) le fa chi è formato in OA oppure in MFY.
-  // Il servizio al tavolo (Table Server) può essere fatto anche da chi è formato in sala o è hospitality.
+  // area del lineare che può coprire ogni postazione: Production → MFY, Front Counter → OA, McCafé → McCafé.
+  // Eccezione: le patatine (Fries) le fa chi sul lineare è in OA oppure in MFY.
+  // Il servizio al tavolo (Table Server) lo fa anche chi sul lineare è in sala o hospitality.
   const STATION_OF = (code) => {
     if (POS[code][1] === 'MC') return ['MCCAFE'];
-    if (code[0] === 'F') return ['FRONT', 'CUCINA']; // patatine (Fries): formati OA oppure MFY
+    if (/^F\d/.test(code)) return ['FRONT', 'CUCINA']; // patatine (Fries 1–3): OA oppure MFY
     if (POS[code][1] === 'PR') return ['CUCINA'];
     if (code[0] === 'T') return ['FRONT', 'SERVIZIO', 'HOSPITALITY'];
     return ['FRONT'];
@@ -58,11 +58,11 @@
   }
 
   /**
-   * Proposta di nomi: solo persone formate per l'area della postazione (MFY, OA, McCafé; Fries anche MFY).
+   * Proposta di nomi: ogni persona va solo nelle postazioni dell'area in cui è messa sul lineare
+   * (chi è in MFY solo in Production, chi è in OA solo al Front Counter, chi è al McCafé solo al McCafé; Fries: OA o MFY).
    * Le postazioni si riempiono SEMPRE in ordine di numero (1, 2, 3, ...): ogni postazione prende la persona
-   * più adatta tra quelle ancora libere, prima di passare alla successiva. Tra i candidati si preferisce, nell'ordine:
-   * chi era su quella postazione l'ora prima, chi ha il turno in quell'area, chi è comunque formato.
-   * Resta vuota solo una postazione per cui non c'è più nessun formato libero.
+   * più adatta tra quelle ancora libere, prima di passare alla successiva. Tra i candidati si preferisce
+   * chi era su quella postazione l'ora prima. Resta vuota solo una postazione per cui non c'è più nessuno di quell'area.
    */
   function assign(hours, open, people) {
     const out = {};
@@ -71,9 +71,9 @@
       const pos = [...open(h)].sort((a, b) => a.n - b.n), avail = people(h), used = new Set(), res = {}, now = {};
       for (const p of pos) {
         const sts = STATION_OF(p.code);
-        const cand = avail.filter((x) => !used.has(x.id) && sts.some((st) => x.station === st || (x.trainings || []).includes(st)));
+        const cand = avail.filter((x) => !used.has(x.id) && sts.includes(x.station));
         if (!cand.length) continue;
-        const score = (x) => (x.id === last[p.code] ? 0 : sts.includes(x.station) ? 1 : 2);
+        const score = (x) => (x.id === last[p.code] ? 0 : 1);
         const c = cand.sort((a, b) => score(a) - score(b))[0];
         used.add(c.id); res[p.code] = c.name; now[p.code] = c.id;
       }
