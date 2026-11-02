@@ -263,6 +263,27 @@
     .dayside .card { flex: 1; padding: 4px 8px; margin: 0; border: 1px solid #bbb; border-radius: 4px; font-size: 10px; }
     .dayside h3 { font-size: 11px; margin-bottom: 2px; } .dayside ul { columns: 2; }
   }
+
+  /* ---- VLH ---- */
+  table.vlh { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 12px; }
+  table.vlh td, table.vlh th { border: 1px solid #c8c8d0; padding: 2px 4px; vertical-align: top; overflow: hidden; }
+  table.vlh th.lab, table.vlh td.lab { width: 92px; text-align: left; background: #f4f4f6; font-weight: 700; font-size: 11px; }
+  table.vlh thead th { background: #222; color: #fff; text-align: center; }
+  table.vlh tr.hdr th { background: #f4f4f6; color: #000; }
+  table.vlh tr.area td { font-weight: 800; font-size: 13px; padding: 3px 6px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  table.vlh tr.area.FC td { background: #f6a19a; } table.vlh tr.area.PR td { background: #9db9dd; } table.vlh tr.area.MC td { background: #d23b3b; color: #fff; }
+  table.vlh .pos { font-size: 9.5px; color: #444; white-space: nowrap; } table.vlh .pos.new { text-decoration: underline; font-weight: 700; font-style: italic; }
+  table.vlh .who { font-weight: 700; font-size: 12px; min-height: 15px; white-space: nowrap; }
+  table.vlh td.num { text-align: right; font-weight: 700; } table.vlh td.short { background: var(--err); color: var(--err-ink); }
+  table.vlh td.next { font-size: 10px; white-space: nowrap; }
+  table.vlh input { width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; padding: 1px; border: 1px solid #ccc; border-radius: 3px; }
+  table.vlh input.man { background: #fff4d6; }
+  .vlhsheet { margin-bottom: 14px; }
+  @media print {
+    .vlhsheet { break-after: page; border: 0; box-shadow: none; padding: 0; } .vlhsheet:last-child { break-after: auto; }
+    table.vlh { font-size: 10px; } table.vlh input { border: 0; background: none !important; }
+    table.vlh thead th, table.vlh th.lab, table.vlh td.lab, table.vlh td.short { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
   /* ---- tabelle: la riga dei titoli resta visibile scorrendo ---- */
   .list thead th { position: sticky; top: 0; z-index: 2; box-shadow: inset 0 -1px 0 var(--line); }
   @media (min-width: 761px) {
@@ -293,21 +314,22 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611022234"></script>
-<script src="turni-core.js?v=202611022234"></script>
-<script src="turni-manager.js?v=202611022234"></script>
+<script src="turni-storico.js?v=202611022315"></script>
+<script src="turni-core.js?v=202611022315"></script>
+<script src="turni-manager.js?v=202611022315"></script>
+<script src="turni-vlh.js?v=202611022315"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611022234"></script>
-<script src="turni-cloud-config.js?v=202611022234"></script>
-<script src="turni-cloud.js?v=202611022234"></script>
-<script src="turni-cripto.js?v=202611022234"></script>
-<script src="lineare-ufficiale.js?v=202611022234"></script>
+<script src="turni-data.js?v=202611022315"></script>
+<script src="turni-cloud-config.js?v=202611022315"></script>
+<script src="turni-cloud.js?v=202611022315"></script>
+<script src="turni-cripto.js?v=202611022315"></script>
+<script src="lineare-ufficiale.js?v=202611022315"></script>
 <script>
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
-const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['richieste', 'Richieste'], ['regole', 'Regole']];
+const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['richieste', 'Richieste'], ['regole', 'Regole']];
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
 
 // ---------- stato (salvato nel browser) ----------
@@ -397,7 +419,7 @@ function render() {
   const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
   if (compactOn() && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero';
   document.getElementById('nav').innerHTML = VIEWS.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k)).map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
-  const views = { turni: renderTurni, giornaliero: renderGiornaliero, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole };
+  const views = { turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole };
   document.getElementById('app').innerHTML =
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
     views[ui.view]() +
@@ -927,6 +949,7 @@ function renderGiornaliero() {
     <button class="btn" onclick="ui.day=T.todayDay();render()">Oggi</button>
     <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
     <div class="seg"><button class="${byArea ? '' : 'on'}" onclick="ui.groupBy='ruolo';render()">Per ruolo</button><button class="${byArea ? 'on' : ''}" onclick="ui.groupBy='area';render()">Per area</button></div>
+    <button class="btn" onclick="go('vlh')" title="Postazioni da aprire ora per ora (VLH)">📋 VLH</button>
     <button class="btn ${editing ? 'primary' : ''}" onclick="ui.dragEdit=!ui.dragEdit;render()" title="Sposta e allunga i turni trascinandoli (anche con il dito sul tablet)">${editing ? '✓ Fine modifica' : '✋ Modifica trascinando'}</button>
     <div class="spacer"></div>
     ${compactOn() ? '' : `<button class="btn" onclick="ui.ws=T.mondayOf(ui.day);go('turni')">Vai alla settimana</button>
@@ -953,6 +976,98 @@ function renderGiornaliero() {
       <div class="card no-print"><h3>Problemi del giorno (${vs.length})</h3>${vs.map((v) => `<div class="prob"><span class="dot ${v.sev}"></span><div class="small">${esc(v.msg)}</div></div>`).join('') || '<p class="muted small">Nessuno</p>'}</div>
     </div>
   </div>`;
+}
+
+// ================= VLH (posizionamento del turno) =================
+const VLH = () => window.TurniVLH;
+const VLH_SHEETS = [[8, 9, 10, 11, 12, 13, 14, 15], [15, 16, 17, 18, 19, 20, 21, 22]];
+/** GC previsti nell'ora h: valore scritto a mano, altrimenti dalla fonte scelta (nostra previsione o SmartBusiness). */
+function vlhGC(day, h) {
+  const iso = T.toIso(day), man = ((state.vlhGC || {})[iso] || {})[h];
+  if (man != null) return { gc: man, man: true };
+  if ((state.config.vlhFonte || 'nostra') === 'sb') {
+    const v = (((state.autoForecast || {}).orarioSB || {})[iso] || {})[String(h)];
+    return { gc: v != null ? v : null };
+  }
+  const fd = T.forecastDay((state.forecasts || {})[T.mondayOf(day)], T.dow(day) - 1);
+  const prof = ((state.autoForecast || {}).profiloOrario || {})[String(T.dow(day))];
+  if (!fd || !fd.gc || !prof) return { gc: null };
+  const clo = T.closureOf(state.eventi, day), cfg = state.config;
+  const shut = (x) => clo && (clo.full || (x * 60 < clo.to && (x + 1) * 60 > clo.from));
+  const h0 = Math.floor((cfg.open ?? 450) / 60), h1 = Math.ceil((cfg.close ?? 1290) / 60);
+  let share = 0; for (let x = h0; x < h1; x++) if (!shut(x)) share += prof[(x - 5 + 24) % 24] || 0;
+  if (!share || shut(h) || h < h0 || h >= h1) return { gc: 0 };
+  return { gc: Math.round((fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / share) };
+}
+function setVlhGC(day, h, v) {
+  const iso = T.toIso(day); state.vlhGC = state.vlhGC || {};
+  const o = state.vlhGC[iso] = state.vlhGC[iso] || {};
+  const n = parseInt(String(v).trim(), 10);
+  if (String(v).trim() === '' || isNaN(n)) delete o[h]; else o[h] = Math.max(0, n);
+  if (!Object.keys(o).length) delete state.vlhGC[iso];
+  save(); render();
+}
+function clearVlhGC(day) { if (state.vlhGC) delete state.vlhGC[T.toIso(day)]; save(); render(); }
+function importVlh(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  f.text().then((t) => { const d = JSON.parse(t); if (!d.giorni) throw new Error('formato'); state.vlh = d; save(); render(); })
+    .catch(() => alert('File non valido: serve il file delle tabelle VLH.'));
+}
+function renderVLH() {
+  const day = ui.day, dow = T.dow(day), V = VLH();
+  const nav = `<div class="toolbar">
+    <button class="btn" onclick="moveDay(-1)">◀</button>
+    <div class="week">${T.DOW_LONG[dow]} ${T.itDate(day)}</div>
+    <button class="btn" onclick="moveDay(1)">▶</button>
+    <button class="btn" onclick="ui.day=T.todayDay();render()">Oggi</button>
+    <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
+    <span class="small muted">GC orari da</span>
+    <div class="seg"><button class="${(state.config.vlhFonte || 'nostra') === 'nostra' ? 'on' : ''}" onclick="state.config.vlhFonte='nostra';save();render()">Nostra previsione</button><button class="${state.config.vlhFonte === 'sb' ? 'on' : ''}" onclick="state.config.vlhFonte='sb';save();render()">SmartBusiness</button></div>
+    <label class="small"><input type="checkbox" ${ui.vlhNomi !== false ? 'checked' : ''} onchange="ui.vlhNomi=this.checked;render()"> Proponi i nomi</label>
+    <div class="spacer"></div>
+    <button class="btn" onclick="go('giornaliero')">Lineare</button>
+    <button class="btn primary" onclick="window.print()">🖨 Stampa</button>
+  </div>`;
+  if (!state.vlh || !state.vlh.giorni) {
+    return nav + `<div class="card"><h3>Tabelle VLH non caricate</h3><p>Carica il file con le tabelle delle postazioni (una per giorno della settimana).</p>
+      <input type="file" accept=".json" onchange="importVlh(this)"></div>`;
+  }
+  const ctx = T.makeCtx(state, T.mondayOf(day));
+  const shifts = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
+  // in turno nell'ora h: crew e hospitality (doppi compresi) presenti almeno mezz'ora
+  const people = (h) => shifts.filter((s) => Math.min(s.end, (h + 1) * 60) - Math.max(s.start, h * 60) >= 30)
+    .map((s) => ({ id: s.employeeId, station: s.station, name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
+  const allHours = [...new Set(VLH_SHEETS.flat())];
+  const info = {}; for (const h of allHours) { const g = vlhGC(day, h); info[h] = { ...g, r: V.forHour(state.vlh, dow, h, g.gc || 0) }; }
+  const names = ui.vlhNomi !== false ? V.assign(allHours, (h) => (info[h].r ? info[h].r.open : []), people) : {};
+  const anyMan = Object.keys((state.vlhGC || {})[T.toIso(day)] || {}).length;
+  const sheet = (hours) => {
+    const cols = hours.map((h) => info[h]);
+    if (cols.some((c) => !c.r)) return '<p class="muted">Manca la tabella per questo giorno.</p>';
+    const prevOpen = (i) => { const h = hours[i]; const pi = info[h - 1]; return pi && pi.r && pi.r.part === cols[i].r.part ? new Set(pi.r.open.map((p) => p.code)) : null; };
+    const head = `<thead><tr><th class="lab">${T.DOW_SHORT[dow]} ${T.shortDate(day)}</th>${cols.map((c) => `<th>${V.PART_TXT[c.r.part]}</th>`).join('')}</tr></thead>
+      <tr class="hdr"><th class="lab">Ora</th>${hours.map((h) => `<th>${String(h).padStart(2, '0')}:00</th>`).join('')}</tr>
+      <tr><td class="lab">GC previsti</td>${hours.map((h, i) => `<td><input class="${cols[i].man ? 'man' : ''}" value="${cols[i].gc ?? ''}" placeholder="–" title="${cols[i].man ? 'Scritto a mano (cancella per tornare alla previsione)' : 'Previsione: puoi correggerla'}" onchange="setVlhGC(${day},${h},this.value)"></td>`).join('')}</tr>`;
+    const areas = V.AREAS.map(([a, label]) => {
+      const per = cols.map((c) => c.r.open.filter((p) => p.area === a));
+      const rows = Math.max(1, ...per.map((x) => x.length));
+      let html = `<tr class="area ${a}"><td colspan="${hours.length + 1}">${label}</td></tr>`;
+      for (let k = 0; k < rows; k++) {
+        html += `<tr><td class="lab">${k + 1}</td>${per.map((list, i) => { const p = list[k]; if (!p) return '<td></td>';
+          const po = prevOpen(i), isNew = po && !po.has(p.code);
+          const who = (names[hours[i]] || {})[p.code] || '';
+          return `<td><div class="pos ${isNew ? 'new' : ''}">${p.n} ${esc(p.name)}</div><div class="who">${esc(who)}</div></td>`; }).join('')}</tr>`;
+      }
+      return html;
+    }).join('');
+    const rec = cols.map((c) => c.r.open.length), act = hours.map((h) => people(h).length);
+    const foot = `<tr><td class="lab">Crew consigliati</td>${rec.map((n) => `<td class="num">${n}</td>`).join('')}</tr>
+      <tr><td class="lab">In turno</td>${act.map((n, i) => `<td class="num ${n < rec[i] ? 'short' : ''}" title="Crew e hospitality in turno almeno mezz'ora in quest'ora">${n}</td>`).join('')}</tr>
+      ${[0, 1, 2].map((j) => `<tr><td class="lab">${j === 0 ? 'Prossime' : ''} +${j + 1}</td>${cols.map((c) => `<td class="next">${c.r.next[j] ? esc(c.r.next[j].name) : ''}</td>`).join('')}</tr>`).join('')}`;
+    return `<table class="vlh">${head}${areas}${foot}</table>`;
+  };
+  return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta in base all'area del turno: in stampa puoi correggerli a penna.</div>
+    ${VLH_SHEETS.map((hs) => `<div class="card vlhsheet"><div style="display:flex;justify-content:space-between"><b>VLH – POSIZIONAMENTO DEL TURNO</b><span>${T.DOW_LONG[dow]} ${T.itDate(day)} · ${String(hs[0]).padStart(2, '0')}:00–${hs[hs.length - 1]}:00</span></div>${sheet(hs)}</div>`).join('')}`;
 }
 
 // ================= PREVISIONI =================
@@ -1010,7 +1125,7 @@ async function applyAutoForecasts(data) {
   const planned = new Set(state.shifts.map((s) => T.mondayOf(s.day)));
   // storico dei giorni speciali e clienti per ora: servono a stimare l'effetto di eventi e chiusure
   const old = state.autoForecast || {};
-  state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {}, indici: data.indici || old.indici || null, profiloOrario: data.profiloOrario || old.profiloOrario || null };
+  state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {}, indici: data.indici || old.indici || null, profiloOrario: data.profiloOrario || old.profiloOrario || null, orarioSB: data.orarioSB || old.orarioSB || null };
   let n = 0, manual = 0, locked = 0;
   for (const [iso, p] of Object.entries(data.giorni)) {
     const day = Math.round(Date.parse(iso) / 864e5), ws = T.mondayOf(day), k = day - ws;
