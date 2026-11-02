@@ -292,15 +292,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611021728"></script>
-<script src="turni-core.js?v=202611021728"></script>
+<script src="turni-storico.js?v=202611021731"></script>
+<script src="turni-core.js?v=202611021731"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611021728"></script>
-<script src="turni-cloud-config.js?v=202611021728"></script>
-<script src="turni-cloud.js?v=202611021728"></script>
-<script src="turni-cripto.js?v=202611021728"></script>
-<script src="lineare-ufficiale.js?v=202611021728"></script>
+<script src="turni-data.js?v=202611021731"></script>
+<script src="turni-cloud-config.js?v=202611021731"></script>
+<script src="turni-cloud.js?v=202611021731"></script>
+<script src="turni-cripto.js?v=202611021731"></script>
+<script src="lineare-ufficiale.js?v=202611021731"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -462,7 +462,7 @@ function renderTurni() {
       <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
       <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto: per esempio 18h + 3h di doppio. Nella colonna Ore sono indicati a parte.</li>
       <li>I minimi delle fasce cambiano in base al giorno (il weekend ne chiede di più): li trovi e li cambi in Regole.</li>
-      <li>Le aperture (McCafé, MFY) e le chiusure (McCafé, MFY, Sala) le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality).</li>
+      <li>Le aperture (McCafé, MFY) e le chiusure (McCafé, MFY, Sala) le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality). Le <b>aperture vanno a rotazione</b>: sulle ultime 4 settimane apre prima chi ha aperto meno, e nella stessa settimana nessuno ne fa molte più degli altri (es. 6 formati per la cucina → 1 o 2 aperture a testa a settimana), sempre se le altre regole lo permettono.</li>
       <li><b>Squadra di apertura</b>: alle ${T.fmtTime(cfg.open)} ci sono esattamente 1 McCafé e 1 MFY (segnati in Aperture e chiusure), nessun altro: niente hospitality, niente OA. Chi arriva dopo (es. 8:30, 9:00) va bene.</li>
       <li><b>Data di inizio</b> (Personale): prima di quel giorno la persona non ha turni e le sue ore della settimana si riducono in proporzione (es. entra venerdì con 18h su 6 giorni → 9h quella settimana).</li>
       <li>🎓 = <b>in formazione</b> (sezione Formazione): in apertura e chiusura deve essere affiancato/a da un formato nella stessa postazione.</li>

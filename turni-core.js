@@ -218,6 +218,8 @@
       forecast: null,
       // turni lunghi in settimana fatti nelle 4 settimane precedenti (per farli a rotazione)
       longHistory: new Map(),
+      // aperture fatte nelle 3 settimane prima, per postazione: chiave "id|postazione" (per farle a rotazione)
+      openHistory: new Map(),
       // richieste del personale accettate dal manager: chiave "id|giorno" → { until, from, off, label }
       limits: limitsFrom(state.requests, ws),
       // giorni con il locale chiuso (tutto il giorno o in parte), dalla sezione Eventi
@@ -227,6 +229,7 @@
       if (x.day < ws - 28 || x.day >= ws) continue;
       const e = ctx.byId.get(x.employeeId);
       if (isLongWeekday(state.config, e, x)) ctx.longHistory.set(e.id, (ctx.longHistory.get(e.id) || 0) + 1);
+      if (e && !x.doppio && x.day >= ws - 21 && x.start <= (state.config.open ?? 450)) { const k = e.id + '|' + x.station; ctx.openHistory.set(k, (ctx.openHistory.get(k) || 0) + 1); }
     }
     const fc = forecastFor(state, ws, ctx);
     if (fc) {
@@ -1088,7 +1091,13 @@
         const closerPenalty = (e) => (req.opening && (e.closings || []).length ? -1.5 : 0);
         // chi ha un impegno la sera (richiesta accettata) è il primo candidato per l'apertura: finisce presto
         const earlyBonus = (e) => { const l = limitOf(ctx, e.id, d); return req.opening && l && l.until != null ? 2 : 0; };
-        return pickPair(d, wins, pool, (e) => st(e), false, canPlace, (e) => (e.type === 'HOSPITALITY' ? hospBias : 0) + closerPenalty(e) + earlyBonus(e));
+        // aperture a rotazione: sulle 4 settimane (3 passate + questa) prima chi ne ha fatte meno, e in settimana non troppe alla stessa persona
+        const opensWeek = (e) => shifts.filter((x) => x.employeeId === e.id && !x.doppio && x.start <= OPEN && x.station === req.station).length;
+        const opens4 = (e) => (ctx.openHistory.get(e.id + '|' + req.station) || 0) + opensWeek(e);
+        const avgOpen = req.opening && pool.length ? pool.reduce((t, e) => t + opens4(e), 0) / pool.length : 0;
+        const avgWeek = req.opening && pool.length ? pool.reduce((t, e) => t + opensWeek(e), 0) / pool.length : 0;
+        const openBalance = (e) => (req.opening ? -1.2 * (opens4(e) - avgOpen) - 2 * Math.max(0, opensWeek(e) - Math.ceil(avgWeek + 0.01)) : 0);
+        return pickPair(d, wins, pool, (e) => st(e), false, canPlace, (e) => (e.type === 'HOSPITALITY' ? hospBias : 0) + closerPenalty(e) + earlyBonus(e) + openBalance(e));
       }
       const s1 = pickPair(d, windowsFor(d, m, LENGTHS, generic, 0, 'CREW', cfg.crewMax), crew, (e, a, b) => pickStation(e, d, a, b));
       if (s1) return s1;
