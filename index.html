@@ -292,15 +292,15 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611021704"></script>
-<script src="turni-core.js?v=202611021704"></script>
+<script src="turni-storico.js?v=202611021707"></script>
+<script src="turni-core.js?v=202611021707"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611021704"></script>
-<script src="turni-cloud-config.js?v=202611021704"></script>
-<script src="turni-cloud.js?v=202611021704"></script>
-<script src="turni-cripto.js?v=202611021704"></script>
-<script src="lineare-ufficiale.js?v=202611021704"></script>
+<script src="turni-data.js?v=202611021707"></script>
+<script src="turni-cloud-config.js?v=202611021707"></script>
+<script src="turni-cloud.js?v=202611021707"></script>
+<script src="turni-cripto.js?v=202611021707"></script>
+<script src="lineare-ufficiale.js?v=202611021707"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -357,7 +357,7 @@ const INFO = {
   'cfg-doubleMax': [`Durata massima doppio`, `Il doppio è un secondo turno nello stesso giorno (ore in più rispetto al contratto). Questa è la sua durata massima (es. 3h). Chi fa i doppi e quanti si decide nella sezione Doppi.`],
   'cfg-doubleGap': [`Pausa minima turno–doppio`, `Ore minime di pausa tra il turno normale e il doppio dello stesso giorno (es. 2h: turno 7:30–11:00 e doppio non prima delle 13:00). Chi apre non fa il doppio.`],
   'cfg-closeGrace': [`Ultimi minuti non controllati prima della chiusura`, `Negli ultimi minuti prima della chiusura (es. tra le 21:00 e le 21:30) i minimi delle fasce non vengono controllati: in quel momento c'è solo la squadra di chiusura. La squadra di chiusura invece si controlla fino alle 21:30, e chi è in formazione non può restare da solo.`],
-  'cfg-requestMargin': [`Richieste: fine turno prima di un impegno`, `Quando un dipendente chiede "ho un impegno alle…", il turno deve finire almeno queste ore prima (es. 2h: concerto alle 21:00 → turno finito entro le 19:00). Quando accetti la richiesta puoi comunque cambiare l'orario.`],
+  'cfg-requestMargin': [`Richieste: fine turno prima di un impegno`, `Quando un dipendente chiede "ho un impegno alle…", il turno deve finire almeno queste ore prima (es. 0,5: concerto alle 21:00 → turno finito entro le 20:30), oppure iniziare dopo l'impegno (vedi "inizio turno dopo un impegno", es. 2 ore). Quando accetti la richiesta puoi comunque cambiare gli orari.`],
   'cfg-aft': [`Post-rush pomeriggio`, `Fascia del pomeriggio tra i due rush (es. 14:30–19:00). Qui il generatore non mette turni "rigidi" tutti dentro questa fascia (es. 14:30–19:30) né turni "ibridi" a cavallo (es. 15:30–20:30): preferisce turni sfalsati che si agganciano ai rush, per esempio 13:00–17:00 e poi 17:00–21:00.`],
   'cfg-pre': [`Chi fa la cena entra dalle`, `Ora più presto in cui entra chi lavora per la cena (es. 16:30). Così i turni di cena non partono nel mezzo del pomeriggio.`],
   'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale (es. 7:30–21:30). Il generatore non mette turni fuori da quest'orario.`],
@@ -1428,7 +1428,7 @@ function renderRegole() {
     <div class="form">
       <div class="row">${field('crewMaxWeekday', 'Max ore turno Crew lun–gio (standard)')}${field('crewMax', 'Max ore turno Crew (turni lunghi e ven–dom)')}${field('hospMax', 'Max ore turno Hospitality')}${field('minShift', 'Turno minimo (ore)')}${field('rest11', 'Stacco tra giorni consecutivi (ore)')}${field('rest36', 'Stacco con riposo in mezzo (ore)')}</div>
       <div class="row"><label class="f"><span>Turni lunghi lun–gio a testa a settimana (a rotazione) ${ib('cfg-longpw')}</span><input type="number" min="0" max="4" id="cfg-longpw" value="${c.weekdayLongPerWeek ?? 1}" style="width:110px"></label></div>
-      <div class="row">${field('doubleMax', 'Durata massima doppio (ore)')}${field('doubleGap', 'Pausa minima turno–doppio (ore)')}${field('closeGrace', 'Ultimi minuti non controllati prima della chiusura (ore)')}${field('requestMargin', 'Richieste: fine turno prima di un impegno (ore)')}</div>
+      <div class="row">${field('doubleMax', 'Durata massima doppio (ore)')}${field('doubleGap', 'Pausa minima turno–doppio (ore)')}${field('closeGrace', 'Ultimi minuti non controllati prima della chiusura (ore)')}${field('requestMargin', 'Richieste: fine turno prima di un impegno (ore)')}${field('requestAfter', 'Richieste: inizio turno dopo un impegno (ore)')}</div>
       <div class="row"><label class="f"><span>Post-rush pomeriggio: dalle ${ib('cfg-aft')}</span>${timeSelect(c.afternoonStart ?? 870, '').replace('<select', '<select id="cfg-aft0"')}</label><label class="f">alle${timeSelect(c.afternoonEnd ?? 1140, '').replace('<select', '<select id="cfg-aft1"')}</label>
         <label class="f"><span>Chi fa la cena entra dalle ${ib('cfg-pre')}</span>${timeSelect(c.dinnerPreStart ?? 990, '').replace('<select', '<select id="cfg-pre"')}</label>
 </div>
@@ -1928,7 +1928,7 @@ const DAYS_IT = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì'
 const SLOTS_TXT = (q) => (q.slots || []).map((x) => `${DAYS_IT[x.d]} ${T.fmtTime(x.a)}–${T.fmtTime(x.b)}`).join(', ');
 const PERIOD_TXT = (q) => `dal ${T.itDate(q.day)}${q.to != null ? ` al ${T.itDate(q.to)}` : ' (senza data di fine)'}`;
 const KIND_TXT = (q) => q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
-const LIMIT_TXT = (q) => q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
+const LIMIT_TXT = (q) => q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.kind === 'impegno' && q.after != null ? `finire entro le ${T.fmtTime(q.until)} o iniziare dalle ${T.fmtTime(q.after)}` : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
 // link unico dell'app per il personale (uguale per tutti): ?s = codice del locale (resta anche nell'app installata)
 const appLink = () => `${location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/')}richieste.html?s=${TurniCloud.uid()}`;
 const slug = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
@@ -1960,9 +1960,9 @@ async function checkInbox(notify) {
       try { x = await TurniCripto.openWith(state.reqKeys.priv, d); } catch (e) { continue; }
       const e = empById(+d.emp);
       if (!e || !x || !x.date) continue;
-      const day = T.toDay(x.date), margin = state.config.requestMargin ?? 120;
+      const day = T.toDay(x.date), margin = state.config.requestMargin ?? 30, after = state.config.requestAfter ?? 120;
       const q = { id: newId(), rid: d.rid, employeeId: e.id, day, kind: x.kind, note: String(x.note || '').slice(0, 300), status: 'in attesa', createdAt: d.createdAt };
-      if (x.kind === 'impegno') { q.time = +x.time; q.until = Math.max(0, q.time - margin); }
+      if (x.kind === 'impegno') { q.time = +x.time; q.until = Math.max(0, q.time - margin); q.after = Math.min(1440, q.time + after); }
       if (x.kind === 'dalle') q.from = +x.from;
       if (x.kind === 'fisso') {
         q.slots = (Array.isArray(x.slots) ? x.slots : []).map((y) => ({ d: +y.d, a: +y.a, b: +y.b })).filter((y) => y.d >= 1 && y.d <= 7 && y.b > y.a).slice(0, 14);
@@ -2176,7 +2176,7 @@ function askAccept(id) {
   showModal(`<h3>Accetta la richiesta</h3>
     <p><b>${esc(T.fullName(empById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
     <div class="form">
-      ${q.kind === 'impegno' ? `<label class="f">Deve finire il turno entro le${timeSel('acc-t', q.until, 360, 1380)}</label>` : ''}
+      ${q.kind === 'impegno' ? `<div class="row"><label class="f">Turno prima: deve finire entro le${timeSel('acc-t', q.until, 360, 1380)}</label><label class="f">oppure turno dopo: può iniziare dalle${timeSel('acc-t2', q.after ?? Math.min(1380, (q.time ?? q.until) + (state.config.requestAfter ?? 120)), 360, 1380)}</label></div>` : ''}
       ${q.kind === 'dalle' ? `<label class="f">Può iniziare dalle${timeSel('acc-t', q.from, state.config.open ?? 450, (state.config.close ?? 1290) - (state.config.minShift ?? 120))}</label>` : ''}
       ${q.kind === 'libero' ? '<p style="margin:0">Quel giorno non avrà turni.</p>' : ''}
       ${weekHas && p && !p.currentOk ? `<div><b style="font-size:13px">Cosa fare con i turni di quel giorno?</b>
@@ -2198,7 +2198,7 @@ async function doAccept(id) {
     if (q.to != null && q.to < q.day) return alert('"Fino al" deve essere dopo "Valido dal".');
   }
   const t = document.getElementById('acc-t');
-  if (t && q.kind === 'impegno') q.until = +t.value;
+  if (t && q.kind === 'impegno') { q.until = +t.value; const t2 = document.getElementById('acc-t2'); if (t2) q.after = Math.max(q.until, +t2.value); }
   if (t && q.kind === 'dalle') q.from = +t.value;
   const how = (document.querySelector('input[name="acc-how"]:checked') || {}).value || 'none';
   const apply = how === 'new';
@@ -2217,7 +2217,7 @@ async function doAccept(id) {
       state.shifts = state.shifts.filter((x) => !(x.employeeId === q.employeeId && x.day === q.day && !x.doppio));
       applied = { ...p.proposal, id: newId() }; state.shifts.push(applied);
       // un doppio che non rispetta più la richiesta va tolto
-      state.shifts = state.shifts.filter((x) => !(x.employeeId === q.employeeId && x.day === q.day && x.doppio && ((q.until != null && x.end > q.until) || (q.from != null && x.start < q.from))));
+      state.shifts = state.shifts.filter((x) => !(x.employeeId === q.employeeId && x.day === q.day && x.doppio && ((q.until != null && x.end > q.until && !(q.after != null && x.start >= q.after)) || (q.from != null && x.start < q.from))));
     }
   }
   const msg = (document.getElementById('acc-msg').value || '').trim();
@@ -2246,7 +2246,7 @@ function showManualRequest() {
   const m = ui.mr, people = sortByName(state.employees.filter((e) => e.active));
   const tSel = (v, on) => `<select onchange="${on}">${TIME_OPTIONS.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
   const KINDS = [['libero', 'Giorno libero (non può lavorare)'], ['impegno', 'Ha un impegno a una certa ora (deve finire prima)'], ['dalle', 'Può lavorare solo da una certa ora'], ['fisso', 'Impegni fissi ogni settimana (università, sport…)']];
-  const margin = state.config.requestMargin ?? 120;
+  const margin = state.config.requestMargin ?? 30, after = state.config.requestAfter ?? 120;
   showModal(`<h3>✍️ Nuova richiesta a mano</h3>
     <div class="form">
       <label class="f">Dipendente<select onchange="mrSet('emp',this.value)"><option value="">— scegli —</option>${people.map((e) => `<option value="${e.id}" ${String(e.id) === String(m.emp) ? 'selected' : ''}>${esc(T.fullName(e))}</option>`).join('')}</select></label>
@@ -2255,7 +2255,7 @@ function showManualRequest() {
         ${m.kind === 'fisso' ? `<label class="f">Fino al (vuoto = senza fine)<input type="date" value="${m.to}" onchange="mrSet('to',this.value)"></label>` : ''}
         ${m.kind === 'impegno' ? `<label class="f">Impegno alle${tSel(m.time, "mrSet('time',this.value)")}</label>` : ''}
         ${m.kind === 'dalle' ? `<label class="f">Può iniziare dalle${tSel(m.from, "mrSet('from',this.value)")}</label>` : ''}</div>
-      ${m.kind === 'impegno' ? `<div class="small muted">Il turno dovrà finire ${margin / 60} ore prima (si può cambiare quando la accetti).</div>` : ''}
+      ${m.kind === 'impegno' ? `<div class="small muted">Il turno dovrà finire almeno ${T.fmtDur(margin)} prima dell'impegno oppure iniziare almeno ${T.fmtDur(after)} dopo (si può cambiare quando la accetti).</div>` : ''}
       ${m.kind === 'fisso' ? `<div><div class="small" style="font-weight:600;color:var(--muted)">Quando è impegnato/a ogni settimana</div>${m.slots.map((sl, i) => `<div class="row" style="margin-top:6px"><select onchange="mrSlot(${i},'d',this.value)">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}" ${sl.d === d ? 'selected' : ''}>${T.DOW_LONG[d]}</option>`).join('')}</select> dalle ${tSel(sl.a, `mrSlot(${i},'a',this.value)`)} alle ${tSel(sl.b, `mrSlot(${i},'b',this.value)`)} ${m.slots.length > 1 ? `<button class="link" onclick="mrSlotDel(${i})">togli</button>` : ''}</div>`).join('')}
         <button class="link" style="margin-top:6px" onclick="mrSlotAdd()">+ aggiungi un altro giorno</button></div>` : ''}
       <label class="f">Nota (facoltativa)<input type="text" maxlength="300" value="${esc(m.note)}" placeholder="es. esame all'università" onchange="mrSet('note',this.value)"></label>
@@ -2267,7 +2267,7 @@ function saveManualRequest(accept) {
   if (!e) return alert('Scegli il dipendente.');
   if (!m.date) return alert('Indica il giorno.');
   const q = { id: newId(), manual: true, employeeId: e.id, day: T.toDay(m.date), kind: m.kind, note: String(m.note || '').trim().slice(0, 300), status: 'in attesa', createdAt: new Date().toISOString() };
-  if (m.kind === 'impegno') { q.time = m.time; q.until = Math.max(0, m.time - (state.config.requestMargin ?? 120)); }
+  if (m.kind === 'impegno') { q.time = m.time; q.until = Math.max(0, m.time - (state.config.requestMargin ?? 30)); q.after = Math.min(1440, m.time + (state.config.requestAfter ?? 120)); }
   if (m.kind === 'dalle') q.from = m.from;
   if (m.kind === 'fisso') {
     q.slots = m.slots.filter((x) => x.b > x.a).map((x) => ({ ...x }));
@@ -2350,9 +2350,9 @@ function setCovMin(i, k, v) {
   save();
 }
 function saveConfig() {
-  const keys = ['crewMaxWeekday', 'crewMax', 'hospMax', 'minShift', 'rest11', 'rest36', 'doubleMax', 'doubleGap', 'closeGrace', 'requestMargin'];
+  const keys = ['crewMaxWeekday', 'crewMax', 'hospMax', 'minShift', 'rest11', 'rest36', 'doubleMax', 'doubleGap', 'closeGrace', 'requestMargin', 'requestAfter'];
   const vals = keys.map((k) => T.parseHours(document.getElementById('cfg-' + k).value));
-  if (vals.some((v, i) => v == null || (['closeGrace', 'requestMargin'].includes(keys[i]) ? v < 0 : v <= 0))) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = 'Valori non validi: usa numeri di ore, es. 4 o 4,5.'; return; }
+  if (vals.some((v, i) => v == null || (['closeGrace', 'requestMargin', 'requestAfter'].includes(keys[i]) ? v < 0 : v <= 0))) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = 'Valori non validi: usa numeri di ore, es. 4 o 4,5.'; return; }
   const open = +document.getElementById('cfg-open').value, close = +document.getElementById('cfg-close').value;
   if (close <= open) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = "La chiusura deve essere dopo l'apertura."; return; }
   keys.forEach((k, i) => (state.config[k] = vals[i]));

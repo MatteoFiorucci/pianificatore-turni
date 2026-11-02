@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 27;
+  const VERSION = 28;
 
   function emptyState() {
     return {
@@ -66,6 +66,8 @@
     }
     // v27: le postazioni coperte sono un consiglio (non un obbligo) e non si chiamano più "Presidio"
     if ((st.version || 1) < 27) for (const r of st.coverage) if (['p1', 'p2', 'p3', 'p4'].includes(r.id)) { r.soft = true; r.name = r.name.replace(/^Presidio /, 'Postazione '); }
+    // v28: impegno → turno finito 30 minuti prima oppure iniziato 2 ore dopo (scelta del manager, 3/11/2026)
+    if ((st.version || 1) < 28) { st.config.requestMargin = 30; st.config.requestAfter = 120; }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
     return st;
