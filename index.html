@@ -285,6 +285,9 @@
   table.vlh tr.nx td { height: 26px; } table.vlh td.next { font-size: 11px; vertical-align: middle; }
   table.vlh input { width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; font-size: 13px; padding: 1px; border: 1px solid #ccc; border-radius: 3px; }
   table.vlh input.man { background: #fff4d6; }
+  /* telefono: il foglio resta largo come quello di carta e si scorre di lato */
+  .vlhscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  @media screen and (max-width: 760px) { .vlhscroll table.vlh { min-width: 720px; } .vlhsheet { padding: 6px; } table.vlh tr.slot td { height: 40px; } table.vlh .who { font-size: 14px; } }
   table.vlh .who[data-id] { cursor: grab; touch-action: none; user-select: none; border-radius: 3px; }
   table.vlh .who[data-id]:hover { background: #eef3fb; } table.vlh .who.man { color: #1d4ed8; }
   table.vlh .who.dragging { opacity: .4; }
@@ -294,6 +297,7 @@
   table.vlh .who.chip { font-size: 12px; font-weight: 600; margin: 1px 0; padding: 1px 3px; background: #fff; border: 1px solid #ccc; white-space: nowrap; }
   @media print {
     .vlhsheet { break-after: page; border: 0; box-shadow: none; padding: 0; max-width: none; } .vlhsheet:last-child { break-after: auto; }
+    .vlhscroll { overflow: visible; } table.vlh { min-width: 0 !important; }
     table.vlh { font-size: 10px; } table.vlh input { border: 0; background: none !important; font-size: 11px; }
     table.vlh tr.slot td { height: 9mm; } table.vlh tr.sec td { height: 2.6mm; } table.vlh tr.tot td, table.vlh tr.nx td { height: 6mm; }
     table.vlh .who { font-size: 13px; }
@@ -329,17 +333,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611030058"></script>
-<script src="turni-core.js?v=202611030058"></script>
-<script src="turni-manager.js?v=202611030058"></script>
-<script src="turni-vlh.js?v=202611030058"></script>
+<script src="turni-storico.js?v=202611031132"></script>
+<script src="turni-core.js?v=202611031132"></script>
+<script src="turni-manager.js?v=202611031132"></script>
+<script src="turni-vlh.js?v=202611031132"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611030058"></script>
-<script src="turni-cloud-config.js?v=202611030058"></script>
-<script src="turni-cloud.js?v=202611030058"></script>
-<script src="turni-cripto.js?v=202611030058"></script>
-<script src="lineare-ufficiale.js?v=202611030058"></script>
+<script src="turni-data.js?v=202611031132"></script>
+<script src="turni-cloud-config.js?v=202611031132"></script>
+<script src="turni-cloud.js?v=202611031132"></script>
+<script src="turni-cripto.js?v=202611031132"></script>
+<script src="lineare-ufficiale.js?v=202611031132"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -414,10 +418,10 @@ const INFO = {
 const ib = (key) => (INFO[key] ? `<button type="button" class="ib" title="Spiegazione" aria-label="Spiegazione" onclick="event.preventDefault();event.stopPropagation();showInfo('${key}')">i</button>` : '');
 function showInfo(key) { const [t, h] = INFO[key]; showModal(`<h3>ⓘ ${t}</h3><p style="line-height:1.55">${h}</p><div class="actions"><button class="btn primary" onclick="closeModal()">Ho capito</button></div>`); }
 function go(view) { ui.view = view; ui.deleteMode = false; ui.selected.clear(); render(); }
-// Telefono e tablet (schermo touch, senza mouse): solo il lineare e le richieste; il resto si fa dal PC.
+// Telefono e tablet (schermo touch, senza mouse): solo il lineare, il VLH e le richieste; il resto si fa dal PC.
 const COMPACT = !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
 const compactOn = () => COMPACT && !ui.showAll;
-const COMPACT_VIEWS = ['giornaliero', 'richieste'];
+const COMPACT_VIEWS = ['giornaliero', 'vlh', 'richieste'];
 if (COMPACT) { ui.view = 'giornaliero'; try { ui.showAll = localStorage.getItem('turni-tutto') === '1'; } catch (e) { /* niente */ } }
 function setShowAll(v) { ui.showAll = v; try { localStorage.setItem('turni-tutto', v ? '1' : '0'); } catch (e) { /* niente */ } if (!v && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero'; render(); window.scrollTo(0, 0); }
 function renderBrand() {
@@ -438,7 +442,7 @@ function render() {
   document.getElementById('app').innerHTML =
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
     views[ui.view]() +
-    (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
+    (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
   setHeaderHeight();
 }
 function showModal(html) { document.getElementById('modal').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
@@ -1108,7 +1112,7 @@ function renderVLH() {
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
   return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">torna alla proposta automatica</a>` : ''}. In stampa puoi correggerli a penna.</div>
-    ${VLH_SHEETS.filter((hs, k) => vlhSheet() === 2 || vlhSheet() === k).map((hs) => `<div class="card vlhsheet">${sheet(hs)}</div>`).join('')}`;
+    ${VLH_SHEETS.filter((hs, k) => vlhSheet() === 2 || vlhSheet() === k).map((hs) => `<div class="card vlhsheet"><div class="vlhscroll">${sheet(hs)}</div></div>`).join('')}`;
 }
 
 // ================= PREVISIONI =================
