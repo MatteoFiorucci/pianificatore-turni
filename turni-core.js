@@ -511,13 +511,30 @@
    * Manager in più nel quarto d'ora (oltre al responsabile di turno): nelle ore intermedie coprono loro,
    * così le ore dei crew si concentrano sui rush di pranzo e cena. Si spegne con config.mgrInIntermedi = false.
    */
-  function mgrExtra(ctx, day, minute) {
-    if (!ctx.mgr || ctx.cfg.mgrInIntermedi === false) return 0;
+  function mgrExtra(ctx, day, minute, any = false) {
+    if (!ctx.mgr || (!any && ctx.cfg.mgrInIntermedi === false)) return 0;
     return Math.max(0, ctx.mgr.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT).length - 1);
   }
+  /** Fasce "Postazione X" (almeno 1 persona per postazione durante il giorno): le può coprire anche un manager. */
+  const isStationMin = (r) => !!r && r.soft && !!r.station && !r.opening && !r.closing && r.station !== 'HOSPITALITY';
+  const rawCount = (ctx, day, minute, req, list) => list.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT && countsFor(ctx, s, req)).length;
+  /**
+   * Manager formati su tutte le postazioni: i manager in più (oltre al responsabile di turno) coprono le postazioni
+   * rimaste senza nessun crew, una postazione per manager, nell'ordine delle fasce. 1 se questa fascia è coperta da un manager.
+   */
+  function mgrOnStation(ctx, day, minute, req, list) {
+    if (ctx.cfg.mgrInPostazioni === false) return 0;
+    const free = mgrExtra(ctx, day, minute, true);
+    if (!free) return 0;
+    const open = ctx.coverage.filter((r) => isStationMin(r) && r.start <= minute && r.end > minute && rawCount(ctx, day, minute, r, list) === 0);
+    const i = open.findIndex((r) => r.id === req.id);
+    return i >= 0 && i < free ? 1 : 0;
+  }
   function countAt(ctx, day, minute, req, list = ctx.shifts) {
-    return list.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT && countsFor(ctx, s, req)).length
-      + (isMidAfternoon(req) ? mgrExtra(ctx, day, minute) : 0);
+    const n = rawCount(ctx, day, minute, req, list);
+    if (isMidAfternoon(req)) return n + mgrExtra(ctx, day, minute);
+    if (n === 0 && isStationMin(req)) return mgrOnStation(ctx, day, minute, req, list);
+    return n;
   }
   /** Quarto d'ora in cui si controlla una squadra esatta: il primo della fascia (apertura) o l'ultimo (chiusura). */
   const teamSlot = (r) => (r.exact === 'start' ? r.start : r.end - SLOT);
@@ -1551,7 +1568,8 @@
     // 9. McCafé vuoto in qualche ora: si scambiano le postazioni tra i crew formati già in turno (es. chi è al banco va al McCafé
     //    e chi era al McCafé va al banco) e si tiene lo scambio che lascia meno ore scoperte, senza mai superare il limite
     const mcReq = ctx.coverage.find((r) => r.station === 'MCCAFE' && !r.opening && !r.closing);
-    const mcEmpty = (d) => { let n = 0; for (let m = mcReq.start; m < mcReq.end; m += 15) if (!mcCafeAt(shifts, d, m)) n++; return n; };
+    // ore senza nessuno al McCafé (contano anche i manager in più, che coprono le postazioni scoperte)
+    const mcEmpty = (d) => { let n = 0; for (let m = mcReq.start; m < mcReq.end; m += 15) if (!countAt(ctx, d, m, mcReq, shifts)) n++; return n; };
     const mcOk = (d, s) => !mcTooMany(cfg, shifts, d, s.start, s.end);
     for (const d of mcReq ? ctx.days : []) {
       if (!reqMin(mcReq, d)) continue;
