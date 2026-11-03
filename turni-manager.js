@@ -18,8 +18,46 @@
   const REST12 = 720, REST36 = 2160, ORDER_BY = 690; // stacco 12h, 36h con riposo; ordine: entra entro le 11:30
   const DAY = 1440;
   const ROLE_TXT = { A: 'Apertura', C: 'Chiusura', CEN: 'Centrale', D: 'Delivery', C2: 'Secondo in chiusura', X: 'Rinforzo', M2: 'Secondo in apertura', F: 'Flessibile' };
-  // durata minima/massima e durata preferita di ogni ruolo (minuti)
-  const LEN = { A: [360, 450, 420], C: [360, 450, 420], CEN: [330, 450, 420], D: [360, 450, 420], M2: [360, 450, 420], C2: [300, 420, 390], X: [270, 420, 360], F: [390, 480, 450] };
+  // durata dei turni manager (regola tassativa): corti da 3 a 5 ore (senza pausa) oppure lunghi da 6:30 a 8:30;
+  // mai tra 5 e 6:30 (niente 5:30 né 6:00)
+  const SHORT = [180, 300], LONG = [390, 510];
+  const lenOk = (l) => (l >= SHORT[0] && l <= SHORT[1]) || (l >= LONG[0] && l <= LONG[1]);
+  // durata preferita di ogni ruolo (minuti); i turni corti si usano solo se servono per le ore di contratto,
+  // prima nei ruoli centrali e di rinforzo (CEN, X, C2), così apertura e chiusura restano coperte
+  const PREF = { A: 420, C: 420, CEN: 420, D: 420, M2: 420, C2: 390, X: 390, F: 450 };
+  const CUT_ORDER = ['CEN', 'X', 'C2', 'F', 'D', 'M2', 'A', 'C'];
+  const lenUp = (l) => (l < SHORT[1] ? Math.min(l + 30, SHORT[1]) : l < LONG[0] ? LONG[0] : l < LONG[1] ? Math.min(l + 30, LONG[1]) : null);
+  const lenDown = (l) => (l > LONG[0] ? Math.max(l - 30, LONG[0]) : l > SHORT[1] ? SHORT[1] : l > SHORT[0] ? Math.max(l - 30, SHORT[0]) : null);
+  /**
+   * Durate dei turni della settimana di una persona (roles = ruoli dei suoi giorni) che sommano esattamente target,
+   * se possibile, restando nelle durate consentite.
+   */
+  function fitLens(roles, target) {
+    const lens = roles.map((r) => PREF[r] || 420);
+    let diff = target - lens.reduce((a, b) => a + b, 0);
+    for (let guard = 0; diff !== 0 && guard < 400; guard++) {
+      // resto sotto la mezz'ora: lo prende un turno che resta nelle durate consentite
+      if (Math.abs(diff) < 30) {
+        const i = lens.findIndex((l) => lenOk(l + diff));
+        if (i >= 0) { lens[i] += diff; diff = 0; }
+        break;
+      }
+      const up = diff > 0;
+      const opts = lens.map((l, i) => ({ i, to: up ? lenUp(l) : lenDown(l) })).filter((o) => o.to != null)
+        .map((o) => ({ ...o, d: o.to - lens[o.i], jump: (lens[o.i] >= LONG[0]) !== (o.to >= LONG[0]) }))
+        .filter((o) => Math.abs(o.d) <= Math.abs(diff) || !o.jump);
+      if (!opts.length) break;
+      // prima i passi di mezz'ora dentro lo stesso blocco (sui turni più lontani dal limite), poi il salto
+      // tra corto e lungo, prima nei ruoli centrali/rinforzo
+      // accorciare: prima centrali e rinforzi, per ultime apertura e chiusura (che devono toccarsi a metà giornata);
+      // allungare: al contrario
+      const rk = (i) => { const r = CUT_ORDER.indexOf(roles[i]); return up ? -r : r; };
+      opts.sort((a, b) => a.jump - b.jump || rk(a.i) - rk(b.i) || (up ? lens[a.i] - lens[b.i] : lens[b.i] - lens[a.i]));
+      const o = opts[0];
+      diff -= o.to - lens[o.i]; lens[o.i] = o.to;
+    }
+    return lens;
+  }
   // centrale: copre sempre le ore intermedie del pomeriggio (15:00–18:00), così i crew stanno sui rush
   const CEN_STARTS = [690, 660, 720, 675, 705], MID_END = 1080;
   const isMorning = (r) => r === 'A' || r === 'D' || r === 'M2';
@@ -165,6 +203,9 @@
               if ((m.orderDays || []).includes(((k + 2) % 7) + 1) && isEvening(r)) v += 1.5;
               if (k >= 4) v += 1.5 * (wkHist.get(m.id + '|' + kindOfRole(r)) || 0) + 0.9 * plan.filter((x) => x.m === m && x.k >= 4 && kindOfRole(x.role) === kindOfRole(r)).length;
               if (prev && prev.role === r && prev.k === k - 1) v += 0.6;
+              // domenica sera: meglio di no per chi il lunedì dopo ha l'orario flessibile o (settimana Carpigiani) l'ordine
+              // del mercoledì, altrimenti il lunedì non ha un turno valido (stacco di 12 ore)
+              if (k === 6 && isEvening(r) && ((m.flexDays || []).includes(1) || (carpiWeek(state, ws + 7) && (m.orderDays || []).includes(3)))) v += 3;
               if (r === 'A') v += 0.5 * plan.filter((x) => x.m === m && x.role === 'A').length;
               if (r === 'C') v += 0.5 * plan.filter((x) => x.m === m && x.role === 'C').length;
               return v;
@@ -187,25 +228,59 @@
       for (const m of team) {
         const mine = plan.filter((x) => x.m === m);
         const target = targetOf(state, m, ws);
-        const lens = mine.map((x) => LEN[x.role][2]);
-        let diff = target - lens.reduce((a, b) => a + b, 0), guard = 0;
-        while (diff !== 0 && guard++ < 200) {
-          const step = diff > 0 ? 30 : -30;
-          let idx = -1, room = -1;
-          mine.forEach((x, i) => { const [lo, hi] = LEN[x.role]; const r = step > 0 ? hi - lens[i] : lens[i] - lo; if (r >= Math.abs(step) && r > room) { room = r; idx = i; } });
-          if (idx < 0) break;
-          const s = Math.abs(diff) < 30 ? diff : step;
-          lens[idx] += s; diff -= s;
-        }
+        const lens = fitLens(mine.map((x) => x.role), target);
         mine.forEach((x, i) => { const [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440); shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
       }
       const all = [...keep, ...shifts.filter((s) => !keepKey.has(s.managerId + '|' + s.day))];
+      fillGaps(all, keep);
       const probs = check(state, ws, all, nb);
       const score = probs.reduce((t2, p) => t2 + (p.sev === 'ERROR' ? 100 : p.sev === 'WARNING' ? 5 : 0), 0) + bad * 20;
       if (!best || score < best.score) best = { score, shifts: all, problems: probs };
       if (score === 0) break;
     }
     return best || { shifts: [], problems: [{ sev: 'ERROR', msg: 'Non è stato possibile creare la settimana dei manager.' }] };
+  }
+  /** Primo quarto d'ora del giorno d senza nessun manager (dall'apertura alla chiusura), oppure null. */
+  function firstGap(list, d) {
+    const dl = list.filter((s) => s.day === d);
+    if (!dl.length) return null;
+    for (let m = OPEN; m < CLOSE; m += 15) if (!dl.some((s) => s.start <= m && s.end > m)) return m;
+    return null;
+  }
+  /**
+   * Buchi a metà giornata (nessun manager, es. 14:00–15:00): il turno che finisce (o inizia) sul buco si allunga di
+   * mezz'ora e un altro turno della stessa persona, in un altro giorno, si accorcia di mezz'ora: le ore restano uguali.
+   * Si accorcia dal lato che non tocca apertura e chiusura, e solo se non apre un buco in quel giorno.
+   */
+  function fillGaps(list, keep) {
+    const fixed = new Set(keep);
+    for (let guard = 0; guard < 40; guard++) {
+      let done = false;
+      for (const d of [...new Set(list.map((s) => s.day))]) {
+        const g = firstGap(list, d);
+        if (g == null) continue;
+        let e = g; while (e < CLOSE && !list.some((s) => s.day === d && s.start <= e && s.end > e)) e += 15;
+        const near = list.filter((s) => s.day === d && !fixed.has(s) && (s.end === g || s.start === e));
+        for (const s of near) {
+          const grow = Math.min(30, e - g), len = s.end - s.start;
+          if (!lenOk(len + grow)) continue;
+          for (const t of list.filter((x) => x.managerId === s.managerId && x !== s && x.day !== d && !fixed.has(x))) {
+            const tl = t.end - t.start;
+            if (!lenOk(tl - grow)) continue;
+            const old = { start: t.start, end: t.end };
+            if (t.start <= OPEN) t.end -= grow; else t.start += grow;
+            if (firstGap(list, t.day) == null) {
+              if (s.end === g) s.end += grow; else s.start -= grow;
+              done = true; break;
+            }
+            Object.assign(t, old);
+          }
+          if (done) break;
+        }
+        if (done) break;
+      }
+      if (!done) break;
+    }
   }
   const kindOfRole = (r) => (r === 'A' || r === 'D' || r === 'M2' ? 'apertura' : r === 'CEN' || r === 'F' ? 'centrale' : 'cena');
   const kindOf = (s) => (s.role ? kindOfRole(s.role) : s.start <= 510 ? 'apertura' : s.end >= 1260 ? 'cena' : 'centrale');
@@ -223,6 +298,17 @@
       if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= OPEN).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle 7:30`, null, d);
       if (carpi && k === 1 && dl.filter((s) => s.end >= 1260).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
       if (carpi && k === 2 && dl.filter((s) => s.start <= OPEN).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (7:30)`, null, d);
+      // sempre almeno un manager dall'apertura alla chiusura
+      for (let m = OPEN; m < CLOSE; m += 15) {
+        if (dl.some((s) => s.start <= m && s.end > m)) continue;
+        let e = m; while (e < CLOSE && !dl.some((s) => s.start <= e && s.end > e)) e += 15;
+        V('ERROR', `${when(d)}: nessun manager dalle ${T.fmtTime(m)} alle ${T.fmtTime(e)}`, null, d);
+        break;
+      }
+    }
+    for (const s of list) {
+      const l = s.end - s.start;
+      if (!lenOk(l)) V('ERROR', `${name(team.find((m) => m.id === s.managerId) || { lastName: '?' })}: ${when(s.day)} turno di ${T.fmtDur(l)}, non consentito (corti 3–5 ore, lunghi 6:30–8:30)`, s.managerId, s.day);
     }
     for (const m of team) {
       const mine = list.filter((s) => s.managerId === m.id).sort((a, b) => a.day - b.day || a.start - b.start);
@@ -259,5 +345,5 @@
     return out;
   }
 
-  root.TurniManager = { generate, check, weekendStats, carpiWeek, targetOf, ROLE_TXT, kindOf };
+  root.TurniManager = { generate, check, weekendStats, carpiWeek, targetOf, ROLE_TXT, kindOf, lenOk };
 })(typeof window !== 'undefined' ? window : globalThis);
