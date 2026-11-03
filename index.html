@@ -333,17 +333,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611031453"></script>
-<script src="turni-core.js?v=202611031453"></script>
-<script src="turni-manager.js?v=202611031453"></script>
-<script src="turni-vlh.js?v=202611031453"></script>
+<script src="turni-storico.js?v=202611031455"></script>
+<script src="turni-core.js?v=202611031455"></script>
+<script src="turni-manager.js?v=202611031455"></script>
+<script src="turni-vlh.js?v=202611031455"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611031453"></script>
-<script src="turni-cloud-config.js?v=202611031453"></script>
-<script src="turni-cloud.js?v=202611031453"></script>
-<script src="turni-cripto.js?v=202611031453"></script>
-<script src="lineare-ufficiale.js?v=202611031453"></script>
+<script src="turni-data.js?v=202611031455"></script>
+<script src="turni-cloud-config.js?v=202611031455"></script>
+<script src="turni-cloud.js?v=202611031455"></script>
+<script src="turni-cripto.js?v=202611031455"></script>
+<script src="lineare-ufficiale.js?v=202611031455"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -651,6 +651,7 @@ function askGenerate() {
     <p><b>Completa</b>: tiene i turni già inseriti e aggiunge quelli che mancano.<br><b>Da zero</b>: cancella tutti i turni della settimana e li ricrea.</p>
     <p class="muted small">Il generatore rispetta riposi fissi, orari fissi, ferie, massimo giornaliero, stacchi 11h/36h e ore da contratto distribuite su tutti i giorni lavorativi. Mette i doppi solo a chi li fa (sezione Doppi), nei rush e preferibilmente nel weekend.</p>
     ${warn}
+    ${(state.managers || []).length && !(state.mgrShifts || []).some((x) => x.day >= ui.ws && x.day <= ui.ws + 6) ? '<div class="notice info" style="margin-top:12px">Consiglio: genera prima i turni dei <b>manager</b> di questa settimana. Nelle ore intermedie del pomeriggio (15:00–18:00) i manager in più coprono al posto dei crew, così le ore dei crew vanno sui rush di pranzo e cena.</div>' : ''}
     <div class="actions">
       <button class="btn" onclick="closeModal()">Annulla</button>
       <button class="btn" onclick="startGenerate(true)">Da zero</button>
