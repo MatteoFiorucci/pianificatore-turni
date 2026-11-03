@@ -282,7 +282,7 @@
   table.vlh tr.gap td { border: 0; height: 10px; }
   table.vlh tr.tot td { height: 28px; vertical-align: middle; } table.vlh td.num { text-align: right; font-weight: 700; font-size: 14px; }
   table.vlh td.short { background: var(--err); color: var(--err-ink); }
-  table.vlh tr.nx td { height: 26px; } table.vlh td.next { font-size: 11px; vertical-align: middle; }
+  table.vlh tr.nx td { height: 34px; } table.vlh td.next { font-size: 11px; vertical-align: top; } table.vlh td.next .pos { font-size: 9.5px; }
   table.vlh input { width: 100%; box-sizing: border-box; text-align: center; font-weight: 700; font-size: 13px; padding: 1px; border: 1px solid #ccc; border-radius: 3px; }
   table.vlh input.man { background: #fff4d6; }
   /* telefono: il foglio resta largo come quello di carta e si scorre di lato */
@@ -333,17 +333,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611031132"></script>
-<script src="turni-core.js?v=202611031132"></script>
-<script src="turni-manager.js?v=202611031132"></script>
-<script src="turni-vlh.js?v=202611031132"></script>
+<script src="turni-storico.js?v=202611031137"></script>
+<script src="turni-core.js?v=202611031137"></script>
+<script src="turni-manager.js?v=202611031137"></script>
+<script src="turni-vlh.js?v=202611031137"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611031132"></script>
-<script src="turni-cloud-config.js?v=202611031132"></script>
-<script src="turni-cloud.js?v=202611031132"></script>
-<script src="turni-cripto.js?v=202611031132"></script>
-<script src="lineare-ufficiale.js?v=202611031132"></script>
+<script src="turni-data.js?v=202611031137"></script>
+<script src="turni-cloud-config.js?v=202611031137"></script>
+<script src="turni-cloud.js?v=202611031137"></script>
+<script src="turni-cripto.js?v=202611031137"></script>
+<script src="lineare-ufficiale.js?v=202611031137"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1070,7 +1070,9 @@ function renderVLH() {
     .map((s) => ({ id: s.employeeId, station: s.station, trainings: ctx.byId.get(s.employeeId).trainings || [], name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
   const allHours = [...new Set(VLH_SHEETS.flat())];
   const info = {}; for (const h of allHours) { const g = vlhGC(day, h); info[h] = { ...g, r: V.forHour(state.vlh, dow, h, g.gc || 0) }; }
-  const names = ui.vlhNomi !== false ? V.assign(allHours, (h) => (info[h].r ? info[h].r.open : []), people, (h) => vlhFixed(day, h)) : {};
+  // postazioni da riempire: quelle aperte + le prossime 3 in cui hai messo qualcuno a mano (quelle non si riempiono da sole)
+  const toFill = (h) => (info[h].r ? [...info[h].r.open, ...info[h].r.next.filter((p) => vlhFixed(day, h)[p.code])] : []);
+  const names = ui.vlhNomi !== false ? V.assign(allHours, toFill, people, (h) => vlhFixed(day, h)) : {};
   const anyMan = Object.keys((state.vlhGC || {})[T.toIso(day)] || {}).length;
   const anyMoved = Object.keys((state.vlhNomi || {})[T.toIso(day)] || {}).length;
   const mgrAt = (h) => (state.mgrShifts || []).filter((x) => x.day === day && x.start <= h * 60 && x.end > h * 60 && mgrById(x.managerId)).map((x) => mgrById(x.managerId).lastName).join(', ');
@@ -1108,7 +1110,9 @@ function renderVLH() {
       <tr class="tot"><td class="lab" colspan="2">Recom. Crew</td>${rec.map((x) => `<td class="num">${x}</td>`).join('')}</tr>
       <tr class="tot"><td class="lab" colspan="2">Actual Crew</td>${act.map((x, i) => `<td class="num ${x < rec[i] ? 'short' : ''}" title="Crew e hospitality in turno almeno mezz'ora in quest'ora">${x}</td>`).join('')}</tr>
       <tr><td class="lab" colspan="${n + 2}">Next 3 Crew Positions</td></tr>
-      ${[0, 1, 2].map((j) => `<tr class="nx"><td class="lab" colspan="2">+${j + 1}</td>${cols.map((c) => `<td class="next">${c.r.next[j] ? esc(c.r.next[j].name) : ''}</td>`).join('')}</tr>`).join('')}`;
+      ${[0, 1, 2].map((j) => `<tr class="nx"><td class="lab" colspan="2">+${j + 1}</td>${cols.map((c, i) => { const p = c.r.next[j]; if (!p) return '<td class="next"></td>';
+        const h = hours[i], x = (names[h] || {})[p.code], out = x && !V.fits(p.code, x);
+        return `<td class="next vslot ${out ? 'fuori' : ''}" data-h="${h}" data-code="${p.code}"><div class="pos">${p.n} ${esc(p.name)}</div>${x ? `<div class="who man" data-h="${h}" data-code="${p.code}" data-id="${x.id}" onpointerdown="vlhDragStart(event)">${esc(x.name)}</div>` : ''}</td>`; }).join('')}</tr>`).join('')}`;
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
   return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">torna alla proposta automatica</a>` : ''}. In stampa puoi correggerli a penna.</div>
