@@ -224,6 +224,8 @@
       employees,
       byId: new Map(employees.map((e) => [e.id, e])),
       shifts: state.shifts.filter((s) => s.day >= ws && s.day <= ws + 6),
+      // turni dei manager della settimana: nelle ore intermedie del pomeriggio coprono al posto dei crew
+      mgr: (state.mgrShifts || []).filter((s) => s.day >= ws && s.day <= ws + 6),
       prev: state.shifts.filter((s) => s.day >= ws - 2 && s.day < ws),
       // primi giorni della settimana dopo, se già pianificati: chi chiude domenica non può aprire lunedì
       next: state.shifts.filter((s) => s.day > ws + 6 && s.day <= ws + 8),
@@ -503,8 +505,19 @@
     return s.station !== 'HOSPITALITY' && (!station || s.station === station) && (!opening || (e.openings || []).includes(station));
   }
   /** Persone presenti in un quarto d'ora che contano per la fascia. */
+  /** Fascia intermedia del pomeriggio (tra pranzo e cena): lì contano anche i manager in più. */
+  const isMidAfternoon = (r) => !!r && !r.station && (r.id === 'c8' || /intermedio pomeriggio/i.test(r.name || ''));
+  /**
+   * Manager in più nel quarto d'ora (oltre al responsabile di turno): nelle ore intermedie coprono loro,
+   * così le ore dei crew si concentrano sui rush di pranzo e cena. Si spegne con config.mgrInIntermedi = false.
+   */
+  function mgrExtra(ctx, day, minute) {
+    if (!ctx.mgr || ctx.cfg.mgrInIntermedi === false) return 0;
+    return Math.max(0, ctx.mgr.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT).length - 1);
+  }
   function countAt(ctx, day, minute, req, list = ctx.shifts) {
-    return list.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT && countsFor(ctx, s, req)).length;
+    return list.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT && countsFor(ctx, s, req)).length
+      + (isMidAfternoon(req) ? mgrExtra(ctx, day, minute) : 0);
   }
   /** Quarto d'ora in cui si controlla una squadra esatta: il primo della fascia (apertura) o l'ultimo (chiusura). */
   const teamSlot = (r) => (r.exact === 'start' ? r.start : r.end - SLOT);
@@ -1234,9 +1247,9 @@
     function crowding(d, start, end, reqList = generic, countReq = null) {
       let tot = 0, n = 0;
       for (let t = start; t < end; t += SLOT) {
-        let want = 0.5; // fuori dalle fasce richieste: poco utile aggiungere gente
-        for (const r of reqList) if (t >= r.start && t < r.end) want = Math.max(want, reqMin(r, d));
-        tot += (countAt(ctx, d, t, countReq, shifts) + 1) / want; n++;
+        let want = 0.5, mid = false; // fuori dalle fasce richieste: poco utile aggiungere gente
+        for (const r of reqList) if (t >= r.start && t < r.end) { want = Math.max(want, reqMin(r, d)); if (isMidAfternoon(r)) mid = true; }
+        tot += (countAt(ctx, d, t, countReq, shifts) + (mid && !countReq ? mgrExtra(ctx, d, t) : 0) + 1) / want; n++;
       }
       return n ? tot / n : Infinity;
     }

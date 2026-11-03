@@ -20,7 +20,8 @@
   const ROLE_TXT = { A: 'Apertura', C: 'Chiusura', CEN: 'Centrale', D: 'Delivery', C2: 'Secondo in chiusura', X: 'Rinforzo', M2: 'Secondo in apertura', F: 'Flessibile' };
   // durata minima/massima e durata preferita di ogni ruolo (minuti)
   const LEN = { A: [360, 450, 420], C: [360, 450, 420], CEN: [330, 450, 420], D: [360, 450, 420], M2: [360, 450, 420], C2: [300, 420, 390], X: [270, 420, 360], F: [390, 480, 450] };
-  const CEN_STARTS = [600, 660, 570, 630, 720];
+  // centrale: copre sempre le ore intermedie del pomeriggio (15:00–18:00), così i crew stanno sui rush
+  const CEN_STARTS = [690, 660, 720, 675, 705], MID_END = 1080;
   const isMorning = (r) => r === 'A' || r === 'D' || r === 'M2';
   const isEvening = (r) => r === 'C' || r === 'C2' || r === 'X';
 
@@ -43,7 +44,7 @@
       case 'X': return [1260 - len, 1260];
       case 'D': case 'M2': return [OPEN, OPEN + len];
       case 'F': return [540, 540 + len];
-      default: { const st = Math.min(CEN_STARTS[k % CEN_STARTS.length], 1170 - len, maxStart); return [st, st + len]; }
+      default: { const st = Math.min(Math.max(CEN_STARTS[k % CEN_STARTS.length], MID_END - len), 1170 - len, maxStart); return [st, st + len]; }
     }
   }
 
