@@ -75,7 +75,7 @@
         const yy = y + i * RH, ty = yy + RH - 0.6;
         let who, post, col;
         if (s.managerId != null) { const m = (state.managers || []).find((x) => x.id === s.managerId); who = name(m); post = m.role === 'SHIFT' ? 'SHIFT' : 'RDM'; col = '#1f5f46'; }
-        else { const e = ctx.byId.get(s.employeeId), lim = T.limitOf(ctx, e.id, s.day); who = name(e); post = lim ? 'RICHIESTA' : POST[s.station] || ''; col = COL[s.station] || '#888'; }
+        else { const e = ctx.byId.get(s.employeeId), lim = T.limitOf(ctx, e.id, s.day); who = name(e); post = lim ? 'RICHIESTA' : POST[s.station] || ((T.STATIONS[s.station] || {}).short || ''); col = COL[s.station] || (T.STATIONS[s.station] || {}).color || '#888'; }
         t(X_NAME - 0.6, ty, post, { fs: 1.25, a: 'end' });
         t(X_NAME + 0.6, ty, who, { fs: 1.6 });
         t(X_T1 + 3.25, ty, fmt(s.start), { fs: 1.55, a: 'middle' }); t(X_T2 + 3.25, ty, fmt(s.end), { fs: 1.55, a: 'middle' });
