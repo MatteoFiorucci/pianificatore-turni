@@ -14,13 +14,16 @@
 (function (root) {
   'use strict';
   const T = root.Turni;
-  const OPEN = 450, CLOSE = 1290;            // 7:30 – 21:30
-  const REST12 = 720, REST36 = 2160, ORDER_BY = 690; // stacco 12h, 36h con riposo; ordine: entra entro le 11:30
+  // regole dei manager: impostazioni dello store (state.config.mgr), con questi valori di partenza.
+  // Orario del locale giorno per giorno (anche 24h) dalle impostazioni dello store.
+  let CFG = {};
+  const OPEN = (d) => T.dayHours(CFG, d).open, CLOSE = (d) => T.dayHours(CFG, d).close;
+  let REST12 = 720, REST36 = 2160, ORDER_BY = 690; // stacco 12h, 36h con riposo; ordine: entra entro le 11:30
   const DAY = 1440;
   const ROLE_TXT = { A: 'Apertura', C: 'Chiusura', CEN: 'Centrale', D: 'Delivery', C2: 'Secondo in chiusura', X: 'Rinforzo', M2: 'Secondo in apertura', F: 'Flessibile' };
   // durata dei turni manager (regola tassativa): corti da 3 a 5 ore (senza pausa) oppure lunghi da 6:30 a 8:30;
   // mai tra 5 e 6:30 (niente 5:30 né 6:00)
-  const SHORT = [180, 300], LONG = [390, 510];
+  let SHORT = [180, 300], LONG = [390, 510];
   const lenOk = (l) => (l >= SHORT[0] && l <= SHORT[1]) || (l >= LONG[0] && l <= LONG[1]);
   // durata preferita di ogni ruolo (minuti); i turni corti si usano solo se servono per le ore di contratto,
   // prima nei ruoli centrali e di rinforzo (CEN, X, C2), così apertura e chiusura restano coperte
@@ -76,13 +79,14 @@
   }
 
   /** Orario di un turno del ruolo r con durata len. */
-  function timesFor(r, len, k, maxStart = 1440, side = null) {
+  function timesFor(r, len, k, maxStart = 1440, side = null, day = 0) {
+    const op = OPEN(day), cl = CLOSE(day);
     switch (r) {
-      case 'A': return [OPEN, OPEN + len];
-      case 'C': return [CLOSE - len, CLOSE];
-      case 'C2': return [Math.max(840, 1260 - len), Math.max(840, 1260 - len) + len];
-      case 'X': return [1260 - len, 1260];
-      case 'D': case 'M2': return [OPEN, OPEN + len];
+      case 'A': return [op, op + len];
+      case 'C': return [cl - len, cl];
+      case 'C2': return [Math.max(840, cl - 30 - len), Math.max(840, cl - 30 - len) + len];
+      case 'X': return [cl - 30 - len, cl - 30];
+      case 'D': case 'M2': return [op, op + len];
       case 'F': return [540, 540 + len];
       default: {
         // centrale: copre il pomeriggio (fino alle 18) e il rush dove manca il secondo manager:
@@ -90,7 +94,7 @@
         let st;
         if (len >= DIN_END - LUNCH_AT) st = DIN_END - len;
         else st = (side || (k % 2 ? 'cena' : 'pranzo')) === 'cena' ? Math.max(DIN_END - len, LUNCH_AT - 60) : Math.min(LUNCH_AT, Math.max(MID_END - len, CEN_STARTS[k % CEN_STARTS.length]));
-        st = Math.max(OPEN + 60, Math.min(st, maxStart));
+        st = Math.max(op + 60, Math.min(st, maxStart));
         return [st, st + len];
       }
     }
@@ -99,9 +103,17 @@
   /** Quanti manager servono come minimo nel giorno k (0 = lunedì). */
   function needOn(state, ws, k) {
     const d = k + 1, carpi = carpiWeek(state, ws);
-    return 2 + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
+    return (loadCfg(state).minPerDay ?? 2) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
   }
-  const REST_DAYS = [1, 2, 3, 4]; // il riposo dei manager è da lunedì a giovedì
+  let REST_DAYS = [1, 2, 3, 4]; // il riposo dei manager è da lunedì a giovedì
+  const MGR_DEFAULT = { short: [180, 300], long: [390, 510], rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+  /** Legge le regole dei manager dalle impostazioni dello store (valori di partenza se mancano). */
+  function loadCfg(state) {
+    CFG = (state && state.config) || {};
+    const g = { ...MGR_DEFAULT, ...(CFG.mgr || {}) };
+    SHORT = g.short; LONG = g.long; REST12 = g.rest; REST36 = g.rest36; ORDER_BY = g.orderBy; REST_DAYS = g.restDays;
+    return g;
+  }
 
   /** Ruoli che servono in un giorno, dato quanti manager ci sono. */
   function rolesFor(state, ws, k, n) {
@@ -141,6 +153,7 @@
    * e tiene la migliore secondo i controlli. Restituisce { shifts, problems }.
    */
   function generate(state, ws, opts = {}) {
+    loadCfg(state);
     const team = mgrs(state);
     if (!team.length) return { shifts: [], problems: [{ sev: 'ERROR', msg: 'Nessun manager: aggiungili nella scheda Manager.' }] };
     const keep = opts.keep ? weekShifts(state, ws) : [];
@@ -246,7 +259,7 @@
           // chi il giorno dopo apre (7:30) non può finire alle 20:30 (stacco di 12 ore): il suo centrale copre il pranzo
           const opensNext = plan.some((y) => y.m === m && y.k === x.k + 1 && isMorning(y.role));
           const side = opensNext ? 'pranzo' : dayRoles.some((r) => r === 'D' || r === 'M2' || r === 'F') ? 'cena' : dayRoles.some((r) => r === 'X' || r === 'C2') ? 'pranzo' : null;
-          const [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440, side); shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
+          const [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440, side, ws + x.k); shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
       }
       const all = [...keep, ...shifts.filter((s) => !keepKey.has(s.managerId + '|' + s.day))];
       fillGaps(all, keep);
@@ -261,7 +274,7 @@
   function firstGap(list, d) {
     const dl = list.filter((s) => s.day === d);
     if (!dl.length) return null;
-    for (let m = OPEN; m < CLOSE; m += 15) if (!dl.some((s) => s.start <= m && s.end > m)) return m;
+    for (let m = OPEN(d); m < CLOSE(d); m += 15) if (!dl.some((s) => s.start <= m && s.end > m)) return m;
     return null;
   }
   /**
@@ -276,7 +289,7 @@
       for (const d of [...new Set(list.map((s) => s.day))]) {
         const g = firstGap(list, d);
         if (g == null) continue;
-        let e = g; while (e < CLOSE && !list.some((s) => s.day === d && s.start <= e && s.end > e)) e += 15;
+        let e = g; while (e < CLOSE(d) && !list.some((s) => s.day === d && s.start <= e && s.end > e)) e += 15;
         const near = list.filter((s) => s.day === d && !fixed.has(s) && (s.end === g || s.start === e));
         for (const s of near) {
           const grow = Math.min(30, e - g), len = s.end - s.start;
@@ -285,7 +298,7 @@
             const tl = t.end - t.start;
             if (!lenOk(tl - grow)) continue;
             const old = { start: t.start, end: t.end };
-            if (t.start <= OPEN) t.end -= grow; else t.start += grow;
+            if (t.start <= OPEN(t.day)) t.end -= grow; else t.start += grow;
             if (firstGap(list, t.day) == null) {
               if (s.end === g) s.end += grow; else s.start -= grow;
               done = true; break;
@@ -304,25 +317,26 @@
 
   /** Controlli della settimana dei manager. list = turni della settimana (di default quelli salvati). */
   function check(state, ws, list = weekShifts(state, ws), nb = neighbours(state, ws)) {
+    loadCfg(state);
     const out = [], team = mgrs(state), V = (sev, msg, managerId = null, day = null) => out.push({ sev, msg, managerId, day });
     const name = (m) => T.fullName(m), when = (d) => `${T.DOW_LONG[T.dow(d)]} ${T.shortDate(d)}`;
     const carpi = carpiWeek(state, ws);
     for (let k = 0; k < 7; k++) {
       const d = ws + k, dl = list.filter((s) => s.day === d);
       if (!dl.length) continue;
-      if (!dl.some((s) => s.start <= OPEN)) V('ERROR', `${when(d)}: nessun manager in apertura (7:30)`, null, d);
-      if (!dl.some((s) => s.end >= CLOSE)) V('ERROR', `${when(d)}: nessun manager in chiusura (21:30)`, null, d);
-      if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= OPEN).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle 7:30`, null, d);
-      if (carpi && k === 1 && dl.filter((s) => s.end >= 1260).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
-      if (carpi && k === 2 && dl.filter((s) => s.start <= OPEN).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (7:30)`, null, d);
+      if (!dl.some((s) => s.start <= OPEN(d))) V('ERROR', `${when(d)}: nessun manager in apertura (${T.fmtTime(OPEN(d))})`, null, d);
+      if (!dl.some((s) => s.end >= CLOSE(d))) V('ERROR', `${when(d)}: nessun manager in chiusura (${T.fmtTime(CLOSE(d))})`, null, d);
+      if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= OPEN(d)).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(OPEN(d))}`, null, d);
+      if (carpi && k === 1 && dl.filter((s) => s.end >= CLOSE(d) - 30).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
+      if (carpi && k === 2 && dl.filter((s) => s.start <= OPEN(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(OPEN(d))})`, null, d);
       // pranzo e cena con 2 manager, quando quel giorno ce ne sono almeno 3
       if (dl.length >= 3) for (const [m, t] of [[LUNCH_CHECK, 'a pranzo (13:00)'], [DINNER_CHECK, 'a cena (20:00)']]) {
         if (dl.filter((s) => s.start <= m && s.end > m).length < 2) V('WARNING', `${when(d)}: un solo manager ${t}`, null, d);
       }
       // sempre almeno un manager dall'apertura alla chiusura
-      for (let m = OPEN; m < CLOSE; m += 15) {
+      for (let m = OPEN(d); m < CLOSE(d); m += 15) {
         if (dl.some((s) => s.start <= m && s.end > m)) continue;
-        let e = m; while (e < CLOSE && !dl.some((s) => s.start <= e && s.end > e)) e += 15;
+        let e = m; while (e < CLOSE(d) && !dl.some((s) => s.start <= e && s.end > e)) e += 15;
         V('ERROR', `${when(d)}: nessun manager dalle ${T.fmtTime(m)} alle ${T.fmtTime(e)}`, null, d);
         break;
       }
@@ -338,9 +352,9 @@
         const day = ws + d - 1, s = mine.find((x) => x.day === day);
         if (absentOn(state, m, day)) continue;
         if (!s) V('ERROR', `${name(m)}: ${when(day)} c'è l'ordine (entro le 12:30), non può riposare`, m.id, day);
-        else if (s.start > ORDER_BY) V('ERROR', `${name(m)}: ${when(day)} c'è l'ordine, deve entrare entro le 11:30`, m.id, day);
+        else if (s.start > ORDER_BY) V('ERROR', `${name(m)}: ${when(day)} c'è l'ordine, deve entrare entro le ${T.fmtTime(ORDER_BY)}`, m.id, day);
       }
-      if (m.centralWeekly && !mine.some((s) => T.dow(s.day) <= 4 && s.start > OPEN && s.end < 1260)) V('WARNING', `${name(m)}: manca il turno centrale tra lunedì e giovedì`, m.id);
+      if (m.centralWeekly && !mine.some((s) => T.dow(s.day) <= 4 && s.start > OPEN(s.day) && s.end < CLOSE(s.day) - 30)) V('WARNING', `${name(m)}: manca il turno centrale tra lunedì e giovedì`, m.id);
       const worked = mine.reduce((t, s) => t + s.end - s.start, 0), target = targetOf(state, m, ws);
       if (worked !== target) V(worked > target ? 'ERROR' : 'WARNING', `${name(m)}: ${T.fmtDur(worked)} su ${T.fmtDur(target)} di contratto`, m.id);
       const workDays = new Set(mine.map((s) => s.day)).size;

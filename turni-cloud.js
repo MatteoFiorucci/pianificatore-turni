@@ -5,6 +5,8 @@
  * Le chiavi di accesso al progetto (turni-cloud-config.js) sono pubbliche per natura: non danno accesso ai dati.
  */
 (function (root) {
+  /** Versione di prova aperta sul computer (http://localhost): i dati si leggono ma non si salvano online. */
+  const PROVA = !!(root.location && /^(localhost|127\.0\.0\.1)$/.test(root.location.hostname));
   'use strict';
   const LS = 'turni-cloud-v1';
   const ITER = 300000;
@@ -158,6 +160,8 @@
    */
   async function push(state, base) {
     const s = read();
+    // versione di prova sul computer (localhost): legge i dati veri ma non scrive niente online
+    if (PROVA) { patch({ lastSavedAt: new Date().toISOString() }); return s.lastUpdate; }
     const sealed = await seal({ state }, await currentKey());
     const savedAt = new Date().toISOString();
     const fields = {
@@ -191,6 +195,7 @@
   // ---- richieste del personale (negozi/{uid}: chiave pubblica, codici, richieste) ----
   const storeUrl = (path = '') => `https://firestore.googleapis.com/v1/projects/${cfg().projectId}/databases/(default)/documents/negozi/${read().uid}${path}`;
   async function api(url, opts = {}) {
+    if (PROVA && opts.method && opts.method !== 'GET') return {}; // versione di prova: nessuna scrittura online
     let r;
     try { r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + await token(), 'Content-Type': 'application/json', ...(opts.headers || {}) }, cache: 'no-store' }); }
     catch (e) { if (e instanceof CloudError) throw e; throw new CloudError('OFFLINE', 'Nessuna connessione a internet'); }
@@ -245,7 +250,7 @@
   const deleteRequest = (rid) => api(storeUrl(`/richieste/${rid}`), { method: 'DELETE' });
 
   root.TurniCloud = {
-    configured, loggedIn, session, login, logout, push, pull, deviceName,
+    PROVA, configured, loggedIn, session, login, logout, push, pull, deviceName,
     uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, listAccess, accessExists, setOrario, deleteOrario, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
     setLastUpdate: (t) => patch({ lastUpdate: t }),
