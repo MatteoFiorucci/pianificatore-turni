@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 28;
+  const VERSION = 29;
 
   function emptyState() {
     return {
@@ -73,6 +73,11 @@
     if ((st.version || 1) < 27) for (const r of st.coverage) if (['p1', 'p2', 'p3', 'p4'].includes(r.id)) { r.soft = true; r.name = r.name.replace(/^Presidio /, 'Postazione '); }
     // v28: impegno → turno finito 30 minuti prima oppure iniziato 2 ore dopo (scelta del manager, 3/11/2026)
     if ((st.version || 1) < 28) { st.config.requestMargin = 30; st.config.requestAfter = 120; }
+    // v29: da venerdì a domenica alle 9:00 entra il secondo McCafé (richiesta del manager, 4/11/2026)
+    if ((st.version || 1) < 29 && !st.coverage.some((r) => r.id === 'm2')) {
+      const d = T.DEFAULT_COVERAGE.find((r) => r.id === 'm2'), at = st.coverage.findIndex((r) => r.id === 'c1');
+      st.coverage.splice(at + 1, 0, { ...d, min: [...d.min] });
+    }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
     return st;
