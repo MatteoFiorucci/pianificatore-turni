@@ -333,17 +333,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611041206"></script>
-<script src="turni-core.js?v=202611041206"></script>
-<script src="turni-manager.js?v=202611041206"></script>
-<script src="turni-vlh.js?v=202611041206"></script>
+<script src="turni-storico.js?v=202611042042"></script>
+<script src="turni-core.js?v=202611042042"></script>
+<script src="turni-manager.js?v=202611042042"></script>
+<script src="turni-vlh.js?v=202611042042"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611041206"></script>
-<script src="turni-cloud-config.js?v=202611041206"></script>
-<script src="turni-cloud.js?v=202611041206"></script>
-<script src="turni-cripto.js?v=202611041206"></script>
-<script src="lineare-ufficiale.js?v=202611041206"></script>
+<script src="turni-data.js?v=202611042042"></script>
+<script src="turni-cloud-config.js?v=202611042042"></script>
+<script src="turni-cloud.js?v=202611042042"></script>
+<script src="turni-cripto.js?v=202611042042"></script>
+<script src="lineare-ufficiale.js?v=202611042042"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -374,6 +374,8 @@ function save() { saveLocal(); cloudTouch(); }
 const newId = () => state.nextId++;
 const empById = (id) => state.employees.find((e) => e.id === id);
 const mgrById = (id) => (state.managers || []).find((m) => m.id === id);
+/** Dipendente o manager (hanno numeri diversi): serve per gli accessi all'app del personale. */
+const personById = (id) => empById(id) || mgrById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const timeSelect = (value, onchange) =>
   `<select onchange="${onchange}">${TIME_OPTIONS.map((t) => `<option value="${t}" ${t === value ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
@@ -828,7 +830,7 @@ function mgrTeamCard() {
       <td><div class="row" style="gap:3px;flex-wrap:wrap">${dayChk(m, 'orderDays', 'Fa l\'ordine')}</div></td>
       <td><div class="row" style="gap:3px;flex-wrap:wrap">${dayChk(m, 'flexDays', 'Orario flessibile')}</div></td>
       <td style="text-align:center"><input type="checkbox" ${m.centralWeekly ? 'checked' : ''} onchange="mgrSet(${m.id},'centralWeekly',this.checked)"></td>
-      <td><button class="link" style="color:var(--err-ink)" onclick="mgrDel(${m.id})">Elimina</button></td></tr>`).join('')}
+      <td style="white-space:nowrap"><button class="link" onclick="mgrAccess(${m.id})" title="Nome utente e password per vedere i propri turni nell'app">📱 ${state.reqCreds && state.reqCreds[m.id] ? 'Accesso' : 'Crea accesso'}</button> · <button class="link" style="color:var(--err-ink)" onclick="mgrDel(${m.id})">Elimina</button></td></tr>`).join('')}
     </tbody></table>
     <div style="margin-top:8px"><button class="btn" onclick="mgrAdd()">+ Aggiungi manager</button></div>
     <div class="form" style="margin-top:14px"><div class="row">
@@ -837,6 +839,12 @@ function mgrTeamCard() {
     </div></div>
     <p class="small muted" style="margin-bottom:0">Regole fisse: stacco di 12 ore tra due turni e 36 ore con un riposo in mezzo; 6 giorni su 7 con il riposo da lunedì a giovedì; Carpigiani: martedì 2 manager la sera fino almeno alle 21:00 e mercoledì 2 in apertura; ogni giorno un manager in apertura (7:30) e uno in chiusura (21:30); il weekend (ven–dom) a rotazione tra aperture, centrali e cene.</p>
   </details>`;
+}
+/** Accesso all'app dei turni per un manager: stessa app e stesso sistema dei dipendenti (vede solo i suoi turni). */
+function mgrAccess(id) {
+  const m = mgrById(id); if (!m) return;
+  showModal(`<h3>📱 ${esc(T.fullName(m) || 'Manager')}</h3><p class="muted" style="margin-top:0">Con questo accesso vede i suoi turni nell'app del personale (quelli delle settimane pubblicate).</p>${accessBox(m)}
+    <div class="actions"><button class="btn primary" onclick="closeModal()">Chiudi</button></div>`);
 }
 function mgrAdd() { state.managers = state.managers || []; state.managers.push({ id: newId(), lastName: '', firstName: '', role: 'RDM', area: '', weeklyMinutes: 2400, orderDays: [], flexDays: [], active: true }); ui.mgrTeamOpen = true; save(); render(); }
 function mgrSet(id, f, v) { const m = mgrById(id); if (!m) return; if (f === 'weeklyMinutes' && !(v > 0)) return render(); if (f === 'role' && v === 'SHIFT' && (m.weeklyMinutes || 2400) === 2400) m.weeklyMinutes = 2160; m[f] = typeof v === 'string' ? v.trim() : v; save(); render(); }
@@ -2233,6 +2241,18 @@ function weekSnapshot(ws) {
     });
     out[e.id] = { days, hours: T.worked(ctx, e.id) + T.doubleWorked(ctx, e.id), target: T.target(ctx, e) };
   }
+  // manager: i loro turni (calendario a parte), con il ruolo del giorno (apertura, chiusura, centrale…)
+  const M = window.TurniManager;
+  for (const m of (state.managers || []).filter((x) => x.active !== false)) {
+    const mine = (state.mgrShifts || []).filter((s) => s.managerId === m.id && s.day >= ws && s.day <= ws + 6);
+    if (!mine.length) continue;
+    const days = ctx.days.map((d) => {
+      const sh = mine.filter((s) => s.day === d).sort((a, b) => a.start - b.start).map((s) => ({ a: s.start, b: s.end, st: 'MGR', r: (M && M.ROLE_TXT[s.role]) || '' }));
+      const ab = (state.absences || []).find((a) => a.employeeId === m.id && d >= a.from && d <= a.to);
+      return { d, sh, tag: sh.length ? '' : ab ? T.absenceInfo(ab.type).label : 'Riposo', note: '' };
+    });
+    out[m.id] = { days, hours: mine.reduce((t, s) => t + s.end - s.start, 0), target: M ? M.targetOf(state, m, ws) : 0, mgr: true };
+  }
   return out;
 }
 const pubOf = (ws) => (state.publishedWeeks || {})[ws];
@@ -2250,7 +2270,7 @@ function askPublish() {
   const withAccess = state.employees.filter((e) => e.active && state.reqCreds[e.id]).length, total = state.employees.filter((e) => e.active).length;
   const p = pubOf(ui.ws);
   showModal(`<h3>📢 Pubblica la settimana ${T.weekLabel(ui.ws)}</h3>
-    <p>I dipendenti la vedranno nell'app, nella scheda <b>"I miei turni"</b>: ognuno solo i suoi turni.</p>
+    <p>Dipendenti e manager la vedranno nell'app, nella scheda <b>"I miei turni"</b>: ognuno solo i suoi turni.</p>
     ${nErr ? `<p class="notice warn">Ci sono ancora <b>${nErr} errori</b> nella settimana: puoi pubblicare lo stesso, ma conviene sistemarli prima.</p>` : ''}
     ${withAccess < total ? `<p class="notice info">${withAccess} dipendenti su ${total} hanno l'accesso all'app: gli altri la vedranno quando creerai il loro accesso (sezione Richieste).</p>` : ''}
     <div class="form"><label class="f">Nota per tutti (facoltativa)<input type="text" id="pub-note" maxlength="300" value="${esc((p && p.note) || '')}" placeholder="es. riunione martedì alle 15"></label></div>
@@ -2264,7 +2284,7 @@ async function doPublish() {
   for (const k of Object.keys(state.publishedWeeks).map(Number).sort((a, b) => b - a).slice(16)) delete state.publishedWeeks[k];
   closeModal(); save(); render();
   const r = await pushOrari();
-  showModal(`<h3>${r.fail ? '⚠️' : '✅'} Settimana pubblicata</h3><p>${r.ok} dipendenti la vedono nell'app.${r.fail ? ` Per ${r.fail} l'invio non è riuscito (connessione?): ripubblica tra poco.` : ''}</p>
+  showModal(`<h3>${r.fail ? '⚠️' : '✅'} Settimana pubblicata</h3><p>${r.ok} persone (dipendenti e manager con l'accesso) la vedono nell'app.${r.fail ? ` Per ${r.fail} l'invio non è riuscito (connessione?): ripubblica tra poco.` : ''}</p>
     <div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
 }
 /** Manda online l'orario pubblicato di ogni dipendente con accesso (o solo di quelli indicati). */
@@ -2272,7 +2292,9 @@ async function pushOrari(ids) {
   const res = { ok: 0, fail: 0 };
   if (!TurniCloud.loggedIn()) return res;
   const weeks = Object.entries(state.publishedWeeks || {}).map(([k, w]) => [+k, w]).sort((a, b) => b[0] - a[0]).slice(0, 12);
-  for (const e of state.employees.filter((x) => x.active && state.reqCreds[x.id] && (!ids || ids.includes(x.id)))) {
+  const people = [...state.employees.filter((x) => x.active), ...(state.managers || []).filter((x) => x.active !== false)];
+  for (const e of people.filter((x) => state.reqCreds[x.id] && (!ids || ids.includes(x.id)))) {
+    const isMgr = !!mgrById(e.id);
     const c = state.reqCreds[e.id];
     const mine = weeks.filter(([, w]) => w.emp[e.id]).map(([ws, w]) => ({ ws, at: w.at, note: w.note || '', ...w.emp[e.id],
       days: w.emp[e.id].days.map((x) => ((w.marks || {})[e.id + '|' + x.d] ? { ...x, mod: w.marks[e.id + '|' + x.d] } : x)) }));
@@ -2281,7 +2303,7 @@ async function pushOrari(ids) {
       .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
-      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs }));
+      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: isMgr ? [] : reqs, ruolo: isMgr ? 'manager' : 'personale' }));
       res.ok++;
     } catch (err) { res.fail++; }
   }
@@ -2401,7 +2423,7 @@ async function accessFields(e, user, pw, k, oid) {
   return { emp: String(e.id), nome: e.firstName || '', kw: w.box, kiv: w.iv, oid };
 }
 async function makeAccess(id, quiet) {
-  const e = empById(id); if (!e) return false;
+  const e = personById(id); if (!e) return false;
   const old = state.reqCreds[id];
   const user = old ? old.user : newUser(e), pw = newPassword();
   const k = (old && old.k) || randB64(32), oid = (old && old.oid) || randId();
@@ -2413,7 +2435,7 @@ async function makeAccess(id, quiet) {
     if (old && !old.oid && old.code) await TurniCloud.deleteOrario(old.code); // vecchio formato
     state.reqCreds[id] = { user, pw, code, k, oid }; save();
     pushOrari([id]).catch(() => null); // con la password nuova serve di nuovo il suo orario pubblicato
-    if (!quiet) { render(); shareAccess(id); }
+    if (!quiet) { render(); if (mgrById(id) && modalOpen()) mgrAccess(id); shareAccess(id); }
     return true;
   } catch (err) { if (!quiet) alert('Non riuscito: ' + err.message); return false; }
 }
@@ -2433,7 +2455,7 @@ async function share(title, text) {
 async function upgradeCreds() {
   const todo = Object.entries(state.reqCreds).filter(([, c]) => !c.k || !c.oid);
   for (const [id, c] of todo) {
-    const e = empById(+id); if (!e) continue;
+    const e = personById(+id); if (!e) continue;
     const k = randB64(32), oid = randId();
     try {
       await TurniCloud.setAccess(c.code, await accessFields(e, c.user, c.pw, k, oid));
@@ -2455,7 +2477,7 @@ async function checkChangedPasswords() {
 const shareAppLink = () => share('Link dell\'app per il personale', `Ciao a tutti! Da quest'app potete chiedere un turno compatibile con i vostri impegni (concerti, università, allenamenti…).\nScaricatela da qui: ${appLink()}\nAprite il link nel browser del telefono (non dentro WhatsApp): la pagina vi spiega come installare l'app, per qualsiasi telefono e browser.\nNome utente e password ve li mando in privato.`);
 /** Credenziali personali (in privato). */
 function shareAccess(id) {
-  const e = empById(id), c = state.reqCreds[id];
+  const e = personById(id), c = state.reqCreds[id];
   if (c.changed) return alert(`${T.fullName(e)} ha cambiato la password da solo/a: non la conosci. Se l'ha dimenticata, premi "Nuova password".`);
   share(`Accesso di ${T.fullName(e)}`, `Ciao ${e.firstName || ''}! Ecco i tuoi dati per l'app dei turni:\nNome utente: ${c.user}\nPassword: ${c.pw}\nApp: ${appLink()}\nSono personali: non darli a nessuno.`);
 }
