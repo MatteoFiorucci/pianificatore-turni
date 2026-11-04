@@ -393,7 +393,7 @@
   const RULES = {
     COVERAGE: 'Copertura', FIXED_REST: 'Riposo fisso', ABSENCE: 'Ferie / malattia', INVALID_TIME: 'Orario non valido',
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
-    TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
+    SHORT_OFFPEAK: 'Turno breve fuori dai rush', TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
     DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena', REQUEST: 'Richiesta del personale',
     CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé',
   };
@@ -676,6 +676,26 @@
     for (let m = Math.floor(from / 15) * 15; m < to; m += 15) if (mcCafeLoad(list, d, m, extra, except) > mcCafeMax(cfg, d, m)) return true;
     return false;
   }
+  /**
+   * Turni brevi (meno di 3 ore) di crew e hospitality: solo dentro i rush, con orari puliti (es. 13:00–15:00, 18:30–20:30,
+   * 19:00–21:00). Vietati quelli che spezzano la giornata fuori dai picchi (es. 14:00–16:00, 15:00–17:00, 18:00–20:00).
+   * Fanno eccezione l'apertura e gli orari fissi. Finestre: pranzo 11:30–15:00, cena 18:30–chiusura (modificabili).
+   */
+  function shortOffPeak(cfg, s) {
+    if (s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= (cfg.open ?? 450)) return false;
+    const [l0, l1] = cfg.shortLunch || [690, 900], [d0, d1] = cfg.shortDinner || [1110, cfg.close ?? 1290];
+    return !((s.start >= l0 && s.end <= l1) || (s.start >= d0 && s.end <= d1));
+  }
+  function ruleShortOffPeak(ctx) {
+    const out = [];
+    for (const s of ctx.shifts) {
+      const e = ctx.byId.get(s.employeeId);
+      if (!e || e.fixedShift || !shortOffPeak(ctx.cfg, s)) continue;
+      const p = parts(s.day);
+      out.push(V('SHORT_OFFPEAK', 'ERROR', `${fullName(e)} · ${DOW_LONG[dow(s.day)]} ${p.d}/${p.m}: turno breve ${fmtTime(s.start)}–${fmtTime(s.end)} fuori dai rush (i turni sotto le 3 ore vanno dentro il pranzo 11:30–15:00 o la cena dalle 18:30)`, e.id, s.day));
+    }
+    return out;
+  }
   function ruleMcCafeMax(ctx) {
     const out = [];
     for (const d of ctx.days) {
@@ -844,7 +864,7 @@
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -979,6 +999,7 @@
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (inClosure(cand)) return false;
       if (lateEnd(cand.end) && !e.fixedShift) return false;
+      if (!e.fixedShift && shortOffPeak(cfg, cand)) return false; // turni brevi solo dentro i rush
       if (!e.fixedShift && !cand.doppio && isRigidAfternoon(cfg, cand)) return false; // pomeriggio: turni sfalsati, non rigidi
       if (!e.fixedShift && !cand.doppio && e.type === 'CREW' && (isHybridAfternoon(cfg, cand) || isLongWithoutRush(cfg, cand))) return false; // niente ibridi, turni lunghi solo sul rush
       if (dur(cand) <= 0 || cand.start < 0 || cand.end > 1440) return false;
@@ -1007,6 +1028,7 @@
       if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
       if (dur(cand) <= 0 || dur(cand) > doubleMaxOf(cfg, e) || cand.start < OPEN || cand.end > CLOSE) return false;
       if (lateEnd(cand.end)) return false;
+      if (shortOffPeak(cfg, cand)) return false; // doppi brevi solo dentro i rush
       const main = dayMain(e.id, cand.day);
       if (main.length !== 1 || shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s))) return false;
       if (cand.start <= OPEN || main[0].start <= OPEN) return false; // chi apre non fa il doppio
@@ -1485,6 +1507,7 @@
     function canPlaceTeam(e, cand, replacing = null) {
       if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
       if (isTrainee(e, cand.day) || dur(cand) <= 0) return false;
+      if (!e.fixedShift && shortOffPeak(cfg, cand)) return false;
       if (!cand.doppio && cand.start <= OPEN && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false;
       const others = dayMain(e.id, cand.day).filter((s) => s !== replacing);
       if (!replacing && others.length) return false;
