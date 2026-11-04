@@ -333,17 +333,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611042042"></script>
-<script src="turni-core.js?v=202611042042"></script>
-<script src="turni-manager.js?v=202611042042"></script>
-<script src="turni-vlh.js?v=202611042042"></script>
+<script src="turni-storico.js?v=202611042052"></script>
+<script src="turni-core.js?v=202611042052"></script>
+<script src="turni-manager.js?v=202611042052"></script>
+<script src="turni-vlh.js?v=202611042052"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611042042"></script>
-<script src="turni-cloud-config.js?v=202611042042"></script>
-<script src="turni-cloud.js?v=202611042042"></script>
-<script src="turni-cripto.js?v=202611042042"></script>
-<script src="lineare-ufficiale.js?v=202611042042"></script>
+<script src="turni-data.js?v=202611042052"></script>
+<script src="turni-cloud-config.js?v=202611042052"></script>
+<script src="turni-cloud.js?v=202611042052"></script>
+<script src="turni-cripto.js?v=202611042052"></script>
+<script src="lineare-ufficiale.js?v=202611042052"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -463,7 +463,7 @@ function renderTurni() {
   const nErr = vs.filter((v) => v.sev === 'ERROR').length, nWarn = vs.length - nErr;
   const cfg = state.config;
 
-  const head = `<tr><th class="name">Dipendente</th>${ctx.days.map((d) => `<th><button class="link" title="Apri il lineare di questo giorno" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${evTags(d) ? `<div>${evTags(d)}</div>` : ''}</th>`).join('')}<th>Ore</th></tr>`;
+  const head = `<tr><th class="name">Dipendente</th>${ctx.days.map((d) => `<th><button class="link" title="Apri il lineare di questo giorno" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${dayTags(d)}</th>`).join('')}<th>Ore</th></tr>`;
   // stessi minimi usati dai controlli (con le previsioni i rush e i picchi chiedono più persone di quelli in Regole)
   const covList = ctx.coverage.filter((r) => (ui.type === 'HOSPITALITY') === (r.station === 'HOSPITALITY'));
   const cov = covList.map((req) => `<tr class="cov"><td class="name">${esc(req.name)}${req.soft ? ' <span class="small">· consiglio</span>' : ''} <span class="small">(${T.fmtTime(req.start)}–${T.fmtTime(req.end)})</span></td>${
@@ -783,7 +783,7 @@ function renderMgrTurni() {
   const nErr = probs.filter((p) => p.sev === 'ERROR').length, nWarn = probs.length - nErr;
   const cellP = (id, d) => probs.filter((p) => p.managerId === id && (p.day === d || p.day == null));
   const carpi = MGR().carpiWeek(state, ws), deliv = state.config.mgrDelivery || [2, 5];
-  const head = `<tr><th class="name">Manager</th>${days.map((d) => `<th><button class="link" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${deliv.includes(T.dow(d)) ? '<div><span class="evtag">🚚 delivery</span></div>' : ''}${carpi && T.dow(d) === 2 ? '<div><span class="evtag">🍦 smontaggio</span></div>' : ''}${carpi && T.dow(d) === 3 ? '<div><span class="evtag">🍦 rimontaggio</span></div>' : ''}${evTags(d) ? `<div>${evTags(d)}</div>` : ''}</th>`).join('')}<th>Ore</th></tr>`;
+  const head = `<tr><th class="name">Manager</th>${days.map((d) => `<th><button class="link" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${dayTags(d)}</th>`).join('')}<th>Ore</th></tr>`;
   const rows = team.map((m) => {
     const tgt = MGR().targetOf(state, m, ws), w = list.filter((x) => x.managerId === m.id).reduce((t, x) => t + x.end - x.start, 0);
     return `<tr><td class="name"><b>${esc(T.fullName(m))}</b><div class="small muted">${m.role === 'SHIFT' ? 'Shift' : 'RDM'}${m.area ? ' · ' + esc(m.area) : ''}</div></td>${days.map((d) => {
@@ -810,6 +810,7 @@ function renderMgrTurni() {
     <button class="btn" onclick="clearMgrWeek()">Svuota</button>
     <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>⚙ Genera turni manager</button>
   </div>
+  ${team.length && !state.config.carpiStart ? `<div class="notice warn" style="margin-bottom:10px">🍦 Per segnare la Carpigiani nei giorni giusti indica <b>un martedì di smontaggio</b> (poi ogni 2 settimane): <input type="date" onchange="if(this.value){state.config.carpiStart=this.value;save();render()}" style="margin-left:6px"></div>` : ''}
   ${team.length ? `<div class="layout"><div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${cov}${rows}</tbody></table></div>
     <aside class="card problems"><h3 style="margin-top:0">Controlli manager</h3>${probHtml}
       <h3>Weekend nelle ultime 4 settimane ${ib('mgr-weekend')}</h3><ul class="small" style="padding-left:18px">${wk}</ul></aside></div>`
@@ -986,7 +987,7 @@ function renderGiornaliero() {
   <div class="daily">
     <div class="card sheet ${editing ? 'editing' : ''}">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><b>LINEARE GIORNALIERO</b><span><b>${T.DOW_LONG[T.dow(day)]}</b> ${T.itDate(day)}</span></div>
-      ${evTags(day) ? `<div style="margin:4px 0">${evTags(day)}</div>` : ''}
+      ${opsTags(day) + evTags(day) ? `<div style="margin:4px 0">${opsTags(day)}${evTags(day)}</div>` : ''}
       ${fcLine ? `<div class="printhead">${fcLine}</div>` : ''}
       ${body}${counts}
       <div class="legend" style="margin-top:10px">${legend}</div>
@@ -1335,6 +1336,14 @@ function refreshEvents() {
   }
 }
 /** Etichette degli eventi di un giorno (tabella previsioni, turni, lineare). */
+/** Etichette operative del giorno: delivery e Carpigiani (smontaggio martedì, rimontaggio mercoledì, ogni 2 settimane). */
+function opsTags(d) {
+  const deliv = state.config.mgrDelivery || [2, 5], M = window.TurniManager, carpi = M && M.carpiWeek(state, T.mondayOf(d));
+  return (deliv.includes(T.dow(d)) ? '<span class="evtag">🚚 delivery</span>' : '')
+    + (carpi && T.dow(d) === 2 ? '<span class="evtag" title="Smontaggio della Carpigiani: 2 manager la sera fino almeno alle 21:00">🍦 Carpigiani smontaggio</span>' : '')
+    + (carpi && T.dow(d) === 3 ? '<span class="evtag" title="Rimontaggio della Carpigiani: 2 manager in apertura">🍦 Carpigiani rimontaggio</span>' : '');
+}
+const dayTags = (d) => { const t = opsTags(d) + evTags(d); return t ? `<div>${t}</div>` : ''; };
 function evTags(day) {
   return T.eventsOn(state.eventi, day).map((ev) => `<span class="evtag ${ev.tipo === 'CHIUSURA' || ev.tipo === 'PARZIALE' ? 'closed' : ''}" title="${esc(EV_TIPI[ev.tipo] || '')}">${ev.tipo === 'CHIUSURA' ? '🔒' : ev.tipo === 'PARZIALE' ? '🕒' : ev.tipo === 'ZONA' ? '🏬' : '⭐'} ${esc(ev.nome)}${ev.tipo === 'PARZIALE' ? ` ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : ''}</span>`).join(' ');
 }
@@ -2274,17 +2283,32 @@ function askPublish() {
     ${nErr ? `<p class="notice warn">Ci sono ancora <b>${nErr} errori</b> nella settimana: puoi pubblicare lo stesso, ma conviene sistemarli prima.</p>` : ''}
     ${withAccess < total ? `<p class="notice info">${withAccess} dipendenti su ${total} hanno l'accesso all'app: gli altri la vedranno quando creerai il loro accesso (sezione Richieste).</p>` : ''}
     <div class="form"><label class="f">Nota per tutti (facoltativa)<input type="text" id="pub-note" maxlength="300" value="${esc((p && p.note) || '')}" placeholder="es. riunione martedì alle 15"></label></div>
+    ${otherWeeksBox()}
     <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="doPublish()">Pubblica</button></div>`);
+}
+/** Altre settimane (da questa in poi) con turni non ancora pubblicati o modificati dopo la pubblicazione: si possono pubblicare insieme. */
+function otherWeeksToPublish() {
+  const mon = T.mondayOf(T.todayDay());
+  const wks = [...new Set([...state.shifts, ...(state.mgrShifts || [])].map((x) => T.mondayOf(x.day)))].filter((w) => w >= mon && w !== ui.ws).sort((a, b) => a - b);
+  return wks.filter((w) => !pubOf(w) || changedSincePublish(w));
+}
+function otherWeeksBox() {
+  const wks = otherWeeksToPublish();
+  if (!wks.length) return '';
+  return `<div class="shiftbox" style="margin-top:10px"><div class="small" style="font-weight:600;margin-bottom:6px">Pubblica anche queste settimane (già pronte):</div>
+    ${wks.map((w) => `<label class="tg on" style="width:max-content;margin:2px 0"><input type="checkbox" class="pub-also" value="${w}" checked onchange="this.parentNode.classList.toggle('on',this.checked)">${T.weekLabel(w)}${pubOf(w) ? ' <span class="muted">(modificata dopo la pubblicazione)</span>' : ''}</label>`).join('')}
+    <div class="small muted">La nota vale per tutte. Controlla prima che non abbiano errori.</div></div>`;
 }
 async function doPublish() {
   const note = (document.getElementById('pub-note').value || '').trim();
+  const also = [...document.querySelectorAll('.pub-also:checked')].map((x) => +x.value);
   state.publishedWeeks = state.publishedWeeks || {};
-  state.publishedWeeks[ui.ws] = { at: new Date().toISOString(), note, emp: weekSnapshot(ui.ws) };
+  for (const w of [ui.ws, ...also]) state.publishedWeeks[w] = { at: new Date().toISOString(), note, emp: weekSnapshot(w) };
   // si tengono le ultime 16 settimane pubblicate
   for (const k of Object.keys(state.publishedWeeks).map(Number).sort((a, b) => b - a).slice(16)) delete state.publishedWeeks[k];
   closeModal(); save(); render();
   const r = await pushOrari();
-  showModal(`<h3>${r.fail ? '⚠️' : '✅'} Settimana pubblicata</h3><p>${r.ok} persone (dipendenti e manager con l'accesso) la vedono nell'app.${r.fail ? ` Per ${r.fail} l'invio non è riuscito (connessione?): ripubblica tra poco.` : ''}</p>
+  showModal(`<h3>${r.fail ? '⚠️' : '✅'} ${also.length ? `${also.length + 1} settimane pubblicate` : 'Settimana pubblicata'}</h3><p>${r.ok} persone (dipendenti e manager con l'accesso) la vedono nell'app.${r.fail ? ` Per ${r.fail} l'invio non è riuscito (connessione?): ripubblica tra poco.` : ''}</p>
     <div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
 }
 /** Manda online l'orario pubblicato di ogni dipendente con accesso (o solo di quelli indicati). */
