@@ -2005,7 +2005,7 @@ function renderSync() {
   const el = document.getElementById('sync'); if (!el) return;
   const back = APP_MODE && storeCode() ? `<button onclick="location.href='richieste.html?s=' + encodeURIComponent(storeCode())" title="Torna all'app dei dipendenti">← Dipendenti</button>` : '';
   if (!TurniCloud.loggedIn()) { el.innerHTML = back; return; }
-  const t = { ok: '☁️ Salvato online', saving: '⏳ Salvataggio…', offline: '⚠️ Offline: salvo appena torna la rete', error: '⚠️ Non salvato online', conflict: '⚠️ Scegli quali dati tenere' }[sync.status] || '☁️ Online';
+  const t = TurniCloud.PROVA ? '🧪 Prova: non si salva online' : { ok: '☁️ Salvato online', saving: '⏳ Salvataggio…', offline: '⚠️ Offline: salvo appena torna la rete', error: '⚠️ Non salvato online', conflict: '⚠️ Scegli quali dati tenere' }[sync.status] || '☁️ Online';
   el.innerHTML = `${back}<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button><button onclick="cloudLogout()" title="Esci dall'area manager su questo dispositivo">Esci</button>`;
 }
 function cloudTouch() {
