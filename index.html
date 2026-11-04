@@ -1914,7 +1914,10 @@ function renderStore() {
 
   <h3>🕒 Orari del locale</h3>
   <div class="card section"><table class="list" style="max-width:560px"><tbody>${hours}</tbody></table>
-    <p class="small muted" style="margin-bottom:0">Con <b>24h</b> quel giorno non ci sono apertura e chiusura (niente squadre di apertura/chiusura). Per ora i turni non attraversano la mezzanotte: la notte si copre con turni che finiscono alle 24:00 e turni che iniziano alle 0:00.</p></div>
+    ${Object.values(c.hours || {}).some((h) => h && h.h24) ? `<div class="row" style="margin-top:10px;gap:14px;flex-wrap:wrap"><b class="small">Nei giorni 24h servono almeno:</b>
+      <label class="small">notte (0:00–${T.fmtTime(c.open ?? 450)}) <input type="number" min="0" max="20" value="${(c.night24 || {}).early ?? 2}" style="width:55px" onchange="setRule('night24',{...(state.config.night24||{}),early:Math.max(0,+this.value||0)})"> crew</label>
+      <label class="small">sera tardi (${T.fmtTime(c.close ?? 1290)}–24:00) <input type="number" min="0" max="20" value="${(c.night24 || {}).late ?? 2}" style="width:55px" onchange="setRule('night24',{...(state.config.night24||{}),late:Math.max(0,+this.value||0)})"> crew</label></div>` : ''}
+    <p class="small muted" style="margin-bottom:0">Con <b>24h</b> quel giorno non c'è la squadra di apertura/chiusura: le fasce di apertura e chiusura restano come fasce normali e si aggiungono la notte e la sera tardi. I manager hanno anche il turno di <b>notte</b> (da mezzanotte). Per ora i turni non attraversano la mezzanotte: la notte si copre con turni che finiscono alle 24:00 e turni che iniziano alle 0:00.</p></div>
 
   <h3>🧩 Postazioni</h3>
   <div class="card section"><table class="list"><thead><tr><th>Attiva</th><th>Nome</th><th>Sigla</th><th>Colore</th><th></th><th></th></tr></thead><tbody>${stRows}</tbody></table>
