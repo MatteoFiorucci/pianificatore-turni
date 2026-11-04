@@ -1209,7 +1209,10 @@
           const next = Math.min(CLOSE, ...shifts.filter((x) => x.day === d && x.station === 'MCCAFE' && x.start > m).map((x) => x.start));
           if (next - m >= cfg.minShift && !lens.includes(next - m)) lens.push(next - m);
         }
-        const wins = windowsFor(d, m, lens, [req], 0, 'CREW', cfg.crewMax);
+        // McCafé: le finestre contano anche le altre fasce obbligatorie del McCafé (es. il secondo McCafé del weekend):
+        // così chi apre il venerdì–domenica resta di preferenza fino a mezzogiorno
+        const mcList = req.station === 'MCCAFE' ? ctx.coverage.filter((r) => r.station === 'MCCAFE' && !r.soft && !r.closing && reqMin(r, d)) : [req];
+        const wins = windowsFor(d, m, lens, mcList.length ? mcList : [req], 0, 'CREW', cfg.crewMax);
         const st = (e) => (req.station === 'SERVIZIO' && e.type === 'HOSPITALITY' && !e.trainings.includes('SERVIZIO') ? 'HOSPITALITY' : req.station);
         // aperture/chiusure: prima i crew (le hospitality servono in sala); per la Sala di chiusura crew e hospitality alla pari
         const hospBias = req.station === 'SERVIZIO' && !req.opening ? 0 : -2;
