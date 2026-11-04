@@ -20,15 +20,15 @@
   const OPEN = (d) => T.dayHours(CFG, d).open, CLOSE = (d) => T.dayHours(CFG, d).close;
   let REST12 = 720, REST36 = 2160, ORDER_BY = 690; // stacco 12h, 36h con riposo; ordine: entra entro le 11:30
   const DAY = 1440;
-  const ROLE_TXT = { A: 'Apertura', C: 'Chiusura', CEN: 'Centrale', D: 'Delivery', C2: 'Secondo in chiusura', X: 'Rinforzo', M2: 'Secondo in apertura', F: 'Flessibile' };
+  const ROLE_TXT = { N: 'Notte', A: 'Apertura', C: 'Chiusura', CEN: 'Centrale', D: 'Delivery', C2: 'Secondo in chiusura', X: 'Rinforzo', M2: 'Secondo in apertura', F: 'Flessibile' };
   // durata dei turni manager (regola tassativa): corti da 3 a 5 ore (senza pausa) oppure lunghi da 6:30 a 8:30;
   // mai tra 5 e 6:30 (niente 5:30 né 6:00)
   let SHORT = [180, 300], LONG = [390, 510];
   const lenOk = (l) => (l >= SHORT[0] && l <= SHORT[1]) || (l >= LONG[0] && l <= LONG[1]);
   // durata preferita di ogni ruolo (minuti); i turni corti si usano solo se servono per le ore di contratto,
   // prima nei ruoli centrali e di rinforzo (CEN, X, C2), così apertura e chiusura restano coperte
-  const PREF = { A: 420, C: 420, CEN: 420, D: 420, M2: 420, C2: 390, X: 390, F: 450 };
-  const CUT_ORDER = ['CEN', 'X', 'C2', 'F', 'D', 'M2', 'A', 'C'];
+  const PREF = { N: 420, A: 420, C: 420, CEN: 420, D: 420, M2: 420, C2: 390, X: 390, F: 450 };
+  const CUT_ORDER = ['CEN', 'X', 'C2', 'F', 'D', 'M2', 'N', 'A', 'C'];
   const lenUp = (l) => (l < SHORT[1] ? Math.min(l + 30, SHORT[1]) : l < LONG[0] ? LONG[0] : l < LONG[1] ? Math.min(l + 30, LONG[1]) : null);
   const lenDown = (l) => (l > LONG[0] ? Math.max(l - 30, LONG[0]) : l > SHORT[1] ? SHORT[1] : l > SHORT[0] ? Math.max(l - 30, SHORT[0]) : null);
   /**
@@ -65,7 +65,7 @@
   const CEN_STARTS = [690, 660, 720, 675, 705], MID_END = 1080;
   // pranzo e cena: momenti in cui servono 2 manager (se quel giorno ce ne sono almeno 3)
   const LUNCH_AT = 750, DIN_END = 1230, LUNCH_CHECK = 780, DINNER_CHECK = 1200;
-  const isMorning = (r) => r === 'A' || r === 'D' || r === 'M2';
+  const isMorning = (r) => r === 'N' || r === 'A' || r === 'D' || r === 'M2';
   const isEvening = (r) => r === 'C' || r === 'C2' || r === 'X';
 
   const mgrs = (state) => (state.managers || []).filter((m) => m.active !== false);
@@ -80,8 +80,9 @@
 
   /** Orario di un turno del ruolo r con durata len. */
   function timesFor(r, len, k, maxStart = 1440, side = null, day = 0) {
-    const op = OPEN(day), cl = CLOSE(day);
+    const h24 = T.dayHours(CFG, day).h24, op = h24 ? (CFG.open ?? 450) : OPEN(day), cl = CLOSE(day);
     switch (r) {
+      case 'N': return [0, len];
       case 'A': return [op, op + len];
       case 'C': return [cl - len, cl];
       case 'C2': return [Math.max(840, cl - 30 - len), Math.max(840, cl - 30 - len) + len];
@@ -103,7 +104,7 @@
   /** Quanti manager servono come minimo nel giorno k (0 = lunedì). */
   function needOn(state, ws, k) {
     const d = k + 1, carpi = carpiWeek(state, ws);
-    return (loadCfg(state).minPerDay ?? 2) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
+    return (loadCfg(state).minPerDay ?? 2) + (T.dayHours(state.config, ws + k).h24 ? 1 : 0) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
   }
   let REST_DAYS = [1, 2, 3, 4]; // il riposo dei manager è da lunedì a giovedì
   const MGR_DEFAULT = { short: [180, 300], long: [390, 510], rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
@@ -118,13 +119,14 @@
   /** Ruoli che servono in un giorno, dato quanti manager ci sono. */
   function rolesFor(state, ws, k, n) {
     const d = k + 1, deliv = deliveryDays(state).includes(d), carpi = carpiWeek(state, ws);
-    const base = ['A', 'C'];
+    // giorno 24h: c'è anche il manager della notte (da mezzanotte), poi apertura all'orario normale e chiusura a mezzanotte
+    const base = T.dayHours(state.config, ws + k).h24 ? ['N', 'A', 'C'] : ['A', 'C'];
     const extra = [];
     if (carpi && d === 2) extra.push('C2');
     if (deliv) extra.push('D');
     if (carpi && d === 3) extra.push('M2');
     while (base.length + extra.length < n) extra.push(d >= 5 ? (extra.includes('CEN') ? 'X' : 'CEN') : 'CEN');
-    return [...base, ...extra].slice(0, Math.max(n, 2));
+    return [...base, ...extra].slice(0, Math.max(n, base.length));
   }
 
   /** Turni manager della settimana ws: vincoli di stacco con la settimana prima (e dopo, se già fatta). */
@@ -212,6 +214,8 @@
               // due giorni prima dell'ordine niente sera se domani lavorano tutti (non c'è un centrale libero)
               if (k < 6 && (m.orderDays || []).includes(((k + 2) % 7) + 1) && isEvening(r) && needOn(state, ws, k + 1) >= team.length) return false;
               if (prev && isEvening(prev.role) && isMorning(r) && (k - prev.k === 1 || k - prev.k === 2)) return false; // stacco 12h / 36h
+              // notte (da mezzanotte): solo chi il giorno prima non ha lavorato o ha fatto anche lui la notte (stacco di 12 ore)
+              if (r === 'N' && prev && prev.k === k - 1 && prev.role !== 'N') return false;
               if (prev && prev.role === 'C' && prev.k === k - 1 && r === 'CEN' && (m.flexDays || []).includes(k + 1)) return false; // 21:30 → 9:00 sono meno di 12 ore
               return true;
             };
@@ -312,7 +316,7 @@
       if (!done) break;
     }
   }
-  const kindOfRole = (r) => (r === 'A' || r === 'D' || r === 'M2' ? 'apertura' : r === 'CEN' || r === 'F' ? 'centrale' : 'cena');
+  const kindOfRole = (r) => (r === 'N' || r === 'A' || r === 'D' || r === 'M2' ? 'apertura' : r === 'CEN' || r === 'F' ? 'centrale' : 'cena');
   const kindOf = (s) => (s.role ? kindOfRole(s.role) : s.start <= 510 ? 'apertura' : s.end >= 1260 ? 'cena' : 'centrale');
 
   /** Controlli della settimana dei manager. list = turni della settimana (di default quelli salvati). */
@@ -360,7 +364,7 @@
       const workDays = new Set(mine.map((s) => s.day)).size;
       if (workDays > 6) V('ERROR', `${name(m)}: lavora 7 giorni, serve un riposo`, m.id);
       const rest = [0, 1, 2, 3, 4, 5, 6].map((k) => ws + k).filter((d) => !mine.some((s) => s.day === d) && !absentOn(state, m, d));
-      for (const d of rest) if (T.dow(d) >= 5) V('ERROR', `${name(m)}: riposo ${when(d)}, deve essere da lunedì a giovedì`, m.id, d);
+      for (const d of rest) if (!REST_DAYS.includes(T.dow(d))) V('ERROR', `${name(m)}: riposo ${when(d)}, i manager riposano solo ${REST_DAYS.map((x) => T.DOW_LONG[x].toLowerCase()).join(', ')} (sezione Store)`, m.id, d);
       const all = [...nb.filter((s) => s.managerId === m.id), ...mine].sort((a, b) => absStart(a) - absStart(b));
       for (let i = 1; i < all.length; i++) {
         const a = all[i - 1], b = all[i];
