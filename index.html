@@ -781,7 +781,7 @@ function typeSeg(ctx) {
   const n = (k) => ctx.employees.filter((e) => e.type === k).length;
   return `<div class="seg">${Object.entries(T.TYPES).map(([k, l]) => `<button class="${ui.type === k ? 'on' : ''}" onclick="ui.type='${k}';render()">${l} (${n(k)})</button>`).join('')}<button class="${ui.type === 'MANAGER' ? 'on' : ''}" onclick="ui.type='MANAGER';render()">Manager (${(state.managers || []).filter((m) => m.active !== false).length})</button></div>`;
 }
-const MROLE = { A: 'APE', C: 'CHI', CEN: 'CEN', D: 'DEL', C2: 'CHI2', X: 'SERA', M2: 'APE2', F: 'FLEX' };
+const MROLE = { N: 'NOTTE', A: 'APE', C: 'CHI', CEN: 'CEN', D: 'DEL', C2: 'CHI2', X: 'SERA', M2: 'APE2', F: 'FLEX' };
 const mRoleOf = (s) => s.role || (s.start <= 450 ? 'A' : s.end >= 1290 ? 'C' : 'CEN');
 function renderMgrTurni() {
   const ws = ui.ws, team = (state.managers || []).filter((m) => m.active !== false);

@@ -101,7 +101,7 @@
    * Fine "controllata" di una fascia: gli ultimi closeGrace minuti prima della chiusura (21:00–21:30) non contano
    * per i minimi: chi finisce alle 21:00 o 21:15 copre comunque la chiusura.
    */
-  const covEnd = (cfg, r) => { const close = cfg.close ?? 1290, g = cfg.closeGrace ?? 30; return r.end >= close ? Math.max(r.start + 15, Math.min(r.end, close - g)) : r.end; };
+  const covEnd = (cfg, r) => { if (r.night) return r.end; const close = cfg.close ?? 1290, g = cfg.closeGrace ?? 30; return r.end >= close ? Math.max(r.start + 15, Math.min(r.end, close - g)) : r.end; };
   /** Minimo richiesto da una fascia in un certo giorno. */
   const reqMin = (req, day) => (req.min ? req.min[dow(day) - 1] : req.minStaff);
 
@@ -321,13 +321,24 @@
       }
       return changed ? { ...r, min } : r;
     }).concat(extra);
-    // giorni 24h (impostazioni dello store): non ci sono apertura e chiusura, quindi niente squadre di apertura/chiusura
+    // giorni 24h (impostazioni dello store): non ci sono apertura e chiusura, quindi niente squadre di apertura/chiusura,
+    // e le ore della notte si coprono con due fasce in più: "notte" (da mezzanotte all'apertura normale) e
+    // "sera tardi" (dalla chiusura normale a mezzanotte), con i minimi scelti nella sezione Store
     const h24 = [0, 1, 2, 3, 4, 5, 6].filter((k) => dayHours(ctx.cfg, ws + k).h24);
-    if (h24.length) ctx.coverage = ctx.coverage.map((r) => {
-      if (!(r.opening || r.closing || r.exact)) return r;
-      const min = [0, 1, 2, 3, 4, 5, 6].map((k) => (h24.includes(k) ? 0 : r.min ? r.min[k] : r.minStaff));
-      return { ...r, min };
-    });
+    if (h24.length) {
+      // le fasce di apertura/chiusura restano come fasce normali (stesse persone e postazioni, senza squadra esatta
+      // e senza bisogno di chi è abilitato ad aprire o chiudere): così la mattina e la sera restano coperte
+      const plain = [];
+      ctx.coverage = ctx.coverage.map((r) => {
+        if (!(r.opening || r.closing || r.exact)) return r;
+        const all = [0, 1, 2, 3, 4, 5, 6].map((k) => (r.min ? r.min[k] : r.minStaff));
+        if (h24.some((k) => all[k])) plain.push({ ...r, id: r.id + '@24', name: r.name + ' (24h)', opening: false, closing: false, exact: false, min: all.map((v, k) => (h24.includes(k) ? v : 0)) });
+        return { ...r, min: all.map((v, k) => (h24.includes(k) ? 0 : v)) };
+      }).concat(plain);
+      const n = ctx.cfg.night24 || {}, only = (v) => [0, 1, 2, 3, 4, 5, 6].map((k) => (h24.includes(k) ? v : 0));
+      if (base.open > 0) ctx.coverage.push({ id: 'n24a', name: 'Notte (24h)', start: 0, end: base.open, min: only(n.early ?? 2), station: null, night: true });
+      if (base.close < 1440) ctx.coverage.push({ id: 'n24b', name: 'Sera tardi (24h)', start: base.close, end: 1440, min: only(n.late ?? 2), station: null, night: true });
+    }
     return ctx;
   }
 
