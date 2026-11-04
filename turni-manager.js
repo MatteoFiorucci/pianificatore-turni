@@ -60,6 +60,8 @@
   }
   // centrale: copre sempre le ore intermedie del pomeriggio (15:00–18:00), così i crew stanno sui rush
   const CEN_STARTS = [690, 660, 720, 675, 705], MID_END = 1080;
+  // pranzo e cena: momenti in cui servono 2 manager (se quel giorno ce ne sono almeno 3)
+  const LUNCH_AT = 750, DIN_END = 1230, LUNCH_CHECK = 780, DINNER_CHECK = 1200;
   const isMorning = (r) => r === 'A' || r === 'D' || r === 'M2';
   const isEvening = (r) => r === 'C' || r === 'C2' || r === 'X';
 
@@ -74,7 +76,7 @@
   }
 
   /** Orario di un turno del ruolo r con durata len. */
-  function timesFor(r, len, k, maxStart = 1440) {
+  function timesFor(r, len, k, maxStart = 1440, side = null) {
     switch (r) {
       case 'A': return [OPEN, OPEN + len];
       case 'C': return [CLOSE - len, CLOSE];
@@ -82,7 +84,15 @@
       case 'X': return [1260 - len, 1260];
       case 'D': case 'M2': return [OPEN, OPEN + len];
       case 'F': return [540, 540 + len];
-      default: { const st = Math.min(Math.max(CEN_STARTS[k % CEN_STARTS.length], MID_END - len), 1170 - len, maxStart); return [st, st + len]; }
+      default: {
+        // centrale: copre il pomeriggio (fino alle 18) e il rush dove manca il secondo manager:
+        // side 'cena' → finisce alle 20:30, side 'pranzo' → inizia entro le 12:30; se la durata basta, tutti e due
+        let st;
+        if (len >= DIN_END - LUNCH_AT) st = DIN_END - len;
+        else st = (side || (k % 2 ? 'cena' : 'pranzo')) === 'cena' ? Math.max(DIN_END - len, LUNCH_AT - 60) : Math.min(LUNCH_AT, Math.max(MID_END - len, CEN_STARTS[k % CEN_STARTS.length]));
+        st = Math.max(OPEN + 60, Math.min(st, maxStart));
+        return [st, st + len];
+      }
     }
   }
 
@@ -229,7 +239,14 @@
         const mine = plan.filter((x) => x.m === m);
         const target = targetOf(state, m, ws);
         const lens = fitLens(mine.map((x) => x.role), target);
-        mine.forEach((x, i) => { const [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440); shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
+        mine.forEach((x, i) => {
+          // il centrale va dove manca il secondo manager: con la delivery (o il rimontaggio) il pranzo ne ha già 2 → cena;
+          // con un secondo in chiusura o un rinforzo la cena ne ha già 2 → pranzo; altrimenti a giorni alterni
+          const dayRoles = plan.filter((y) => y.k === x.k).map((y) => y.role);
+          // chi il giorno dopo apre (7:30) non può finire alle 20:30 (stacco di 12 ore): il suo centrale copre il pranzo
+          const opensNext = plan.some((y) => y.m === m && y.k === x.k + 1 && isMorning(y.role));
+          const side = opensNext ? 'pranzo' : dayRoles.some((r) => r === 'D' || r === 'M2' || r === 'F') ? 'cena' : dayRoles.some((r) => r === 'X' || r === 'C2') ? 'pranzo' : null;
+          const [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440, side); shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
       }
       const all = [...keep, ...shifts.filter((s) => !keepKey.has(s.managerId + '|' + s.day))];
       fillGaps(all, keep);
@@ -298,6 +315,10 @@
       if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= OPEN).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle 7:30`, null, d);
       if (carpi && k === 1 && dl.filter((s) => s.end >= 1260).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
       if (carpi && k === 2 && dl.filter((s) => s.start <= OPEN).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (7:30)`, null, d);
+      // pranzo e cena con 2 manager, quando quel giorno ce ne sono almeno 3
+      if (dl.length >= 3) for (const [m, t] of [[LUNCH_CHECK, 'a pranzo (13:00)'], [DINNER_CHECK, 'a cena (20:00)']]) {
+        if (dl.filter((s) => s.start <= m && s.end > m).length < 2) V('WARNING', `${when(d)}: un solo manager ${t}`, null, d);
+      }
       // sempre almeno un manager dall'apertura alla chiusura
       for (let m = OPEN; m < CLOSE; m += 15) {
         if (dl.some((s) => s.start <= m && s.end > m)) continue;
