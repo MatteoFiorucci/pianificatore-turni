@@ -42,6 +42,8 @@
     // opening: true = contano solo i formati per l'apertura di quella postazione (sezione Aperture)
     // squadra di apertura (exact: 'start' = all'apertura ci sono esattamente questi, nessun altro): 1 McCafé + 1 MFY
     { id: 'c1', name: 'Apertura McCafé', start: 450, end: 630, min: all(1), station: 'MCCAFE', opening: true, exact: 'start' },
+    // da venerdì a domenica alle 9:00 entra il secondo McCafé, in supporto del primo (fino a mezzogiorno)
+    { id: 'm2', name: 'Secondo McCafé (ven–dom)', start: 540, end: 720, min: [0, 0, 0, 0, 2, 2, 2], station: 'MCCAFE' },
     { id: 'c2', name: 'Apertura MFY', start: 450, end: 630, min: all(1), station: 'CUCINA', opening: true, exact: 'start' },
     { id: 'c7', name: 'Intermedio mattina', start: 630, end: 720, min: all(2), station: null },
     { id: 'c4', name: 'Rush pranzo', start: 720, end: 900, min: [3, 3, 3, 3, 4, 5, 5], station: null },
@@ -662,7 +664,7 @@
    * Quante persone al McCafé al massimo nello stesso momento: 2 il sabato e la domenica dall'apertura fino a prima
    * del rush del pranzo (cfg.mcMaxFino, di default le 12:00), 1 in tutti gli altri momenti.
    */
-  const mcCafeMax = (cfg, d, m) => (dow(d) >= 6 && m < (cfg.mcMaxFino ?? 720) ? 2 : 1);
+  const mcCafeMax = (cfg, d, m) => (dow(d) >= 5 && m < (cfg.mcMaxFino ?? 720) ? 2 : 1);
   const mcCafeAt = (list, d, m, except = null) => list.filter((x) => x !== except && x.day === d && x.station === 'MCCAFE' && x.start <= m && x.end > m).length;
   /** Persone al McCafé che contano per il limite: al cambio turno (chi esce entro 30 minuti e chi è appena entrato) si conta una persona sola. */
   function mcCafeLoad(list, d, m, extra = null, except = null) {
@@ -703,7 +705,7 @@
         const n = mcCafeLoad(ctx.shifts, d, m), max = mcCafeMax(ctx.cfg, d, m);
         if (n > max) {
           const p = parts(d);
-          out.push(V('MCCAFE_MAX', 'WARNING', `${DOW_LONG[dow(d)]} ${p.d}/${p.m} · McCafé: alle ${fmtTime(m)} ci sono ${n} persone, ne basta${max > 1 ? 'no' : ''} ${max}${max > 1 ? '' : ' (2 solo sabato e domenica prima del pranzo)'}`, null, d));
+          out.push(V('MCCAFE_MAX', 'WARNING', `${DOW_LONG[dow(d)]} ${p.d}/${p.m} · McCafé: alle ${fmtTime(m)} ci sono ${n} persone, ne basta${max > 1 ? 'no' : ''} ${max}${max > 1 ? '' : ' (2 solo da venerdì a domenica prima del pranzo)'}`, null, d));
           break;
         }
       }
@@ -1052,7 +1054,7 @@
     const stationFor = (e) => (e.type === 'HOSPITALITY' ? 'HOSPITALITY' : ['FRONT', 'CUCINA', 'MCCAFE', 'SERVIZIO'].find((s) => e.trainings.includes(s)) || 'FRONT');
     function pickStation(e, d, from, to) {
       if (e.type === 'HOSPITALITY') return 'HOSPITALITY';
-      // al McCafé non più di 1 persona alla volta (2 sabato e domenica prima del pranzo)
+      // al McCafé non più di 1 persona alla volta (2 da venerdì a domenica prima del pranzo)
       const mcFull = () => mcTooMany(cfg, shifts, d, from, to, { day: d, start: from, end: to, station: 'MCCAFE' });
       const opts = CREW_STATIONS.filter((s) => e.trainings.includes(s));
       const ok = opts.filter((s) => s !== 'MCCAFE' || !mcFull());
