@@ -1232,6 +1232,20 @@
       const dWins = windowsFor(d, m, [...new Set([D_MAX, 150, 120])].filter((l) => l <= D_MAX), generic, 0, 'CREW', D_MAX);
       return pickPair(d, dWins, dCands, (e, a, b) => pickStation(e, d, a, b), true, canPlaceDouble);
     }
+    /** Allunga un turno della postazione di req che finisce a m (fino alla fine della fascia, se possibile). */
+    function extendStation(d, m, req) {
+      const olds = added.filter((x) => x.day === d && x.station === req.station && !x.doppio && x.end === m);
+      const ends = [...new Set([req.end, req.end + 30, req.end - 30, m + 120, m + 90, m + 60, m + 30])].filter((t) => t > m).sort((a, b) => b - a);
+      for (const old of olds) {
+        const e = ctx.byId.get(old.employeeId);
+        if (!e || e.fixedShift) continue;
+        for (const end of ends) {
+          const cand = { ...old, end };
+          if (countsFor(ctx, cand, req) && canPlace(e, cand, old)) { replace(old, cand); return true; }
+        }
+      }
+      return false;
+    }
     const demand = (d) => generic.reduce((t, r) => t + reqMin(r, d) * (r.end - r.start), 0) / 60;
     const supply = (d) => crew.filter((e) => isAvail(ctx, e, d)).length * 3 + crew.reduce((t, e) => t + (e.doubleDays || 0), 0) * 3 / 7;
     const daysByDifficulty = [...ctx.days].sort((a, b) => (supply(a) - demand(a)) - (supply(b) - demand(b)) || a - b);
@@ -1274,6 +1288,9 @@
       while (m < endC) {
         const c = countAt(ctx, d, m, req, shifts);
         if (c >= need) { m += SLOT; continue; }
+        // McCafé: prima si prova ad allungare il turno di chi è già al McCafé e finisce proprio adesso
+        // (es. apertura 7:30–10:30 → 7:30–12:30 il weekend, quando dalle 9 servono 2 persone)
+        if (req.station === 'MCCAFE' && extendStation(d, m, req)) continue;
         const s = coverSlot(d, m, req);
         if (s) { place(s); continue; }
         let n = m + SLOT;
