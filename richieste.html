@@ -43,6 +43,9 @@
   .pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; margin-top: 4px; }
   .pill.wait { background: var(--warn); color: var(--warn-ink); } .pill.yes { background: var(--ok); color: var(--green); } .pill.no { background: var(--err); color: var(--err-ink); }
   .muted { color: var(--muted); font-size: 14px; }
+  .wkchips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 10px; -webkit-overflow-scrolling: touch; }
+  .wkchips button { flex: 0 0 auto; padding: 8px 12px; border-radius: 999px; background: #fff; border: 1px solid #d9dbd6; color: var(--muted); font-weight: 700; font-size: 14px; }
+  .wkchips button.past { opacity: .7; } .wkchips button.on { background: var(--green); color: #fff; border-color: var(--green); opacity: 1; }
   .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 14px; background: #e9eae7; padding: 4px; border-radius: 12px; }
   .tabs button { padding: 10px; border-radius: 9px; background: transparent; color: var(--muted); font-weight: 700; }
   .tabs button.on { background: #fff; color: var(--green); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
@@ -60,8 +63,8 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202611042052"></script>
-<script src="turni-cripto.js?v=202611042052"></script>
+<script src="turni-cloud-config.js?v=202611042057"></script>
+<script src="turni-cripto.js?v=202611042057"></script>
 <script>
 'use strict';
 /*
@@ -188,7 +191,7 @@ async function login() {
 function logout() { if (!confirm('Uscire? Per rientrare servono nome utente e password.')) return; session = null; role = ''; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } msg = ''; render(); }
 
 // ---- "I miei turni": orario pubblicato dal manager (cifrato con la chiave personale) ----
-let tab = 'turni', orario = null, orarioAt = '', orarioErr = '';
+let tab = 'turni', orario = null, orarioAt = '', orarioErr = '', selWeek = null;
 const AREA = { CUCINA: 'MFY', FRONT: 'OA', MCCAFE: 'McCafé', SERVIZIO: 'Sala', HOSPITALITY: 'Hospitality', MGR: 'Manager' };
 // i manager vedono solo i loro turni: niente scheda Richieste (quella serve ai dipendenti)
 const isMgr = () => !!(orario && orario.ruolo === 'manager');
@@ -231,11 +234,15 @@ function turniView() {
   if (!session.key || orarioErr === 'relogin') return '<div class="card"><p style="margin-top:0">L\'app è stata aggiornata: per vedere i tuoi turni rientra una volta con nome utente e password.</p><button class="primary" onclick="session=null;orarioErr=\'\';localStorage.removeItem(SESS);render()">Rientra</button></div>';
   if (!orario) return `<div class="card"><p class="muted" style="margin:0">${orarioErr || 'Caricamento dei turni…'}</p></div>`;
   const mon = mondayOf(todayDay());
-  const next = orario.weeks.filter((w) => w.ws >= mon).sort((a, b) => a.ws - b.ws), past = orario.weeks.filter((w) => w.ws < mon).sort((a, b) => b.ws - a.ws);
+  const all = [...orario.weeks].sort((a, b) => a.ws - b.ws);
   const upd = `<div class="row" style="margin:0 2px 10px"><span class="muted">${orarioAt ? 'Aggiornato: ' + new Date(orarioAt).toLocaleString('it-IT', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}</span><button class="light" onclick="orarioAt='';orario=orario||null;loadOrario()">🔄 Aggiorna</button></div>`;
-  return `${upd}${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}
-    ${next.length ? `${next.length > 1 ? `<div class="muted" style="margin:0 2px 8px">${next.length} settimane pubblicate: scorri per vederle tutte.</div>` : ''}${next.map((w) => weekCard(w, true)).join('')}` : '<div class="card"><p class="muted" style="margin:0">Il manager non ha ancora pubblicato l\'orario di questa settimana. Appena lo pubblica lo vedi qui.</p></div>'}
-    ${past.length ? `<h2 style="margin:18px 2px 8px;font-size:15px;color:var(--muted)">Settimane passate (tocca per aprire)</h2>${past.map((w) => weekCard(w, false)).join('')}` : ''}`;
+  if (!all.length) return `${upd}${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}<div class="card"><p class="muted" style="margin:0">Il manager non ha ancora pubblicato l'orario di questa settimana. Appena lo pubblica lo vedi qui.</p></div>`;
+  // settimana scelta: all'inizio quella in corso (o la prima pubblicata dopo oggi, altrimenti l'ultima)
+  if (!all.some((w) => w.ws === selWeek)) selWeek = (all.find((w) => w.ws === mon) || all.find((w) => w.ws > mon) || all[all.length - 1]).ws;
+  const w = all.find((x) => x.ws === selWeek), i = all.indexOf(w);
+  const chips = `<div class="wkchips">${all.map((x) => `<button class="${x.ws === selWeek ? 'on' : ''} ${x.ws < mon ? 'past' : ''}" onclick="selWeek=${x.ws};render()">${x.ws === mon ? 'Questa settimana' : wkLabel(x.ws)}</button>`).join('')}</div>`;
+  const nav = all.length > 1 ? `<div class="row" style="margin:0 0 10px;gap:8px"><button class="light" ${i > 0 ? '' : 'disabled'} onclick="selWeek=${i > 0 ? all[i - 1].ws : selWeek};render()">◀ Prima</button><button class="light" ${i < all.length - 1 ? '' : 'disabled'} onclick="selWeek=${i < all.length - 1 ? all[i + 1].ws : selWeek};render()">Dopo ▶</button></div>` : '';
+  return `${upd}${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}${chips}${nav}${weekCard(w, true)}`;
 }
 // ---- cambio password in autonomia ----
 function passwordView() {
