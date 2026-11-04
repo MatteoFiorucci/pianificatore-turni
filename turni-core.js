@@ -13,7 +13,36 @@
     SERVIZIO: { label: 'Sala (servizio al tavolo / pulizia)', short: 'SALA' },
     HOSPITALITY: { label: 'Hospitality', short: 'HSP' },
   };
-  const CREW_STATIONS = ['CUCINA', 'FRONT', 'MCCAFE', 'SERVIZIO'];
+  /**
+   * Postazioni del locale (impostazioni dello store, state.config.stations): si possono rinominare, spegnere o aggiungere
+   * (es. Drive). Alcune hanno regole proprie legate al codice: MCCAFE (limite di persone), SERVIZIO (la sala, che possono
+   * coprire anche le hospitality), HOSPITALITY (la postazione delle hospitality, sempre presente).
+   */
+  const DEFAULT_STATIONS = [
+    { id: 'CUCINA', label: 'MFY (cucina, patate, bibite)', short: 'MFY', color: '#d84a3a', active: true },
+    { id: 'FRONT', label: 'OA (front)', short: 'OA', color: '#2f80c0', active: true },
+    { id: 'MCCAFE', label: 'McCafé', short: 'McC', color: '#7a4a2a', active: true },
+    { id: 'SERVIZIO', label: 'Sala (servizio al tavolo / pulizia)', short: 'SALA', color: '#8a8a8a', active: true },
+    { id: 'DRIVE', label: 'Drive', short: 'DRV', color: '#c58b00', active: false },
+  ];
+  // postazioni attive dei crew (stesso elenco usato ovunque: si aggiorna sul posto con applyStore)
+  const CREW_STATIONS = DEFAULT_STATIONS.filter((x) => x.active).map((x) => x.id);
+  /** Applica le impostazioni dello store: elenco delle postazioni (nomi, sigle, colori, attive/spente). */
+  function applyStore(cfg) {
+    const list = (cfg && Array.isArray(cfg.stations) && cfg.stations.length) ? cfg.stations : DEFAULT_STATIONS;
+    for (const x of list) STATIONS[x.id] = { label: x.label || x.id, short: x.short || String(x.label || x.id).slice(0, 4).toUpperCase(), color: x.color || '#888888' };
+    if (!STATIONS.HOSPITALITY.color) STATIONS.HOSPITALITY.color = '#6c4bb5';
+    const act = list.filter((x) => x.active !== false && x.id !== 'HOSPITALITY').map((x) => x.id);
+    CREW_STATIONS.length = 0; CREW_STATIONS.push(...act);
+    return CREW_STATIONS;
+  }
+  /** Orario del locale nel giorno d (anche 24h): impostazioni per giorno della settimana, altrimenti apertura/chiusura generali. */
+  function dayHours(cfg, d) {
+    const h = cfg && cfg.hours && cfg.hours[dow(d)];
+    if (h && h.h24) return { open: 0, close: 1440, h24: true };
+    if (h && h.open != null && h.close != null) return { open: h.open, close: h.close };
+    return { open: (cfg && cfg.open) ?? 450, close: (cfg && cfg.close) ?? 1290 };
+  }
   /** Tipi di assenza: in tutti la persona non lavora e le ore della settimana si riducono in proporzione. */
   const ABSENCE_TYPES = {
     FERIE: { label: 'Ferie', phrase: 'in ferie', color: '#e8eefc', ink: '#1e40af' },
@@ -148,7 +177,7 @@
    * del pranzo o della cena (rush + preparazione o recupero). Fa eccezione chi apre.
    */
   const isLongWithoutRush = (cfg, s) => {
-    if (s.end - s.start <= (cfg.crewMaxWeekday ?? 240) || s.start <= (cfg.open ?? 450)) return false;
+    if (s.end - s.start <= (cfg.crewMaxWeekday ?? 240) || s.start <= dayHours(cfg, s.day).open) return false;
     const ov = (p) => Math.max(0, Math.min(s.end, p[1]) - Math.max(s.start, p[0]));
     return ov(cfg.lunchPeak ?? [750, 840]) < 60 && ov(cfg.dinnerPeak ?? [1140, 1230]) < 60;
   };
@@ -215,8 +244,12 @@
   const doubleMaxOf = (cfg, e) => (e && e.doubleMax > 0 ? Math.min(e.doubleMax, cfg.doubleMax ?? 180) : cfg.doubleMax ?? 180);
   const restFor = (state, e, ws) => { const o = state.restWeek && state.restWeek[ws] && state.restWeek[ws][e.id]; return Array.isArray(o) ? o : e.restDays; };
   function makeCtx(state, ws) {
+    applyStore(state.config);
     // riposi spostati solo per questa settimana (sezione Turni): la persona vale con quei riposi solo qui
-    const employees = state.employees.filter((e) => e.active).map((e) => (restFor(state, e, ws) === e.restDays ? e : { ...e, restDays: restFor(state, e, ws), restMoved: true }));
+    // (regola dello store spenta "chi è in formazione non apre e non chiude da solo": nessuno è trattato come in formazione)
+    const noTrainee = state.config.traineeRule === false;
+    const employees = state.employees.filter((e) => e.active).map((e) => (restFor(state, e, ws) === e.restDays ? e : { ...e, restDays: restFor(state, e, ws), restMoved: true }))
+      .map((e) => (noTrainee && e.trainee ? { ...e, trainee: false } : e));
     // postazioni per cui qualcuno è segnato come formato alla chiusura (se nessuno: chiudono tutti i formati)
     const closingMarked = new Set(employees.flatMap((e) => e.closings || []));
     const ctx = {
@@ -249,7 +282,7 @@
       if (x.day < ws - 28 || x.day >= ws) continue;
       const e = ctx.byId.get(x.employeeId);
       if (isLongWeekday(state.config, e, x)) ctx.longHistory.set(e.id, (ctx.longHistory.get(e.id) || 0) + 1);
-      if (e && !x.doppio && x.day >= ws - 21 && x.start <= (state.config.open ?? 450)) { const k = e.id + '|' + x.station; ctx.openHistory.set(k, (ctx.openHistory.get(k) || 0) + 1); }
+      if (e && !x.doppio && x.day >= ws - 21 && x.start <= dayHours(state.config, x.day).open) { const k = e.id + '|' + x.station; ctx.openHistory.set(k, (ctx.openHistory.get(k) || 0) + 1); }
     }
     const fc = forecastFor(state, ws, ctx);
     if (fc) {
@@ -269,6 +302,32 @@
         return changed ? { ...r, min } : r;
       });
     }
+    // postazioni spente nelle impostazioni dello store: le loro fasce non chiedono più nessuno
+    ctx.coverage = ctx.coverage.filter((r) => !r.station || r.station === 'HOSPITALITY' || CREW_STATIONS.includes(r.station));
+    // giorni con un orario diverso da quello generale (es. venerdì fino alle 23:30): le fasce di apertura e di chiusura
+    // si spostano sull'orario di quel giorno (una copia della fascia solo per quel giorno)
+    const base = { open: ctx.cfg.open ?? 450, close: ctx.cfg.close ?? 1290 }, extra = [];
+    ctx.coverage = ctx.coverage.map((r) => {
+      const isOpen = r.opening || r.exact === 'start', isClose = r.closing || r.exact === true;
+      if (!isOpen && !isClose) return r;
+      let min = [0, 1, 2, 3, 4, 5, 6].map((k) => (r.min ? r.min[k] : r.minStaff)), changed = false;
+      for (let k = 0; k < 7; k++) {
+        const h = dayHours(ctx.cfg, ws + k);
+        if (h.h24 || !min[k]) continue;
+        const delta = isClose ? h.close - base.close : h.open - base.open;
+        if (!delta) continue;
+        extra.push({ ...r, id: `${r.id}@${k}`, start: r.start + delta, end: r.end + delta, min: [0, 1, 2, 3, 4, 5, 6].map((j) => (j === k ? min[k] : 0)) });
+        min = min.map((v, j) => (j === k ? 0 : v)); changed = true;
+      }
+      return changed ? { ...r, min } : r;
+    }).concat(extra);
+    // giorni 24h (impostazioni dello store): non ci sono apertura e chiusura, quindi niente squadre di apertura/chiusura
+    const h24 = [0, 1, 2, 3, 4, 5, 6].filter((k) => dayHours(ctx.cfg, ws + k).h24);
+    if (h24.length) ctx.coverage = ctx.coverage.map((r) => {
+      if (!(r.opening || r.closing || r.exact)) return r;
+      const min = [0, 1, 2, 3, 4, 5, 6].map((k) => (h24.includes(k) ? 0 : r.min ? r.min[k] : r.minStaff));
+      return { ...r, min };
+    });
     return ctx;
   }
 
@@ -436,7 +495,7 @@
       if (main.length > 1) out.push(V('DAILY_MAX', 'WARNING', `${who}: ${main.length} turni il ${when}: se uno è un doppio segnalo come doppio`, e.id, d));
       if (dbl.length > 1) out.push(V('DOUBLES', 'ERROR', `${who}: più di un doppio il ${when}`, e.id, d));
       // chi apre (turno che inizia all'apertura del locale) quel giorno non fa il doppio
-      if (dbl.length && day.some((s) => s.start <= (cfg.open ?? 450))) out.push(V('DOUBLES', 'ERROR', `${who}: apre il ${when} e fa anche il doppio (chi apre non fa il doppio)`, e.id, d));
+      if (dbl.length && day.some((s) => s.start <= dayHours(cfg, s.day).open)) out.push(V('DOUBLES', 'ERROR', `${who}: apre il ${when} e fa anche il doppio (chi apre non fa il doppio)`, e.id, d));
       for (const x of dbl) {
         if (dur(x) > doubleMaxOf(cfg, e)) out.push(V('DOUBLES', 'ERROR', `${who}: doppio di ${fmtDur(dur(x))} il ${when} (massimo ${fmtDur(doubleMaxOf(cfg, e))})`, e.id, d));
         if (!main.length) out.push(V('DOUBLES', 'WARNING', `${who}: doppio senza turno normale il ${when}`, e.id, d));
@@ -503,7 +562,7 @@
     if (station && isTrainee(e, s.day)) return false;
     if (req && req.closing && station && !canClose(ctx, e, station)) return false;
     if (station === 'HOSPITALITY') return s.station === 'HOSPITALITY';
-    if (station === 'SERVIZIO' && !opening) return s.station === 'SERVIZIO' || s.station === 'HOSPITALITY';
+    if (station === 'SERVIZIO' && !opening) return s.station === 'SERVIZIO' || (ctx.cfg.hospSala !== false && s.station === 'HOSPITALITY');
     return s.station !== 'HOSPITALITY' && (!station || s.station === station) && (!opening || (e.openings || []).includes(station));
   }
   /** Persone presenti in un quarto d'ora che contano per la fascia. */
@@ -644,7 +703,7 @@
    * Picchi di pranzo e cena e presenze per postazione: serve a dividere le persone di una postazione tra pranzo e cena
    * (es. due persone di Sala: una a pranzo e una a cena), così nessuna postazione resta scoperta in un rush.
    */
-  const PEAK_STATIONS = ['CUCINA', 'FRONT', 'MCCAFE', 'SERVIZIO'];
+  const PEAK_STATIONS = CREW_STATIONS; // le postazioni attive del locale
   const peaksOf = (cfg) => [cfg.lunchPeak || [750, 840], cfg.dinnerPeak || [1140, 1230]];
   const overlap = (a, b, p) => Math.max(0, Math.min(b, p[1]) - Math.max(a, p[0]));
   const inPeak = (a, b, p) => overlap(a, b, p) >= (p[1] - p[0]) / 2;
@@ -664,7 +723,8 @@
    * Quante persone al McCafé al massimo nello stesso momento: 2 il sabato e la domenica dall'apertura fino a prima
    * del rush del pranzo (cfg.mcMaxFino, di default le 12:00), 1 in tutti gli altri momenti.
    */
-  const mcCafeMax = (cfg, d, m) => (dow(d) >= 5 && m < (cfg.mcMaxFino ?? 720) ? 2 : 1);
+  // limite di persone al McCafé (impostazioni dello store): di base 1, 2 nei giorni indicati prima di pranzo; si può spegnere
+  const mcCafeMax = (cfg, d, m) => (cfg.mcCapOn === false ? 99 : (cfg.mcEarlyDays || [5, 6, 7]).includes(dow(d)) && m < (cfg.mcMaxFino ?? 720) ? (cfg.mcMaxEarly ?? 2) : (cfg.mcMax ?? 1));
   const mcCafeAt = (list, d, m, except = null) => list.filter((x) => x !== except && x.day === d && x.station === 'MCCAFE' && x.start <= m && x.end > m).length;
   /** Persone al McCafé che contano per il limite: al cambio turno (chi esce entro 30 minuti e chi è appena entrato) si conta una persona sola. */
   function mcCafeLoad(list, d, m, extra = null, except = null) {
@@ -684,8 +744,8 @@
    * Fanno eccezione l'apertura e gli orari fissi. Finestre: pranzo 11:30–15:00, cena 18:30–chiusura (modificabili).
    */
   function shortOffPeak(cfg, s) {
-    if (s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= (cfg.open ?? 450)) return false;
-    const [l0, l1] = cfg.shortLunch || [690, 900], [d0, d1] = cfg.shortDinner || [1110, cfg.close ?? 1290];
+    if (cfg.shortRule === false || s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= dayHours(cfg, s.day).open) return false;
+    const [l0, l1] = cfg.shortLunch || [690, 900], [d0, d1] = cfg.shortDinner || [1110, dayHours(cfg, s.day).close];
     return !((s.start >= l0 && s.end <= l1) || (s.start >= d0 && s.end <= d1));
   }
   function ruleShortOffPeak(ctx) {
@@ -914,11 +974,11 @@
       const clash = (x, id, skip) => ctx0.shifts.some((y) => y !== skip && y.employeeId === id && y.day === q.day && y.start < x.end && x.start < y.end);
       if (clash(b, me.id, a) || clash(a, other.id, b)) continue;
       // postazione: se la persona non è formata in quella del turno che prende, prova le sue (non per apertura/chiusura)
-      const team = (x) => x.start <= (ctx0.cfg.open ?? 450) || x.end >= (ctx0.cfg.close ?? 1290);
+      const team = (x) => x.start <= dayHours(ctx0.cfg, x.day).open || x.end >= dayHours(ctx0.cfg, x.day).close;
       // solo postazioni in cui la persona è formata (per aperture e chiusure: formata per aprire / chiudere quella postazione)
       const trained = (e, x, st) => {
-        if (x.start <= (ctx0.cfg.open ?? 450)) return (e.openings || []).includes(st) && autoOpenOk(e, st);
-        if (x.end >= (ctx0.cfg.close ?? 1290)) return canClose(ctx0, e, st);
+        if (x.start <= dayHours(ctx0.cfg, x.day).open) return (e.openings || []).includes(st) && autoOpenOk(e, st);
+        if (x.end >= dayHours(ctx0.cfg, x.day).close) return canClose(ctx0, e, st);
         if (st === 'HOSPITALITY') return e.type === 'HOSPITALITY';
         if (st === 'SERVIZIO' && e.type === 'HOSPITALITY') return true;
         return e.trainings.includes(st) || (e.type === 'CREW' && !e.trainings.length);
@@ -954,7 +1014,8 @@
    */
   function generate(ctx, opts = {}) {
     const cfg = ctx.cfg, shifts = ctx.shifts.slice(), added = [], notes = [];
-    const OPEN = cfg.open ?? 450, CLOSE = cfg.close ?? 1290;
+    // orario del locale giorno per giorno (impostazioni dello store: anche 24h)
+    const OP = (d) => dayHours(cfg, d).open, CL = (d) => dayHours(cfg, d).close;
     // chiusura parziale del locale (sezione Eventi): nessun turno in quegli orari
     const inClosure = (c) => { const x = ctx.closures && ctx.closures.get(c.day); return !!x && !x.full && c.start < x.to && c.end > x.from; };
     const D_MAX = cfg.doubleMax ?? 180, D_GAP = cfg.doubleGap ?? 120;
@@ -995,17 +1056,17 @@
     }
     /** Turno normale: uno al giorno, entro il massimo, e le ore rimaste devono poter coprire tutti gli altri giorni. */
     // niente turni che finiscono negli ultimi minuti prima della chiusura (es. 21:15): o si chiude alle 21:30 o si esce prima
-    const lateEnd = (b) => b > CLOSE - (cfg.closeGrace ?? 30) && b < CLOSE;
+    const lateEnd = (b, d) => b > CL(d) - (cfg.closeGrace ?? 30) && b < CL(d);
     function canPlace(e, cand, replacing = null) {
       if (!isAvail(ctx, e, cand.day)) return false;
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (inClosure(cand)) return false;
-      if (lateEnd(cand.end) && !e.fixedShift) return false;
+      if (lateEnd(cand.end, cand.day) && !e.fixedShift) return false;
       if (!e.fixedShift && shortOffPeak(cfg, cand)) return false; // turni brevi solo dentro i rush
       if (!e.fixedShift && !cand.doppio && isRigidAfternoon(cfg, cand)) return false; // pomeriggio: turni sfalsati, non rigidi
       if (!e.fixedShift && !cand.doppio && e.type === 'CREW' && (isHybridAfternoon(cfg, cand) || isLongWithoutRush(cfg, cand))) return false; // niente ibridi, turni lunghi solo sul rush
       if (dur(cand) <= 0 || cand.start < 0 || cand.end > 1440) return false;
-      if (!cand.doppio && cand.start <= OPEN && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false; // chi apre non fa il doppio
+      if (!cand.doppio && cand.start <= OP(cand.day) && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false; // chi apre non fa il doppio
       const others = dayMain(e.id, cand.day).filter((s) => s !== replacing);
       if (!replacing && others.length) return false;
       if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
@@ -1028,12 +1089,12 @@
     /** Doppio: solo per chi lo fa, nello stesso giorno del turno normale, con la pausa minima. */
     function canPlaceDouble(e, cand) {
       if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
-      if (dur(cand) <= 0 || dur(cand) > doubleMaxOf(cfg, e) || cand.start < OPEN || cand.end > CLOSE) return false;
-      if (lateEnd(cand.end)) return false;
+      if (dur(cand) <= 0 || dur(cand) > doubleMaxOf(cfg, e) || cand.start < OP(cand.day) || cand.end > CL(cand.day)) return false;
+      if (lateEnd(cand.end, cand.day)) return false;
       if (shortOffPeak(cfg, cand)) return false; // doppi brevi solo dentro i rush
       const main = dayMain(e.id, cand.day);
       if (main.length !== 1 || shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s))) return false;
-      if (cand.start <= OPEN || main[0].start <= OPEN) return false; // chi apre non fa il doppio
+      if (cand.start <= OP(cand.day) || main[0].start <= OP(cand.day)) return false; // chi apre non fa il doppio
       if (Math.max(cand.start - main[0].end, main[0].start - cand.end) < D_GAP) return false;
       if (unaccompanied(ctx, cand, shifts)) return false;
       const cf = closingFit(ctx, cand, shifts);
@@ -1177,12 +1238,12 @@
     function windowsFor(d, m, lengths, reqList = generic, prefer = 0, type = 'CREW', maxLen = 300) {
       const list = [];
       for (const [a, b] of tplOf(type)) {
-        if (a > m || b < m + SLOT || a < OPEN || b > CLOSE || b - a > maxLen) continue;
+        if (a > m || b < m + SLOT || a < OP(d) || b > CL(d) || b - a > maxLen) continue;
         list.push({ start: a, len: b - a, gain: benefit(d, a, b, reqList) });
       }
       for (const len of lengths) {
         for (let start = m - len + SLOT; start <= m; start += SLOT) {
-          const st = Math.max(OPEN, Math.min(start, CLOSE - len));
+          const st = Math.max(OP(d), Math.min(start, CL(d) - len));
           if (st > m || st + len <= m || list.some((w) => w.start === st && w.len === len)) continue;
           list.push({ start: st, len, gain: benefit(d, st, st + len, reqList) });
         }
@@ -1201,12 +1262,12 @@
       if (req.station) {
         const pool = (req.opening ? flexible.filter((e) => (e.openings || []).includes(req.station) && autoOpenOk(e, req.station))
           : req.closing ? flexible.filter((e) => canClose(ctx, e, req.station))
-          : flexible.filter((e) => e.trainings.includes(req.station) || (req.station === 'SERVIZIO' && e.type === 'HOSPITALITY')))
+          : flexible.filter((e) => e.trainings.includes(req.station) || (req.station === 'SERVIZIO' && e.type === 'HOSPITALITY' && cfg.hospSala !== false)))
           .filter((e) => !isTrainee(e, d));
         const lens = [180, 210, 240, 150, 270, 300];
         if (req.station === 'MCCAFE') {
           // al McCafé basta una persona: si prova anche il turno che finisce proprio quando entra il collega successivo
-          const next = Math.min(CLOSE, ...shifts.filter((x) => x.day === d && x.station === 'MCCAFE' && x.start > m).map((x) => x.start));
+          const next = Math.min(CL(d), ...shifts.filter((x) => x.day === d && x.station === 'MCCAFE' && x.start > m).map((x) => x.start));
           if (next - m >= cfg.minShift && !lens.includes(next - m)) lens.push(next - m);
         }
         // McCafé: le finestre contano anche le altre fasce obbligatorie del McCafé (es. il secondo McCafé del weekend):
@@ -1221,7 +1282,7 @@
         // chi ha un impegno la sera (richiesta accettata) è il primo candidato per l'apertura: finisce presto
         const earlyBonus = (e) => { const l = limitOf(ctx, e.id, d); return req.opening && l && l.until != null ? 2 : 0; };
         // aperture a rotazione: sulle 4 settimane (3 passate + questa) prima chi ne ha fatte meno, e in settimana non troppe alla stessa persona
-        const opensWeek = (e) => shifts.filter((x) => x.employeeId === e.id && !x.doppio && x.start <= OPEN && x.station === req.station).length;
+        const opensWeek = (e) => shifts.filter((x) => x.employeeId === e.id && !x.doppio && x.start <= OP(x.day) && x.station === req.station).length;
         const opens4 = (e) => (ctx.openHistory.get(e.id + '|' + req.station) || 0) + opensWeek(e);
         const avgOpen = req.opening && pool.length ? pool.reduce((t, e) => t + opens4(e), 0) / pool.length : 0;
         const avgWeek = req.opening && pool.length ? pool.reduce((t, e) => t + opensWeek(e), 0) / pool.length : 0;
@@ -1344,10 +1405,10 @@
         for (const len of lens) {
           const opts = [];
           for (const d of free) {
-            for (const st of fillStarts[e.type]) if (st >= OPEN && st + len <= CLOSE) opts.push([d, st, st + len]);
+            for (const st of fillStarts[e.type]) if (st >= OP(d) && st + len <= CL(d)) opts.push([d, st, st + len]);
             for (const [a, b] of tplOf(e.type)) {
               const dl = b - a;
-              if (Math.abs(dl - len) <= 30 && dl <= rem && dl <= max && dl >= cfg.minShift && a >= OPEN && b <= CLOSE) opts.push([d, a, b]);
+              if (Math.abs(dl - len) <= 30 && dl <= rem && dl <= max && dl >= cfg.minShift && a >= OP(d) && b <= CL(d)) opts.push([d, a, b]);
             }
           }
           const scored = opts.map(([d, a, b]) => ({ d, a, b, sc: crowd(d, a, b) - natural(e, d, a, b) * 0.35 - rushBalance(pickStation(e, d, a, b), d, a, b) * 0.5 + (isHt ? hospBalance(d, a, b) : 0) })).sort((x, y) => x.sc - y.sc);
@@ -1395,7 +1456,7 @@
         let ext = Math.floor(Math.min(rem, room) / 15) * 15;
         while (ext > 0) {
           const later = { ...s, end: s.end + ext }, earlier = { ...s, start: s.start - ext };
-          const ok = [later, earlier].find((c) => c.end <= CLOSE && c.start >= OPEN && canPlace(e, c, s));
+          const ok = [later, earlier].find((c) => c.end <= CL(c.day) && c.start >= OP(c.day) && canPlace(e, c, s));
           if (ok) { replace(s, ok); rem -= ext; break; }
           ext -= 15;
         }
@@ -1430,7 +1491,7 @@
                 if (!ok || isTrainee(e, d)) continue;
                 stations = [r.station === 'SERVIZIO' && e.type === 'HOSPITALITY' && !e.trainings.includes('SERVIZIO') ? 'HOSPITALITY' : r.station];
               }
-              for (let a = Math.max(OPEN, m - len + SLOT); !fixed && a <= m && a + len <= CLOSE; a += SLOT) {
+              for (let a = Math.max(OP(d), m - len + SLOT); !fixed && a <= m && a + len <= CL(d); a += SLOT) {
                 for (const st of stations) {
                   if (a === old.start && st === old.station) continue;
                   const cand = { ...old, start: a, end: a + len, station: st };
@@ -1457,7 +1518,7 @@
     const movableSet = () => new Set(movable());
     const plain = (x, id) => ({ employeeId: id, day: x.day, start: x.start, end: x.end, station: x.station, doppio: false });
     const closeStation = (e, st) => (st === 'SERVIZIO' && e.type === 'HOSPITALITY' && !e.trainings.includes('SERVIZIO') ? 'HOSPITALITY' : st);
-    const canDo = (e, x) => (x.start <= OPEN ? (e.openings || []).includes(x.station) && autoOpenOk(e, x.station)
+    const canDo = (e, x) => (x.start <= OP(x.day) ? (e.openings || []).includes(x.station) && autoOpenOk(e, x.station)
       : e.type === 'HOSPITALITY' ? x.station === 'HOSPITALITY' || x.station === 'SERVIZIO' : e.trainings.includes(x.station) || x.station === 'FRONT');
     // quanto manca nei giorni indicati: { team } = squadre di apertura/chiusura, { other } = tutte le altre fasce
     const lossOf = (days) => {
@@ -1476,7 +1537,7 @@
     function closeWith(e, d, r, old) {
       const lens = [...new Set([old ? dur(old) : 0, 180, 210, 240, 270, 300].filter((l) => l >= cfg.minShift))];
       for (const len of lens) {
-        const cand = { employeeId: e.id, day: d, start: CLOSE - len, end: CLOSE, station: closeStation(e, r.station), doppio: false };
+        const cand = { employeeId: e.id, day: d, start: CL(d) - len, end: CL(d), station: closeStation(e, r.station), doppio: false };
         if (!countsFor(ctx, cand, r)) continue;
         if (old ? canPlace(e, cand, old) : canPlace(e, cand)) { if (old) swapIn(old, cand); else place(cand); return { cand, old }; }
       }
@@ -1495,7 +1556,7 @@
           if (countAt(ctx, d, t, r, shifts) >= need) break;
           const mv = movableSet();
           const old = dayMain(e.id, d)[0];
-          if (old && (!mv.has(old) || old.end >= CLOSE)) continue;
+          if (old && (!mv.has(old) || old.end >= CL(old.day))) continue;
           const nd = nextDayOf(e), span = nd ? [d, nd] : [d];
           const base = lossOf(span);
           // A) solo spostando il turno della sera
@@ -1503,11 +1564,11 @@
           if (res) { if (better(lossOf(span), base)) { improved = true; continue; } undoClose(res); }
           // B) scambio con l'apertura (o il turno presto) del giorno dopo
           const nxt = nd ? dayMain(e.id, nd)[0] : null;
-          if (!old || !nxt || !mv.has(nxt) || nxt.end >= CLOSE) continue;
+          if (!old || !nxt || !mv.has(nxt) || nxt.end >= CL(nxt.day)) continue;
           for (const f of flexible) {
             if (f === e || f.fixedShift || isTrainee(f, nd) || !canDo(f, nxt)) continue;
             const y = dayMain(f.id, nd)[0];
-            if (!y || !mv.has(y) || y.start <= nxt.start || y.end >= CLOSE || !canDo(e, y)) continue;
+            if (!y || !mv.has(y) || y.start <= nxt.start || y.end >= CL(y.day) || !canDo(e, y)) continue;
             const yE = plain(y, e.id), nF = plain(nxt, f.id);
             if (!canPlace(e, yE, nxt)) continue;
             swapIn(nxt, yE);
@@ -1530,7 +1591,7 @@
       if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
       if (isTrainee(e, cand.day) || dur(cand) <= 0) return false;
       if (!e.fixedShift && shortOffPeak(cfg, cand)) return false;
-      if (!cand.doppio && cand.start <= OPEN && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false;
+      if (!cand.doppio && cand.start <= OP(cand.day) && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false;
       const others = dayMain(e.id, cand.day).filter((s) => s !== replacing);
       if (!replacing && others.length) return false;
       if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
@@ -1560,12 +1621,12 @@
           const old = dayMain(e.id, d)[0];
           // non si sposta un turno che sta già aprendo o chiudendo (scoprirebbe un'altra squadra)
           // (si può solo allungare o spostare il turno che serve proprio questa squadra)
-          const team = (x) => x.start <= OPEN || x.end >= CLOSE;
+          const team = (x) => x.start <= OP(x.day) || x.end >= CL(x.day);
           if (old && (!mv.has(old) || (team(old) && !countsFor(ctx, old, r)))) continue;
           const lens = [...new Set([old ? dur(old) : 0, endW - r.start, 240, 210, 180, 270, 300].filter((l) => l >= cfg.minShift))];
           for (const len of lens) {
             // apertura: dall'inizio della fascia; chiusura: fino alla chiusura, entrando entro il primo buco
-            const start = r.opening ? r.start : Math.min(CLOSE - len, m0);
+            const start = r.opening ? r.start : Math.min(CL(d) - len, m0);
             if (r.opening ? start + len < Math.min(endW, m0 + SLOT) : start + len < endW) continue;
             const cand = { employeeId: e.id, day: d, start, end: start + len, station: closeStation(e, r.station), doppio: false };
             if (!countsFor(ctx, cand, r) || !canPlaceTeam(e, cand, old || null)) continue;
@@ -1595,10 +1656,10 @@
     for (const d of ctx.days) {
       for (let guard = 0; guard < 10; guard++) {
         let m0 = null;
-        for (let m = OPEN; m < CLOSE && m0 == null; m += SLOT) if (mcCafeLoad(shifts, d, m) > mcCafeMax(cfg, d, m)) m0 = m;
+        for (let m = OP(d); m < CL(d) && m0 == null; m += SLOT) if (mcCafeLoad(shifts, d, m) > mcCafeMax(cfg, d, m)) m0 = m;
         if (m0 == null) break;
         // prima chi non è nella squadra di apertura/chiusura, poi il turno più corto
-        const cands = added.filter((x) => x.day === d && x.station === 'MCCAFE' && !x.doppio && x.start > OPEN && x.start <= m0 && x.end > m0 && altStation(x))
+        const cands = added.filter((x) => x.day === d && x.station === 'MCCAFE' && !x.doppio && x.start > OP(d) && x.start <= m0 && x.end > m0 && altStation(x))
           .sort((x, y) => inMcTeam(x) - inMcTeam(y) || (x.end - x.start) - (y.end - y.start));
         const base = teamHoles(d);
         let done = false;
@@ -1619,7 +1680,7 @@
     for (const d of mcReq ? ctx.days : []) {
       if (!reqMin(mcReq, d)) continue;
       // crew, oppure hospitality che quel giorno lavora al banco (non in sala)
-      const free = (s) => s.day === d && !s.doppio && s.start > OPEN && s.end < CLOSE && (ctx.byId.get(s.employeeId)?.type === 'CREW' || !['HOSPITALITY', 'SERVIZIO'].includes(s.station));
+      const free = (s) => s.day === d && !s.doppio && s.start > OP(d) && s.end < CL(d) && (ctx.byId.get(s.employeeId)?.type === 'CREW' || !['HOSPITALITY', 'SERVIZIO'].includes(s.station));
       for (let guard = 0; guard < 10; guard++) {
         const base = mcEmpty(d);
         if (!base) break;
@@ -1655,7 +1716,7 @@
 
   root.Turni = {
     ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf,
-    STATIONS, CREW_STATIONS, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
+    STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
   };

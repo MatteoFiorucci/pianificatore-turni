@@ -348,7 +348,7 @@
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
-const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['richieste', 'Richieste'], ['regole', 'Regole']];
+const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['richieste', 'Richieste'], ['regole', 'Regole'], ['store', 'Store']];
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
 
 // ---------- stato (salvato nel browser) ----------
@@ -434,14 +434,23 @@ function renderBrand() {
 // altezza reale della barra verde (su telefono è più alta): i titoli delle tabelle si fermano subito sotto
 function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', document.querySelector('header').offsetHeight + 'px'); }
 window.addEventListener('resize', setHeaderHeight);
+/** Impostazioni dello store: postazioni (nomi e colori) applicate a tutto lo schermo. */
+function applyStoreUi() {
+  T.applyStore(state.config);
+  let el = document.getElementById('stcss');
+  if (!el) { el = document.createElement('style'); el.id = 'stcss'; document.head.appendChild(el); }
+  el.textContent = (state.config.stations || []).map((x) => `.st-${x.id}{background:${x.color || '#888'}}`).join('');
+}
 function render() {
   if (ui.locked) return renderGate();
+  applyStoreUi();
   renderBrand(); renderSync();
   const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
   if (compactOn() && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero';
   document.getElementById('nav').innerHTML = VIEWS.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k)).map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
-  const views = { turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole };
+  const views = { turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
   document.getElementById('app').innerHTML =
+    (TurniCloud.PROVA ? '<div class="notice warn" style="margin-bottom:12px">🧪 <b>Versione di prova</b> (sul computer): vedi i tuoi dati veri, ma le modifiche <b>non vengono salvate online</b> e i dipendenti non vedono niente.</div>' : '') +
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
     views[ui.view]() +
     (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
@@ -645,7 +654,7 @@ function saveDay() {
 // --- generazione ---
 function askGenerate() {
   const trained = (st) => state.employees.filter((e) => e.active && (e.openings || []).includes(st)).length;
-  const missing = ['MCCAFE', 'CUCINA'].filter((st) => !trained(st)).map((st) => T.STATIONS[st].label);
+  const missing = OPENINGS_().filter((st) => !trained(st)).map((st) => T.STATIONS[st].label);
   const warn = missing.length
     ? `<div class="notice warn" style="margin-top:12px">Nessuno risulta formato per l'apertura ${missing.join(' né ')}: quelle aperture non potranno essere coperte. Segnalo nella sezione <b>Aperture e chiusure</b>.</div>` : '';
   showModal(`
@@ -795,7 +804,8 @@ function renderMgrTurni() {
   }).join('');
   const covRow = (label, fn) => `<tr class="cov"><td class="name">${label}</td>${days.map((d) => { const v = fn(d); return `<td class="c ${v ? 'okc' : 'bad'}">${v ? '✓' : '✕'}</td>`; }).join('')}<td></td></tr>`;
   const dl = (d) => list.filter((x) => x.day === d);
-  const cov = team.length ? covRow('Apertura 7:30', (d) => dl(d).some((x) => x.start <= 450)) + covRow('Chiusura 21:30', (d) => dl(d).some((x) => x.end >= 1290)) : '';
+  const hh = (d) => T.dayHours(state.config, d), wkH = T.dayHours(state.config, ws);
+  const cov = team.length ? covRow(`Apertura ${T.fmtTime(wkH.open)}`, (d) => dl(d).some((x) => x.start <= hh(d).open)) + covRow(`Chiusura ${T.fmtTime(wkH.close)}`, (d) => dl(d).some((x) => x.end >= hh(d).close)) : '';
   const st = MGR().weekendStats(state, ws);
   const weeksOk = new Set((state.mgrShifts || []).filter((x) => x.day >= ws - 21 && x.day <= ws + 6).map((x) => T.mondayOf(x.day))).size >= 4;
   const wk = team.map((m) => { const o = st[m.id] || { apertura: 0, centrale: 0, cena: 0 }; return `<li>${esc(T.fullName(m))}: ${o.apertura} aperture · ${o.centrale} centrali · ${o.cena} cene${weeksOk && (!o.apertura || !o.centrale || !o.cena) ? ' <span class="chip warn" style="padding:0 6px">manca qualcosa</span>' : ''}</li>`; }).join('');
@@ -890,7 +900,8 @@ function moveDay(n) { ui.day += n; render(); }
 function renderGiornaliero() {
   const day = ui.day, cfg = state.config;
   const ctx = T.makeCtx(state, T.mondayOf(day));
-  const H0 = Math.floor(((cfg.open ?? 450) - 30) / 60), H1 = Math.ceil(((cfg.close ?? 1290) + 60) / 60);
+  const dh = T.dayHours(cfg, day); // orario del locale di quel giorno (anche 24h)
+  const H0 = Math.max(0, Math.floor((dh.open - 30) / 60)), H1 = Math.min(24, Math.ceil((dh.close + 60) / 60));
   const hours = []; for (let h = H0; h < H1; h++) hours.push(h);
   const span = (H1 - H0) * 60, pct = (m) => (((m - H0 * 60) / span) * 100).toFixed(3) + '%';
   const hw = `calc(100% / ${hours.length})`;
@@ -910,7 +921,7 @@ function renderGiornaliero() {
   const editing = !!ui.dragEdit, byArea = ui.groupBy === 'area';
   if (editing) day_.forEach((s) => { if (s.id == null) s.id = newId(); });
   // vista per area: una fascia per postazione (trascinando una barra in un'altra fascia si cambia area)
-  const AREAS = [['CUCINA', 'MFY (cucina)'], ['FRONT', 'OA (front)'], ['MCCAFE', 'McCafé'], ['SERVIZIO', 'Sala'], ['HOSPITALITY', 'Hospitality']];
+  const AREAS = [...T.CREW_STATIONS.map((st) => [st, T.STATIONS[st].label]), ['HOSPITALITY', 'Hospitality']];
   const shown = byArea ? AREAS.map(([st, t]) => [t, day_.filter((s) => s.station === st), st]) : sections;
   const vs = T.validate(ctx).filter((v) => v.day === day);
   const bad = new Set(vs.filter((v) => v.emp != null).map((v) => v.emp));
@@ -1025,7 +1036,7 @@ function vlhGC(day, h) {
   if (!fd || !fd.gc || !prof) return { gc: null };
   const clo = T.closureOf(state.eventi, day), cfg = state.config;
   const shut = (x) => clo && (clo.full || (x * 60 < clo.to && (x + 1) * 60 > clo.from));
-  const h0 = Math.floor((cfg.open ?? 450) / 60), h1 = Math.ceil((cfg.close ?? 1290) / 60);
+  const dh = T.dayHours(cfg, day), h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60);
   let share = 0; for (let x = h0; x < h1; x++) if (!shut(x)) share += prof[(x - 5 + 24) % 24] || 0;
   if (!share || shut(h) || h < h0 || h >= h1) return { gc: 0 };
   return { gc: Math.round((fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / share) };
@@ -1673,29 +1684,35 @@ function toggleTraining(id, st) {
 }
 
 // ================= APERTURE =================
-const OPENINGS = ['MCCAFE', 'CUCINA'];
-const CLOSINGS = ['MCCAFE', 'CUCINA', 'SERVIZIO'];
+// postazioni con apertura / chiusura: dalle fasce di copertura del locale (Regole), non più fisse
+const stationsOf = (flag) => [...new Set(state.coverage.filter((r) => r[flag] && r.station && r.station !== 'HOSPITALITY').map((r) => r.station))].filter((st) => T.STATIONS[st]);
+const OPENINGS_ = () => stationsOf('opening'), CLOSINGS_ = () => stationsOf('closing');
+/** Squadra esatta all'apertura ('start') o alla chiusura ('end'), dalle fasce di copertura: es. "1 McCafé, 1 MFY". */
+function teamText(when) {
+  const list = state.coverage.filter((r) => r.station && (when === 'start' ? r.exact === 'start' : r.exact === true));
+  return list.map((r) => { const m = r.min || [r.minStaff]; const a = Math.min(...m), b = Math.max(...m); return `${a === b ? a : a + '–' + b} ${T.STATIONS[r.station] ? T.STATIONS[r.station].short : r.station}`; }).join(', ');
+}
 function renderAperture() {
   const people = state.employees.filter((e) => e.active);
   const has = (e, key, st) => (e[key] || []).includes(st);
   const markedClose = (st) => people.some((e) => has(e, 'closings', st));
   const cnt = (key, st) => people.filter((e) => has(e, key, st)).length;
-  const pills = OPENINGS.map((st) => `<span class="pill on">Apertura ${T.STATIONS[st].label}: ${cnt('openings', st)}</span>`).join('') +
-    CLOSINGS.map((st) => `<span class="pill ${markedClose(st) ? 'on' : ''}" title="${markedClose(st) ? '' : 'Nessuno segnato: chiudono tutti i formati in questa postazione'}">Chiusura ${T.STATIONS[st].short === 'SALA' ? 'Sala' : T.STATIONS[st].label}: ${cnt('closings', st) || 'tutti i formati'}</span>`).join('');
+  const pills = OPENINGS_().map((st) => `<span class="pill on">Apertura ${T.STATIONS[st].label}: ${cnt('openings', st)}</span>`).join('') +
+    CLOSINGS_().map((st) => `<span class="pill ${markedClose(st) ? 'on' : ''}" title="${markedClose(st) ? '' : 'Nessuno segnato: chiudono tutti i formati in questa postazione'}">Chiusura ${T.STATIONS[st].short === 'SALA' ? 'Sala' : T.STATIONS[st].label}: ${cnt('closings', st) || 'tutti i formati'}</span>`).join('');
   const box = (e, key, st) => `<td style="text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer" ${has(e, key, st) ? 'checked' : ''} onchange="toggleQual(${e.id},'${key}','${st}')"></td>`;
   const rows = ['HOSPITALITY', 'CREW'].map((type) => {
     const list = sortByName(people.filter((e) => e.type === type));
     if (!list.length) return '';
     return `<tr class="group"><td colspan="6">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b>${e.fixedShift ? ' <span class="small muted">(orario fisso)</span>' : ''}${e.trainee ? ' 🎓' : ''}</td>
-      ${OPENINGS.map((st) => (e.type === 'HOSPITALITY' ? '<td style="text-align:center" class="small muted" title="In apertura ci sono solo 1 McCafé e 1 MFY (crew)">—</td>' : box(e, 'openings', st))).join('')}
-      ${CLOSINGS.map((st) => box(e, 'closings', st)).join('')}</tr>`).join('');
+      ${OPENINGS_().map((st) => (e.type === 'HOSPITALITY' ? '<td style="text-align:center" class="small muted" title="In apertura ci sono solo i crew della squadra di apertura">—</td>' : box(e, 'openings', st))).join('')}
+      ${CLOSINGS_().map((st) => box(e, 'closings', st)).join('')}</tr>`).join('');
   }).join('');
   return `
   <h2>Aperture e chiusure ${ib('aperture')}</h2>
   <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la possono chiudere sia crew sia hospitality: se non segni nessuno, possono chiuderla tutti i crew formati in Sala e tutte le hospitality.<br>
-  Chi è 🎓 in formazione non apre e non chiude mai da solo/a. In <b>apertura</b> (7:30) ci sono solo 2 persone: 1 McCafé e 1 MFY, niente hospitality.</div>
+  Chi è 🎓 in formazione non apre e non chiude mai da solo/a. In <b>apertura</b> (${T.fmtTime(state.config.open ?? 450)}) c'è solo la squadra di apertura: ${teamText('start') || 'nessuna squadra impostata'}. Le squadre si impostano in Regole → Fasce di copertura.</div>
   <p>${pills}</p>
-  <div class="card"><table class="list"><thead><tr><th>Nome</th>${OPENINGS.map((st) => `<th style="text-align:center">Apertura<br>${T.STATIONS[st].label}</th>`).join('')}${CLOSINGS.map((st) => `<th style="text-align:center">Chiusura<br>${st === 'SERVIZIO' ? 'Sala' : T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  <div class="card"><table class="list"><thead><tr><th>Nome</th>${OPENINGS_().map((st) => `<th style="text-align:center">Apertura<br>${T.STATIONS[st].label}</th>`).join('')}${CLOSINGS_().map((st) => `<th style="text-align:center">Chiusura<br>${st === 'SERVIZIO' ? 'Sala' : T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
 function toggleQual(id, key, st) {
   const e = empById(id), o = e[key] || [];
@@ -1775,7 +1792,7 @@ function renderRegole() {
       <div class="row"><label class="f"><span>Post-rush pomeriggio: dalle ${ib('cfg-aft')}</span>${timeSelect(c.afternoonStart ?? 870, '').replace('<select', '<select id="cfg-aft0"')}</label><label class="f">alle${timeSelect(c.afternoonEnd ?? 1140, '').replace('<select', '<select id="cfg-aft1"')}</label>
         <label class="f"><span>Chi fa la cena entra dalle ${ib('cfg-pre')}</span>${timeSelect(c.dinnerPreStart ?? 990, '').replace('<select', '<select id="cfg-pre"')}</label>
 </div>
-      <div class="row"><label class="f"><span>Apertura locale ${ib('cfg-orario')}</span>${timeSelect(c.open, '').replace('<select', '<select id="cfg-open"')}</label><label class="f">Chiusura locale${timeSelect(c.close, '').replace('<select', '<select id="cfg-close"')}</label></div>
+      <div class="small">Orari del locale (anche 24h), postazioni e regole del locale: sezione <a href="#" onclick="go('store');return false">Store</a>.</div>
       <div class="small muted">Si possono scrivere anche mezze ore: 4,5 oppure 4:30. Tocca ⓘ per la spiegazione di ogni regola.</div>
       <div id="cfg-error" class="notice err" style="display:none"></div>
       <div><button class="btn primary" onclick="saveConfig()">Salva regole</button></div>
@@ -1824,6 +1841,111 @@ function renderRegole() {
         : `<div><button class="btn danger" onclick="if(confirm('Cancellare tutti i dati di questo browser? Fai prima Esporta dati se vuoi tenerli.')){state=TurniData.emptyState();save();go('personale')}">Cancella tutti i dati</button></div>`}
     </div>
   </div>`;
+}
+
+// ================= STORE: impostazioni del locale (orari, postazioni, regole) =================
+// Tutto ciò che cambia da un locale all'altro sta in state.config (cifrato insieme ai dati del locale):
+// un locale nuovo imposta qui le sue regole senza toccare il motore dei turni.
+const DAY_TIMES = []; for (let m = 0; m <= 1440; m += 15) DAY_TIMES.push(m);
+const dayTimeSel = (v, on) => `<select onchange="${on}">${DAY_TIMES.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${t === 1440 ? '24:00' : T.fmtTime(t)}</option>`).join('')}</select>`;
+const MGR_DEF = { short: [180, 300], long: [390, 510], rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+function storeStations() { if (!Array.isArray(state.config.stations) || !state.config.stations.length) state.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x })); return state.config.stations; }
+function setHour(d, k, v) {
+  const c = state.config; c.hours = c.hours || {};
+  const h = c.hours[d] = { open: c.open ?? 450, close: c.close ?? 1290, ...(c.hours[d] || {}), [k]: v };
+  if (!h.h24 && h.close <= h.open) { alert("La chiusura deve essere dopo l'apertura."); render(); return; }
+  // orario "generale" (testi, richieste): quello del lunedì
+  if (d === 1 && !h.h24) { c.open = h.open; c.close = h.close; }
+  save(); render();
+}
+function setStation(i, k, v) {
+  const l = storeStations(), x = l[i];
+  if (k === 'active' && !v && state.coverage.some((r) => r.station === x.id && (r.min || []).some((n) => n > 0))) {
+    if (!confirm(`Ci sono fasce di copertura per ${x.label} (Regole). Spegnendo la postazione non verranno più coperte. Continuare?`)) { render(); return; }
+  }
+  x[k] = v; save(); render();
+}
+function addStation() {
+  const name = (prompt('Nome della nuova postazione (es. Drive 2, Kiosk, Pulizie):') || '').trim();
+  if (!name) return;
+  const id = 'P' + newId();
+  storeStations().push({ id, label: name, short: name.slice(0, 4).toUpperCase(), color: '#5b8c5a', active: true, custom: true });
+  save(); render();
+}
+function delStation(i) {
+  const l = storeStations(), x = l[i];
+  const used = state.employees.some((e) => (e.trainings || []).includes(x.id)) || state.shifts.some((s) => s.station === x.id) || state.coverage.some((r) => r.station === x.id);
+  if (used) return alert(`${x.label} è già usata (formazione, turni o fasce): puoi spegnerla, non eliminarla.`);
+  if (!confirm(`Eliminare la postazione ${x.label}?`)) return;
+  l.splice(i, 1); save(); render();
+}
+function setRule(k, v) { state.config[k] = v; save(); render(); }
+function setMgrRule(k, v) { state.config.mgr = { ...MGR_DEF, ...(state.config.mgr || {}), [k]: v }; save(); render(); }
+function setMgrPair(k, i, txt) {
+  const v = T.parseHours(txt); if (v == null) return alert('Scrivi un numero di ore, es. 3 o 6:30.');
+  const g = { ...MGR_DEF, ...(state.config.mgr || {}) }, p = [...g[k]]; p[i] = v;
+  if (p[0] > p[1]) return alert('Il minimo deve essere minore del massimo.');
+  setMgrRule(k, p);
+}
+function renderStore() {
+  const c = state.config, sts = storeStations(), g = { ...MGR_DEF, ...(c.mgr || {}) };
+  const sw = (k, label, help, def = true) => { const on = c[k] === undefined ? def : c[k] !== false;
+    return `<label class="tg ${on ? 'on' : ''}" style="width:max-content;margin:6px 0 2px"><input type="checkbox" ${on ? 'checked' : ''} onchange="setRule('${k}',this.checked)">${label}</label><div class="small muted" style="margin:0 0 8px 4px">${help}</div>`; };
+  const hrs = (v) => T.hoursText(v);
+  const hours = [1, 2, 3, 4, 5, 6, 7].map((d) => {
+    const h = (c.hours || {})[d] || {}, h24 = !!h.h24, o = h.open ?? c.open ?? 450, cl = h.close ?? c.close ?? 1290;
+    return `<tr><td><b>${T.DOW_LONG[d]}</b></td><td>${h24 ? '<span class="muted">aperto 24 ore su 24</span>' : `${dayTimeSel(o, `setHour(${d},'open',+this.value)`)} – ${dayTimeSel(cl, `setHour(${d},'close',+this.value)`)}`}</td>
+      <td><label class="tg ${h24 ? 'on' : ''}"><input type="checkbox" ${h24 ? 'checked' : ''} onchange="setHour(${d},'h24',this.checked)">24h</label></td></tr>`;
+  }).join('');
+  const stRows = sts.map((x, i) => `<tr style="${x.active === false ? 'opacity:.55' : ''}">
+    <td style="text-align:center"><input type="checkbox" style="width:18px;height:18px" ${x.active !== false ? 'checked' : ''} onchange="setStation(${i},'active',this.checked)"></td>
+    <td><input type="text" value="${esc(x.label)}" style="width:220px" onchange="setStation(${i},'label',this.value.trim()||'${esc(x.id)}')"></td>
+    <td><input type="text" value="${esc(x.short || '')}" maxlength="5" style="width:60px" onchange="setStation(${i},'short',this.value.trim())"></td>
+    <td><input type="color" value="${esc(x.color || '#888888')}" onchange="setStation(${i},'color',this.value)"></td>
+    <td class="small muted">${x.id === 'MCCAFE' ? 'limite di persone (sotto)' : x.id === 'SERVIZIO' ? 'la possono coprire le hospitality (sotto)' : x.custom ? 'aggiunta dal locale' : ''}</td>
+    <td>${x.custom ? `<button class="link" style="color:var(--err-ink)" onclick="delStation(${i})">Elimina</button>` : ''}</td></tr>`).join('');
+  const dayChk = (list, on) => [1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="tg ${list.includes(d) ? 'on' : ''}"><input type="checkbox" ${list.includes(d) ? 'checked' : ''} onchange="${on(d)}">${T.DOW_SHORT[d]}</label>`).join('');
+  const toggleIn = (list, d) => JSON.stringify(list.includes(d) ? list.filter((x) => x !== d) : [...list, d].sort());
+  const mcDays = c.mcEarlyDays || [5, 6, 7];
+  return `
+  <h2>Store: impostazioni del locale</h2>
+  <div class="notice info" style="margin-bottom:12px">Qui si adatta l'app a questo locale: orari, postazioni e regole. Ogni locale ha le sue impostazioni (salvate e cifrate con i suoi dati): un locale nuovo le imposta qui, senza cambiare il programma.
+    Le <b>squadre di apertura e chiusura</b> (quante persone per postazione) si impostano in <a href="#" onclick="go('regole');return false">Regole → Fasce di copertura</a>; <b>chi può aprire o chiudere</b> in <a href="#" onclick="go('aperture');return false">Aperture e chiusure</a>; durate e stacchi dei crew in <a href="#" onclick="go('regole');return false">Regole</a>.</div>
+
+  <h3>🕒 Orari del locale</h3>
+  <div class="card section"><table class="list" style="max-width:560px"><tbody>${hours}</tbody></table>
+    <p class="small muted" style="margin-bottom:0">Con <b>24h</b> quel giorno non ci sono apertura e chiusura (niente squadre di apertura/chiusura). Per ora i turni non attraversano la mezzanotte: la notte si copre con turni che finiscono alle 24:00 e turni che iniziano alle 0:00.</p></div>
+
+  <h3>🧩 Postazioni</h3>
+  <div class="card section"><table class="list"><thead><tr><th>Attiva</th><th>Nome</th><th>Sigla</th><th>Colore</th><th></th><th></th></tr></thead><tbody>${stRows}</tbody></table>
+    <div style="margin-top:8px"><button class="btn" onclick="addStation()">+ Aggiungi postazione</button></div>
+    <p class="small muted" style="margin-bottom:0">Le postazioni attive compaiono in Formazione, nei turni, nel lineare e nelle fasce di copertura. Una postazione spenta resta nello storico. La postazione Hospitality c'è sempre (è il ruolo delle hospitality).</p></div>
+
+  <h3>⚙️ Regole del locale</h3>
+  <div class="card section">
+    ${sw('traineeRule', '🎓 Chi è in formazione non apre e non chiude mai da solo', 'In apertura e chiusura chi è in formazione non conta per i minimi e deve avere accanto un formato nella stessa postazione.')}
+    ${sw('hospSala', 'Le hospitality possono coprire la Sala', 'Anche in chiusura: la Sala la possono fare crew formati in Sala e hospitality (segnate in Aperture e chiusure).')}
+    ${sw('mcCapOn', 'Limite di persone al McCafé', `Al massimo <input type="number" min="1" max="5" value="${c.mcMax ?? 1}" style="width:50px" onchange="setRule('mcMax',Math.max(1,+this.value||1))"> persona/e; <input type="number" min="1" max="5" value="${c.mcMaxEarly ?? 2}" style="width:50px" onchange="setRule('mcMaxEarly',Math.max(1,+this.value||1))"> prima delle ${dayTimeSel(c.mcMaxFino ?? 720, "setRule('mcMaxFino',+this.value)")} nei giorni <span style="white-space:nowrap">${dayChk(mcDays, (d) => `setRule('mcEarlyDays',${toggleIn(mcDays, d)})`)}</span>. Al cambio turno 30 minuti insieme sono ammessi.`)}
+    ${sw('shortRule', 'Turni brevi solo dentro i rush', `I turni di crew e hospitality sotto le <input type="text" value="${hrs(c.shortMin ?? 180)}" style="width:50px" onchange="const v=T.parseHours(this.value);if(v)setRule('shortMin',v)"> ore vanno dentro il pranzo (${dayTimeSel((c.shortLunch || [690, 900])[0], `setRule('shortLunch',[+this.value,${(c.shortLunch || [690, 900])[1]}])`)}–${dayTimeSel((c.shortLunch || [690, 900])[1], `setRule('shortLunch',[${(c.shortLunch || [690, 900])[0]},+this.value])`)}) o la cena (dalle ${dayTimeSel((c.shortDinner || [1110])[0], "setRule('shortDinner',[+this.value,1440])")}). Apertura e orari fissi esclusi.`)}
+    ${sw('mgrInIntermedi', 'I manager in più coprono le ore intermedie del pomeriggio', 'Tra pranzo e cena ogni manager oltre al responsabile di turno conta come una persona: le ore dei crew vanno sui rush.')}
+    ${sw('mgrInPostazioni', 'I manager in più coprono le postazioni scoperte', 'Un manager oltre al responsabile di turno copre una postazione rimasta senza crew (sono formati su tutte).')}
+  </div>
+
+  <h3>👔 Regole dei manager</h3>
+  <div class="card section"><div class="form">
+    <div class="row">
+      <label class="f">Turni corti: da <input type="text" value="${hrs(g.short[0])}" style="width:60px" onchange="setMgrPair('short',0,this.value)"></label><label class="f">a <input type="text" value="${hrs(g.short[1])}" style="width:60px" onchange="setMgrPair('short',1,this.value)"> ore</label>
+      <label class="f">Turni lunghi: da <input type="text" value="${hrs(g.long[0])}" style="width:60px" onchange="setMgrPair('long',0,this.value)"></label><label class="f">a <input type="text" value="${hrs(g.long[1])}" style="width:60px" onchange="setMgrPair('long',1,this.value)"> ore</label>
+    </div>
+    <div class="row">
+      <label class="f">Stacco tra due turni (ore)<input type="text" value="${hrs(g.rest)}" style="width:70px" onchange="const v=T.parseHours(this.value);if(v)setMgrRule('rest',v)"></label>
+      <label class="f">Stacco con un riposo in mezzo (ore)<input type="text" value="${hrs(g.rest36)}" style="width:70px" onchange="const v=T.parseHours(this.value);if(v)setMgrRule('rest36',v)"></label>
+      <label class="f">Giorni dell'ordine: entrare entro le${dayTimeSel(g.orderBy, "setMgrRule('orderBy',+this.value)")}</label>
+      <label class="f">Manager minimi ogni giorno<input type="number" min="1" max="6" value="${g.minPerDay}" style="width:60px" onchange="setMgrRule('minPerDay',Math.max(1,+this.value||2))"></label>
+    </div>
+    <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Giorni in cui i manager possono riposare</span><div class="row" style="gap:3px">${dayChk(g.restDays, (d) => `setMgrRule('restDays',${toggleIn(g.restDays, d)})`)}</div></div>
+    <p class="small muted" style="margin:0">Durate fuori da questi blocchi (es. 5:30 o 6:00 con i valori di partenza) sono segnalate come errore. Squadra, giorni dell'ordine, orari flessibili, delivery e Carpigiani: Turni → Manager.</p>
+  </div></div>`;
 }
 // --- dati cifrati sul sito ---
 function askEncryptedExport() {
@@ -2135,7 +2257,7 @@ function dragStart(ev) {
 }
 function dragMove(ev) {
   if (!drag) return;
-  const cfg = state.config, OPEN = cfg.open ?? 450, CLOSE = cfg.close ?? 1290;
+  const cfg = state.config, { open: OPEN, close: CLOSE } = T.dayHours(cfg, drag.s.day);
   const dx = ev.clientX - drag.x0, dy = ev.clientY - drag.y0;
   if (Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.moved = true;
   const dm = Math.round(dx / drag.pxPerMin / SNAP) * SNAP, len = drag.s.end - drag.s.start;
@@ -2209,7 +2331,7 @@ function shiftToast(s, before) {
 }
 /** Striscia delle aree mentre si trascina in verticale: si lascia la barra sull'area voluta. */
 function areaBar(s) {
-  const e = empById(s.employeeId), list = e.type === 'HOSPITALITY' ? ['HOSPITALITY', 'SERVIZIO'] : ['CUCINA', 'FRONT', 'MCCAFE', 'SERVIZIO'];
+  const e = empById(s.employeeId), list = e.type === 'HOSPITALITY' ? ['HOSPITALITY', ...(T.CREW_STATIONS.includes('SERVIZIO') && state.config.hospSala !== false ? ['SERVIZIO'] : [])] : [...T.CREW_STATIONS];
   const div = document.createElement('div'); div.className = 'dropbar no-print';
   div.style.top = (document.querySelector('header').getBoundingClientRect().bottom + 8) + 'px';
   div.innerHTML = list.map((st) => `<span data-st="${st}" class="st-${st}" style="${st === s.station ? 'opacity:.45' : ''}">${T.STATIONS[st].short}</span>`).join('');
@@ -2784,10 +2906,7 @@ function saveConfig() {
   const keys = ['crewMaxWeekday', 'crewMax', 'hospMax', 'minShift', 'rest11', 'rest36', 'doubleMax', 'doubleGap', 'closeGrace', 'requestMargin', 'requestAfter'];
   const vals = keys.map((k) => T.parseHours(document.getElementById('cfg-' + k).value));
   if (vals.some((v, i) => v == null || (['closeGrace', 'requestMargin', 'requestAfter'].includes(keys[i]) ? v < 0 : v <= 0))) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = 'Valori non validi: usa numeri di ore, es. 4 o 4,5.'; return; }
-  const open = +document.getElementById('cfg-open').value, close = +document.getElementById('cfg-close').value;
-  if (close <= open) { const e = document.getElementById('cfg-error'); e.style.display = 'block'; e.textContent = "La chiusura deve essere dopo l'apertura."; return; }
   keys.forEach((k, i) => (state.config[k] = vals[i]));
-  state.config.open = open; state.config.close = close;
   state.config.afternoonStart = +document.getElementById('cfg-aft0').value; state.config.afternoonEnd = +document.getElementById('cfg-aft1').value;
   state.config.dinnerPreStart = +document.getElementById('cfg-pre').value;
   state.config.weekdayLongPerWeek = Math.max(0, Math.min(4, Math.round(+document.getElementById('cfg-longpw').value || 0)));

@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 30;
+  const VERSION = 31;
 
   function emptyState() {
     return {
@@ -80,6 +80,13 @@
     }
     // v30: il secondo McCafé serve in supporto di chi apre, cioè dalle 9:00 alle 10:30 (non fino a mezzogiorno)
     if ((st.version || 1) < 30) for (const r of st.coverage) if (r.id === 'm2' && r.end === 720) r.end = 630;
+    // v31: impostazioni dello store (sezione Store): postazioni, orari per giorno, regole dei manager.
+    // Si riempiono con i valori usati finora, così non cambia niente finché il manager non le modifica.
+    if ((st.version || 1) < 31) {
+      if (!Array.isArray(st.config.stations) || !st.config.stations.length) st.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x }));
+      if (!st.config.hours) st.config.hours = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [d, { open: st.config.open ?? 450, close: st.config.close ?? 1290 }]));
+      if (!st.config.mgr) st.config.mgr = { short: [180, 300], long: [390, 510], rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+    }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
     return st;
