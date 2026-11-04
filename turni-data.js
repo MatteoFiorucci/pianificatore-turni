@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 29;
+  const VERSION = 30;
 
   function emptyState() {
     return {
@@ -78,6 +78,8 @@
       const d = T.DEFAULT_COVERAGE.find((r) => r.id === 'm2'), at = st.coverage.findIndex((r) => r.id === 'c1');
       st.coverage.splice(at + 1, 0, { ...d, min: [...d.min] });
     }
+    // v30: il secondo McCafé serve in supporto di chi apre, cioè dalle 9:00 alle 10:30 (non fino a mezzogiorno)
+    if ((st.version || 1) < 30) for (const r of st.coverage) if (r.id === 'm2' && r.end === 720) r.end = 630;
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
     return st;
