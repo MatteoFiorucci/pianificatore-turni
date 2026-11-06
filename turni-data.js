@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 31;
+  const VERSION = 32;
 
   function emptyState() {
     return {
@@ -86,6 +86,13 @@
       if (!Array.isArray(st.config.stations) || !st.config.stations.length) st.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x }));
       if (!st.config.hours) st.config.hours = Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [d, { open: st.config.open ?? 450, close: st.config.close ?? 1290 }]));
       if (!st.config.mgr) st.config.mgr = { short: [180, 300], long: [390, 510], rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+    }
+    // v32: turni lunghi dei manager da 6:00 (non più 6:30) con pausa di 30 minuti timbrata, che non conta nelle ore lavorate
+    if ((st.version || 1) < 32 && st.config.mgr) {
+      const g = st.config.mgr;
+      if (Array.isArray(g.long) && g.long[0] === 390) g.long = [360, g.long[1]];
+      if (g.breakFrom == null) g.breakFrom = 360;
+      if (g.breakMin == null) g.breakMin = 30;
     }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);

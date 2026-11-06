@@ -21,10 +21,13 @@
   let REST12 = 720, REST36 = 2160, ORDER_BY = 690; // stacco 12h, 36h con riposo; ordine: entra entro le 11:30
   const DAY = 1440;
   const ROLE_TXT = { AS: 'Apertura corta (poi notte)', N: 'Notte', A: 'Apertura', C: 'Chiusura', CEN: 'Centrale', D: 'Delivery', C2: 'Secondo in chiusura', X: 'Rinforzo', M2: 'Secondo in apertura', F: 'Flessibile' };
-  // durata dei turni manager (regola tassativa): corti da 3 a 5 ore (senza pausa) oppure lunghi da 6:30 a 8:30;
-  // mai tra 5 e 6:30 (niente 5:30 né 6:00)
-  let SHORT = [180, 300], LONG = [390, 510];
+  // durata dei turni manager (regola tassativa, orario di presenza): corti da 3 a 5 ore senza pausa, oppure lunghi
+  // da 6:00 a 8:30 con una pausa di 30 minuti timbrata (uscita e rientro); il turno di 5:30 non esiste.
+  // La pausa non conta nelle ore lavorate: un turno di presenza 7:30–14:00 (6:30) vale 6 ore di contratto.
+  let SHORT = [180, 300], LONG = [360, 510], BREAK_FROM = 360, BREAK_MIN = 30;
   const lenOk = (l) => (l >= SHORT[0] && l <= SHORT[1]) || (l >= LONG[0] && l <= LONG[1]);
+  /** Ore lavorate di un turno di presenza lungo l minuti (tolta la pausa timbrata nei turni lunghi). */
+  const workOf = (l) => (l >= BREAK_FROM ? l - BREAK_MIN : l);
   // durata preferita di ogni ruolo (minuti); i turni corti si usano solo se servono per le ore di contratto,
   // prima nei ruoli centrali e di rinforzo (CEN, X, C2), così apertura e chiusura restano coperte
   const PREF = { AS: 240, N: 420, A: 420, C: 420, CEN: 420, D: 420, M2: 420, C2: 390, X: 390, F: 450 };
@@ -38,18 +41,19 @@
   /** Durata massima di un ruolo: l'apertura corta finisce in tempo per lo stacco prima della notte (mezzanotte). */
   const capOf = (r) => (r === 'AS' ? Math.max(SHORT[0], 1440 - REST12 - (CFG.open ?? 450)) : Infinity);
   function fitLens(roles, target) {
+    // target = ore lavorate (contratto): la pausa dei turni lunghi non conta
     const lens = roles.map((r) => PREF[r] || 420);
-    let diff = target - lens.reduce((a, b) => a + b, 0);
+    let diff = target - lens.reduce((a, b) => a + workOf(b), 0);
     for (let guard = 0; diff !== 0 && guard < 400; guard++) {
       // resto sotto la mezz'ora: lo prende un turno che resta nelle durate consentite
       if (Math.abs(diff) < 30) {
-        const i = lens.findIndex((l) => lenOk(l + diff));
+        const i = lens.findIndex((l) => lenOk(l + diff) && workOf(l + diff) - workOf(l) === diff);
         if (i >= 0) { lens[i] += diff; diff = 0; }
         break;
       }
       const up = diff > 0;
       const opts = lens.map((l, i) => ({ i, to: up ? lenUp(l) : lenDown(l) })).filter((o) => o.to != null && o.to <= capOf(roles[o.i]))
-        .map((o) => ({ ...o, d: o.to - lens[o.i], jump: (lens[o.i] >= LONG[0]) !== (o.to >= LONG[0]) }))
+        .map((o) => ({ ...o, d: workOf(o.to) - workOf(lens[o.i]), jump: (lens[o.i] >= LONG[0]) !== (o.to >= LONG[0]) }))
         .filter((o) => Math.abs(o.d) <= Math.abs(diff) || !o.jump);
       if (!opts.length) break;
       // prima i passi di mezz'ora dentro lo stesso blocco (sui turni più lontani dal limite), poi il salto
@@ -59,7 +63,7 @@
       const rk = (i) => { const r = CUT_ORDER.indexOf(roles[i]); return up ? -r : r; };
       opts.sort((a, b) => a.jump - b.jump || rk(a.i) - rk(b.i) || (up ? lens[a.i] - lens[b.i] : lens[b.i] - lens[a.i]));
       const o = opts[0];
-      diff -= o.to - lens[o.i]; lens[o.i] = o.to;
+      diff -= o.d; lens[o.i] = o.to;
     }
     return lens;
   }
@@ -110,12 +114,12 @@
     return (loadCfg(state).minPerDay ?? 2) + (T.dayHours(state.config, ws + k).h24 ? 1 : 0) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
   }
   let REST_DAYS = [1, 2, 3, 4]; // il riposo dei manager è da lunedì a giovedì
-  const MGR_DEFAULT = { short: [180, 300], long: [390, 510], rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+  const MGR_DEFAULT = { short: [180, 300], long: [360, 510], breakFrom: 360, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
   /** Legge le regole dei manager dalle impostazioni dello store (valori di partenza se mancano). */
   function loadCfg(state) {
     CFG = (state && state.config) || {};
     const g = { ...MGR_DEFAULT, ...(CFG.mgr || {}) };
-    SHORT = g.short; LONG = g.long; REST12 = g.rest; REST36 = g.rest36; ORDER_BY = g.orderBy; REST_DAYS = g.restDays;
+    SHORT = g.short; LONG = g.long; BREAK_FROM = g.breakFrom; BREAK_MIN = g.breakMin; REST12 = g.rest; REST36 = g.rest36; ORDER_BY = g.orderBy; REST_DAYS = g.restDays;
     return g;
   }
 
@@ -369,7 +373,7 @@
     }
     for (const s of list) {
       const l = s.end - s.start;
-      if (!lenOk(l)) V('ERROR', `${name(team.find((m) => m.id === s.managerId) || { lastName: '?' })}: ${when(s.day)} turno di ${T.fmtDur(l)}, non consentito (corti 3–5 ore, lunghi 6:30–8:30)`, s.managerId, s.day);
+      if (!lenOk(l)) V('ERROR', `${name(team.find((m) => m.id === s.managerId) || { lastName: '?' })}: ${when(s.day)} turno di ${T.fmtDur(l)}, non consentito (corti ${T.fmtDur(SHORT[0])}–${T.fmtDur(SHORT[1])} senza pausa, lunghi ${T.fmtDur(LONG[0])}–${T.fmtDur(LONG[1])} con pausa)`, s.managerId, s.day);
     }
     for (const m of team) {
       const mine = list.filter((s) => s.managerId === m.id).sort((a, b) => a.day - b.day || a.start - b.start);
@@ -381,8 +385,8 @@
         else if (s.start > ORDER_BY) V('ERROR', `${name(m)}: ${when(day)} c'è l'ordine, deve entrare entro le ${T.fmtTime(ORDER_BY)}`, m.id, day);
       }
       if (m.centralWeekly && !mine.some((s) => T.dow(s.day) <= 4 && s.start > OPEN(s.day) && s.end < CLOSE(s.day) - 30)) V('WARNING', `${name(m)}: manca il turno centrale tra lunedì e giovedì`, m.id);
-      const worked = mine.reduce((t, s) => t + s.end - s.start, 0), target = targetOf(state, m, ws);
-      if (worked !== target) V(worked > target ? 'ERROR' : 'WARNING', `${name(m)}: ${T.fmtDur(worked)} su ${T.fmtDur(target)} di contratto`, m.id);
+      const worked = mine.reduce((t, s) => t + workOf(s.end - s.start), 0), target = targetOf(state, m, ws);
+      if (worked !== target) V(worked > target ? 'ERROR' : 'WARNING', `${name(m)}: ${T.fmtDur(worked)} lavorate (pause escluse) su ${T.fmtDur(target)} di contratto`, m.id);
       const workDays = new Set(mine.map((s) => s.day)).size;
       if (workDays > 6) V('ERROR', `${name(m)}: lavora 7 giorni, serve un riposo`, m.id);
       const rest = [0, 1, 2, 3, 4, 5, 6].map((k) => ws + k).filter((d) => !mine.some((s) => s.day === d) && !absentOn(state, m, d));
@@ -406,5 +410,5 @@
     return out;
   }
 
-  root.TurniManager = { generate, check, weekendStats, carpiWeek, targetOf, ROLE_TXT, kindOf, lenOk };
+  root.TurniManager = { workOf: (l, state) => { if (state) loadCfg(state); return workOf(l); }, generate, check, weekendStats, carpiWeek, targetOf, ROLE_TXT, kindOf, lenOk };
 })(typeof window !== 'undefined' ? window : globalThis);
