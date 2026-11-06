@@ -333,17 +333,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611042214"></script>
-<script src="turni-core.js?v=202611042214"></script>
-<script src="turni-manager.js?v=202611042214"></script>
-<script src="turni-vlh.js?v=202611042214"></script>
+<script src="turni-storico.js?v=202611061136"></script>
+<script src="turni-core.js?v=202611061136"></script>
+<script src="turni-manager.js?v=202611061136"></script>
+<script src="turni-vlh.js?v=202611061136"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611042214"></script>
-<script src="turni-cloud-config.js?v=202611042214"></script>
-<script src="turni-cloud.js?v=202611042214"></script>
-<script src="turni-cripto.js?v=202611042214"></script>
-<script src="lineare-ufficiale.js?v=202611042214"></script>
+<script src="turni-data.js?v=202611061136"></script>
+<script src="turni-cloud-config.js?v=202611061136"></script>
+<script src="turni-cloud.js?v=202611061136"></script>
+<script src="turni-cripto.js?v=202611061136"></script>
+<script src="lineare-ufficiale.js?v=202611061136"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -794,7 +794,8 @@ function renderMgrTurni() {
   const carpi = MGR().carpiWeek(state, ws), deliv = state.config.mgrDelivery || [2, 5];
   const head = `<tr><th class="name">Manager</th>${days.map((d) => `<th><button class="link" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${dayTags(d)}</th>`).join('')}<th>Ore</th></tr>`;
   const rows = team.map((m) => {
-    const tgt = MGR().targetOf(state, m, ws), w = list.filter((x) => x.managerId === m.id).reduce((t, x) => t + x.end - x.start, 0);
+    // ore lavorate: nei turni lunghi la pausa timbrata non conta
+    const tgt = MGR().targetOf(state, m, ws), w = list.filter((x) => x.managerId === m.id).reduce((t, x) => t + MGR().workOf(x.end - x.start, state), 0);
     return `<tr><td class="name"><b>${esc(T.fullName(m))}</b><div class="small muted">${m.role === 'SHIFT' ? 'Shift' : 'RDM'}${m.area ? ' · ' + esc(m.area) : ''}</div></td>${days.map((d) => {
       const x = list.find((y) => y.managerId === m.id && y.day === d), ab = (state.absences || []).find((a) => a.employeeId === m.id && d >= a.from && d <= a.to);
       const pr = probs.filter((p) => p.managerId === m.id && p.day === d), sev = pr.some((p) => p.sev === 'ERROR') ? 'err' : pr.length ? 'warn' : '';
@@ -883,7 +884,7 @@ function openMgrDay(id, day) {
       <label class="f">Dalle${dayTimeSel(ui.mdraft.start, 'ui.mdraft.start=+this.value')}</label>
       <label class="f">Alle${dayTimeSel(ui.mdraft.end, 'ui.mdraft.end=+this.value')}</label>
       <label class="f">Ruolo<select onchange="ui.mdraft.role=this.value">${Object.entries(MGR().ROLE_TXT).map(([k, l]) => `<option value="${k}" ${ui.mdraft.role === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
-      <div class="small muted">Durate consentite per i manager: sezione Store.</div></div>
+      <div class="small muted">Durate consentite per i manager e pausa dei turni lunghi (non conta nelle ore lavorate): sezione Store.</div></div>
     <div class="actions">${ui.mdraft.has ? '<button class="btn" onclick="saveMgrDay(true)">Metti riposo</button>' : ''}<div class="spacer"></div><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="saveMgrDay(false)">Salva</button></div>`);
 }
 function saveMgrDay(rest) {
@@ -1843,7 +1844,7 @@ function renderRegole() {
 // un locale nuovo imposta qui le sue regole senza toccare il motore dei turni.
 const DAY_TIMES = []; for (let m = 0; m <= 1440; m += 15) DAY_TIMES.push(m);
 const dayTimeSel = (v, on) => `<select onchange="${on}">${DAY_TIMES.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${t === 1440 ? '24:00' : T.fmtTime(t)}</option>`).join('')}</select>`;
-const MGR_DEF = { short: [180, 300], long: [390, 510], rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+const MGR_DEF = { short: [180, 300], long: [360, 510], breakFrom: 360, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
 function storeStations() { if (!Array.isArray(state.config.stations) || !state.config.stations.length) state.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x })); return state.config.stations; }
 function setHour(d, k, v) {
   const c = state.config; c.hours = c.hours || {};
@@ -1936,13 +1937,17 @@ function renderStore() {
       <label class="f">Turni lunghi: da <input type="text" value="${hrs(g.long[0])}" style="width:60px" onchange="setMgrPair('long',0,this.value)"></label><label class="f">a <input type="text" value="${hrs(g.long[1])}" style="width:60px" onchange="setMgrPair('long',1,this.value)"> ore</label>
     </div>
     <div class="row">
+      <label class="f">Pausa nei turni da (ore in su)<input type="text" value="${hrs(g.breakFrom)}" style="width:70px" onchange="const v=T.parseHours(this.value);if(v)setMgrRule('breakFrom',v)"></label>
+      <label class="f">Durata della pausa (minuti)<input type="number" min="0" max="120" step="5" value="${g.breakMin}" style="width:70px" onchange="setMgrRule('breakMin',Math.max(0,Math.round(+this.value||0)))"></label>
+    </div>
+    <div class="row">
       <label class="f">Stacco tra due turni (ore)<input type="text" value="${hrs(g.rest)}" style="width:70px" onchange="const v=T.parseHours(this.value);if(v)setMgrRule('rest',v)"></label>
       <label class="f">Stacco con un riposo in mezzo (ore)<input type="text" value="${hrs(g.rest36)}" style="width:70px" onchange="const v=T.parseHours(this.value);if(v)setMgrRule('rest36',v)"></label>
       <label class="f">Giorni dell'ordine: entrare entro le${dayTimeSel(g.orderBy, "setMgrRule('orderBy',+this.value)")}</label>
       <label class="f">Manager minimi ogni giorno<input type="number" min="1" max="6" value="${g.minPerDay}" style="width:60px" onchange="setMgrRule('minPerDay',Math.max(1,+this.value||2))"></label>
     </div>
     <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Giorni in cui i manager possono riposare</span><div class="row" style="gap:3px">${dayChk(g.restDays, (d) => `setMgrRule('restDays',${toggleIn(g.restDays, d)})`)}</div></div>
-    <p class="small muted" style="margin:0">Durate fuori da questi blocchi (es. 5:30 o 6:00 con i valori di partenza) sono segnalate come errore. Squadra, giorni dell'ordine, orari flessibili, delivery e Carpigiani: Turni → Manager.</p>
+    <p class="small muted" style="margin:0">Le durate sono di presenza. Durate fuori da questi blocchi sono segnalate come errore. La pausa dei turni lunghi è timbrata (uscita e rientro) e non conta nelle ore lavorate: le ore di contratto si raggiungono con le ore di presenza meno le pause. Squadra, giorni dell'ordine, orari flessibili, delivery e Carpigiani: Turni → Manager.</p>
   </div></div>`;
 }
 // --- dati cifrati sul sito ---
@@ -2381,7 +2386,7 @@ function weekSnapshot(ws) {
       const ab = (state.absences || []).find((a) => a.employeeId === m.id && d >= a.from && d <= a.to);
       return { d, sh, tag: sh.length ? '' : ab ? T.absenceInfo(ab.type).label : 'Riposo', note: '' };
     });
-    out[m.id] = { days, hours: mine.reduce((t, s) => t + s.end - s.start, 0), target: M ? M.targetOf(state, m, ws) : 0, mgr: true };
+    out[m.id] = { days, hours: mine.reduce((t, s) => t + (M ? M.workOf(s.end - s.start, state) : s.end - s.start), 0), target: M ? M.targetOf(state, m, ws) : 0, mgr: true };
   }
   return out;
 }
