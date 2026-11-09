@@ -495,9 +495,30 @@ function renderTurni() {
 
   const head = `<tr><th class="name">Dipendente</th>${ctx.days.map((d) => `<th><button class="link" title="Apri il lineare di questo giorno" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${dayTags(d)}</th>`).join('')}<th>Ore</th></tr>`;
   // stessi minimi usati dai controlli (con le previsioni i rush e i picchi chiedono più persone di quelli in Regole)
-  const covList = ctx.coverage.filter((r) => (ui.type === 'HOSPITALITY') === (r.station === 'HOSPITALITY'));
+  // per non allungare la tabella: le posizioni VLH sono riassunte in una riga, e delle altre fasce si vedono solo
+  // quelle con un problema nella settimana (con "Mostra tutte le fasce" si vedono tutte quelle che chiedono qualcuno)
+  const covAll = ctx.coverage.filter((r) => !r.vlh && (ui.type === 'HOSPITALITY') === (r.station === 'HOSPITALITY') && ctx.days.some((d) => T.reqMin(r, d)));
+  const hasProblem = (r) => ctx.days.some((d) => { const need = T.reqMin(r, d); return need && T.coverageMin(ctx, d, r) < need; });
+  const covList = ui.covAll ? covAll : covAll.filter(hasProblem);
   const cov = covList.map((req) => `<tr class="cov"><td class="name">${esc(req.name)}${req.soft ? ' <span class="small">· consiglio</span>' : ''} <span class="small">(${T.fmtTime(req.start)}–${T.fmtTime(req.end)})</span></td>${
     ctx.days.map((d) => { const need = T.reqMin(req, d); if (!need) return '<td class="c">—</td>'; const c = T.coverageMin(ctx, d, req); return `<td class="c ${c >= need ? 'okc' : req.soft ? 'soft' : 'bad'}" title="Presenti nel momento più scoperto / minimo richiesto${req.fromForecast ? ' (minimo calcolato dalle Ore totali previste)' : ''} (gli ultimi minuti prima della chiusura non contano)">${c}/${need}</td>`; }).join('')}<td></td></tr>`).join('');
+  // riga riassuntiva della VLH: ore di posizioni scoperte per giorno (somma sulle ore)
+  const vlhBands = ui.type === 'HOSPITALITY' ? [] : ctx.coverage.filter((r) => r.vlh);
+  const vlhRow = !vlhBands.length ? '' : `<tr class="cov"><td class="name">VLH · ore di posizioni scoperte ${ib('vlhGen')}</td>${ctx.days.map((d) => {
+    if (!ctx.vlh || !ctx.vlh[d - ctx.ws]) return '<td class="c">—</td>';
+    const holes = [];
+    for (const r of vlhBands) {
+      const need = T.reqMin(r, d);
+      if (!need) continue;
+      const miss = need - T.coverageMin(ctx, d, r);
+      if (miss > 0) holes.push({ h: r.start, n: miss * (r.end - r.start) / 60, txt: `${T.fmtTime(r.start)} ${r.name.replace('VLH ', '')}: ${miss}` });
+    }
+    const tot = Math.round(holes.reduce((t, x) => t + x.n, 0) * 2) / 2;
+    return `<td class="c ${tot ? 'soft' : 'okc'}" title="${esc(tot ? 'Posizioni VLH scoperte:\n' + holes.sort((a, b) => a.h - b.h).map((x) => x.txt).join('\n') : 'Tutte le posizioni VLH coperte')}">${tot ? String(tot).replace('.', ',') : '✓'}</td>`;
+  }).join('')}<td></td></tr>`;
+  const hidden = covAll.length - covList.length;
+  const covToggle = covAll.length ? `<tr class="cov"><td class="name" colspan="${ctx.days.length + 2}">${!covList.length && !ui.covAll ? '✅ Tutte le fasce di copertura sono a posto · ' : ''}<button class="link" onclick="ui.covAll=!ui.covAll;render()">${ui.covAll ? 'Mostra solo le fasce con problemi' : `Mostra tutte le fasce (${hidden} a posto)`}</button></td></tr>` : '';
+  const covBlock = cov + vlhRow + covToggle;
   const rows = emps.map((e) => {
     const w = T.worked(ctx, e.id), t = T.target(ctx, e), dw = T.doubleWorked(ctx, e.id);
     return `<tr><td class="name" title="${esc(T.TYPES[e.type])} · ${T.fmtDur(e.weeklyMinutes)}/sett.">${esc(T.fullName(e))}${ctx.shifts.some((x) => x.aff && x.employeeId === e.id && x.day >= ctx.ws && x.day <= ctx.ws + 6) ? ' 🎓' : ''}</td>${ctx.days.map((d) => cellHtml(ctx, e, d, cellV.get(e.id + '|' + d))).join('')}
@@ -560,7 +581,7 @@ function renderTurni() {
   </details>
   <div class="layout">
     ${later.length ? `<div class="small muted" style="grid-column:1/-1;margin-bottom:-8px">Non mostrati perché entrano più avanti: ${later.map((e) => `${esc(T.fullName(e))} (dal ${T.itDate(e.startDate)})`).join(', ')}</div>` : ''}
-    <div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${cov}${rows || `<tr><td class="name" colspan="9">Nessun dipendente: aggiungili nella sezione Personale, oppure importa un file di dati (Regole → Dati).</td></tr>`}</tbody></table></div>
+    <div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${covBlock}${rows || `<tr><td class="name" colspan="9">Nessun dipendente: aggiungili nella sezione Personale, oppure importa un file di dati (Regole → Dati).</td></tr>`}</tbody></table></div>
     <aside class="card problems"><h3 style="display:flex;justify-content:space-between;align-items:center">Controlli della settimana ${nErr ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="solveWeek()">🛠 Risolvi</button>' : ''}</h3>${probs}</aside>
   </div>`;
 }
