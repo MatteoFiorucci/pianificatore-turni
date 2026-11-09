@@ -608,7 +608,7 @@
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     SHORT_OFFPEAK: 'Turno breve fuori dai rush', TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
     DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena', REQUEST: 'Richiesta del personale',
-    CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé',
+    CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé', VLH: 'Posizioni VLH', AFF: 'Affiancamento',
   };
   const V = (rule, sev, msg, emp = null, day = null) => ({ rule, sev, msg, emp, day });
 

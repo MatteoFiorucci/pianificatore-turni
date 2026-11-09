@@ -485,7 +485,7 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal
 function renderTurni() {
   if (ui.type === 'MANAGER') return renderMgrTurni();
   const ctx = T.makeCtx(state, ui.ws);
-  const vs = T.validate(ctx);
+  const vs = T.validate(ctx).filter((v) => v.rule !== 'VLH'); // le posizioni VLH scoperte sono nella riga riassuntiva della tabella
   const cellV = new Map();
   vs.forEach((v) => { if (v.emp != null && v.day != null) { const k = v.emp + '|' + v.day; if (!cellV.has(k)) cellV.set(k, []); cellV.get(k).push(v); } });
   const later = ctx.employees.filter((e) => e.type === ui.type && e.startDate != null && e.startDate > ui.ws + 6);
@@ -993,7 +993,7 @@ function renderGiornaliero() {
   // vista per area: una fascia per postazione (trascinando una barra in un'altra fascia si cambia area)
   const AREAS = [...T.CREW_STATIONS.map((st) => [st, T.STATIONS[st].label]), ['HOSPITALITY', 'Hospitality']];
   const shown = byArea ? AREAS.map(([st, t]) => [t, day_.filter((s) => s.station === st), st]) : sections;
-  const vs = T.validate(ctx).filter((v) => v.day === day);
+  const vs = T.validate(ctx).filter((v) => v.day === day && v.rule !== 'VLH');
   const bad = new Set(vs.filter((v) => v.emp != null).map((v) => v.emp));
   const row = (s) => {
     const e = ctx.byId.get(s.employeeId);
