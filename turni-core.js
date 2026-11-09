@@ -290,6 +290,30 @@
       // le fasce senza postazione (rush, picchi, intermedi) prendono i minimi dalle previsioni
       ctx.coverage = state.coverage.map((r) => (r.station ? r : { ...r, min: [0, 1, 2, 3, 4, 5, 6].map((k) => forecastMin(fc, r, k) ?? (r.min ? r.min[k] : r.minStaff)), fromForecast: true }));
     }
+    // VLH: nei giorni con i clienti previsti ora per ora, il fabbisogno dei crew viene dalle posizioni VLH di ogni ora
+    // (per postazione e in totale), al posto delle fasce generiche e delle Ore totali distribuite col profilo.
+    // Restano squadre di apertura e chiusura, presidi delle postazioni e fasce delle hospitality.
+    ctx.vlh = {};
+    for (let k = 0; k < 7; k++) { const v = vlhNeeds(state, ws + k); if (v) ctx.vlh[k] = v; }
+    const vlhDays = Object.keys(ctx.vlh).map(Number);
+    if (vlhDays.length) {
+      ctx.coverage = ctx.coverage.map((r) => {
+        if (r.station || r.opening || r.closing || r.exact) return r;
+        const min = [0, 1, 2, 3, 4, 5, 6].map((k) => (vlhDays.includes(k) ? 0 : (r.min ? r.min[k] : r.minStaff)));
+        return { ...r, min };
+      });
+      const bands = new Map();
+      for (const k of vlhDays) for (const [h, x] of Object.entries(ctx.vlh[k].hours)) {
+        for (const [st, label] of [...VLH_STATIONS, [null, 'crew']]) {
+          const n = st ? x.need[st] : x.crew;
+          if (!n) continue;
+          const key = `${st}|${h}|${x.from}|${x.to}`;
+          if (!bands.has(key)) bands.set(key, { id: `vlh-${st || 'tot'}-${h}-${x.from}`, name: `VLH ${label}`, start: x.from, end: x.to, min: [0, 0, 0, 0, 0, 0, 0], station: st, soft: true, vlh: true });
+          bands.get(key).min[k] = n;
+        }
+      }
+      ctx.coverage = ctx.coverage.concat([...bands.values()]);
+    }
     // locale chiuso: nessun minimo quel giorno; chiusura parziale: nessun minimo nelle fasce che la toccano
     if (ctx.closures.size) {
       ctx.coverage = ctx.coverage.map((r) => {
@@ -403,6 +427,93 @@
     let mn = Infinity;
     for (let t = r.start; t < r.end; t += SLOT) mn = Math.min(mn, forecastPeople(fc, k, t));
     return mn === Infinity ? null : Math.max(1, Math.round(mn));
+  }
+
+  // ---------- VLH → fabbisogno ora per ora ----------
+  /**
+   * Clienti (GC) previsti in un'ora, come nella sezione VLH: valore scritto a mano, oppure previsione di SmartBusiness,
+   * oppure la nostra previsione del giorno distribuita con il profilo orario. { gc: numero | null, man?: true }
+   */
+  function vlhHourGC(state, day, h) {
+    const iso = toIso(day), man = ((state.vlhGC || {})[iso] || {})[h];
+    if (man != null) return { gc: man, man: true };
+    if ((state.config.vlhFonte || 'nostra') === 'sb') {
+      const v = (((state.autoForecast || {}).orarioSB || {})[iso] || {})[String(h)];
+      return { gc: v != null ? v : null };
+    }
+    const fd = forecastDay((state.forecasts || {})[mondayOf(day)], dow(day) - 1);
+    const prof = ((state.autoForecast || {}).profiloOrario || {})[String(dow(day))];
+    if (!fd || !fd.gc || !prof) return { gc: null };
+    const clo = closureOf(state.eventi, day);
+    const shut = (x) => clo && (clo.full || (x * 60 < clo.to && (x + 1) * 60 > clo.from));
+    const dh = dayHours(state.config, day), h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60);
+    let share = 0; for (let x = h0; x < h1; x++) if (!shut(x)) share += prof[(x - 5 + 24) % 24] || 0;
+    if (!share || shut(h) || h < h0 || h >= h1) return { gc: 0 };
+    return { gc: Math.round((fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / share) };
+  }
+  // postazione del lineare che copre una posizione VLH (le patatine possono farle OA o MFY: contano solo nel totale)
+  const VLH_STATIONS = [['CUCINA', 'Production'], ['FRONT', 'Front Counter'], ['MCCAFE', 'McCafé'], ['SERVIZIO', 'Table Server']];
+  function vlhStationOf(code, area) {
+    if (area === 'MC') return 'MCCAFE';
+    if (/^F\d/.test(code)) return null;
+    if (area === 'PR') return 'CUCINA';
+    if (code[0] === 'T') return 'SERVIZIO';
+    return 'FRONT';
+  }
+  /**
+   * Posizioni VLH di un giorno, ora per ora, entro le Ore totali previste per quel giorno (crew + hospitality):
+   * se la VLH chiede più ore di quelle disponibili si tolgono prima le posizioni aperte "per un pelo"
+   * (clienti dell'ora appena sopra la soglia), mai le prime tre. null se la VLH non c'è o mancano i clienti previsti.
+   * { hours: { h: { gc, from, to, need: { CUCINA, FRONT, MCCAFE, SERVIZIO }, crew } }, want, total, budget, trimmed: [{ h, name }] }
+   */
+  function vlhNeeds(state, day) {
+    const V = root.TurniVLH;
+    if (!V || !state.vlh || !state.vlh.giorni || state.config.vlhGen === false) return null;
+    const dh = dayHours(state.config, day), dw = dow(day);
+    const h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60), hours = {};
+    for (let h = h0; h < h1; h++) {
+      const g = vlhHourGC(state, day, h);
+      if (g.gc == null) continue;
+      const r = V.forHour(state.vlh, dw, h, g.gc);
+      if (!r) continue;
+      const from = Math.max(h * 60, dh.open), to = Math.min(h * 60 + 60, dh.close);
+      if (to > from) hours[h] = { gc: g.gc, from, to, open: r.open.slice() };
+    }
+    if (!Object.keys(hours).length) return null;
+    const len = (x) => (x.to - x.from) / 60;
+    const sum = () => Object.values(hours).reduce((t, x) => t + x.open.length * len(x), 0);
+    const want = sum();
+    // tetto: le Ore totali scritte dal manager (le stime automatiche no: lì il limite sono le ore da contratto)
+    const fd = forecastDay((state.forecasts || {})[mondayOf(day)], dw - 1);
+    const manual = fd && fd.crewHours > 0 && !(fd.auto && fd.crewHours === fd.auto.crewHours);
+    const budget = manual ? fd.crewHours : null;
+    const trimmed = [];
+    if (budget != null) {
+      while (sum() > budget + 1e-9) {
+        let best = null;
+        for (const [h, x] of Object.entries(hours)) {
+          const p = x.open[x.open.length - 1];
+          if (!p || p.n <= 3) continue;
+          const margin = x.gc - p.gc;
+          if (!best || margin < best.margin || (margin === best.margin && x.gc < best.x.gc)) best = { h: +h, x, p, margin };
+        }
+        if (!best) break;
+        best.x.open.pop();
+        trimmed.push({ h: best.h, name: best.p.name });
+      }
+    }
+    const total = sum();
+    for (const x of Object.values(hours)) {
+      x.need = { CUCINA: 0, FRONT: 0, MCCAFE: 0, SERVIZIO: 0 };
+      x.crew = 0;
+      for (const p of x.open) {
+        const st = vlhStationOf(p.code, p.area);
+        if (st) x.need[st]++;
+        if (st !== 'SERVIZIO') x.crew++; // il servizio al tavolo lo può fare anche una hospitality
+      }
+      delete x.open;
+    }
+    return { hours, want: Math.round(want * 10) / 10, total: Math.round(total * 10) / 10, budget, trimmed };
   }
 
   const shiftsOf = (ctx, id, day) =>
@@ -588,7 +699,7 @@
     return Math.max(0, ctx.mgr.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT).length - 1);
   }
   /** Fasce "Postazione X" (almeno 1 persona per postazione durante il giorno): le può coprire anche un manager. */
-  const isStationMin = (r) => !!r && r.soft && !!r.station && !r.opening && !r.closing && r.station !== 'HOSPITALITY';
+  const isStationMin = (r) => !!r && r.soft && !r.vlh && !!r.station && !r.opening && !r.closing && r.station !== 'HOSPITALITY';
   const rawCount = (ctx, day, minute, req, list) => list.filter((s) => s.day === day && s.start <= minute && s.end >= minute + SLOT && countsFor(ctx, s, req)).length;
   /**
    * Manager formati su tutte le postazioni: i manager in più (oltre al responsabile di turno) coprono le postazioni
@@ -646,7 +757,7 @@
   function ruleCoverage(ctx) {
     const out = [];
     for (const d of ctx.days) for (const req of ctx.coverage) {
-      if (!reqMin(req, d)) continue;
+      if (!reqMin(req, d) || req.vlh) continue; // le posizioni VLH hanno il loro riepilogo (ruleVlh)
       let runStart = null, runMin = Infinity;
       const flush = (end) => {
         if (runStart === null) return;
@@ -662,6 +773,36 @@
         else flush(m);
       }
       flush(endC);
+    }
+    return out;
+  }
+
+  /**
+   * VLH: per ogni giorno le ore in cui restano posizioni scoperte (avviso: le ore che mancano non si possono inventare)
+   * e, se le Ore totali previste non bastano per tutte le posizioni, quante ne sono state tolte.
+   */
+  function ruleVlh(ctx) {
+    const out = [];
+    for (const [k, v] of Object.entries(ctx.vlh || {})) {
+      const d = ctx.ws + +k, p = parts(d), day = `${DOW_LONG[dow(d)]} ${p.d}/${p.m}`;
+      const holes = [];
+      for (const [h, x] of Object.entries(v.hours)) {
+        const miss = [];
+        let tot = 0;
+        for (const req of ctx.coverage) {
+          if (!req.vlh || req.start !== x.from || req.end !== x.to) continue;
+          const need = reqMin(req, d);
+          if (!need) continue;
+          let worst = 0;
+          for (let m = req.start; m < covEnd(ctx.cfg, req); m += SLOT) worst = Math.max(worst, need - countAt(ctx, d, m, req));
+          if (worst <= 0) continue;
+          if (req.station) miss.push(`${worst} ${STATIONS[req.station] ? STATIONS[req.station].short || STATIONS[req.station].label : req.station}`);
+          else tot = worst;
+        }
+        if (miss.length || tot) holes.push(`${fmtTime(x.from)}–${fmtTime(x.to)} (${miss.length ? miss.join(', ') : tot + ' crew'})`);
+      }
+      if (holes.length) out.push(V('VLH', 'WARNING', `${day} · VLH: posizioni scoperte ${holes.join(', ')}`, null, d));
+      if (v.trimmed.length) out.push(V('VLH', 'WARNING', `${day} · VLH: servirebbero ${String(v.want).replace('.', ',')} ore ma le Ore totali sono ${v.budget}: tolte ${v.trimmed.length} posizioni nelle ore con meno clienti`, null, d));
     }
     return out;
   }
@@ -926,18 +1067,21 @@
   }
 
   /** Quanto manca alle coperture in un giorno (persone × quarti d'ora sotto il minimo). */
-  function deficitOf(ctx, list, d) {
+  function deficitOf(ctx, list, d, from = -Infinity, to = Infinity) {
     let n = 0;
+    const dayList = list.filter((s) => s.day === d); // solo i turni di quel giorno: stesso risultato, molto più veloce
     for (const r of ctx.coverage) {
       const need = reqMin(r, d);
-      if (!need) continue;
-      for (let t = r.start; t < r.end; t += SLOT) { const c = countAt(ctx, d, t, r, list); if (c < need) n += need - c; }
+      if (!need || r.end <= from || r.start >= to) continue;
+      for (let t = Math.max(r.start, from === -Infinity ? r.start : r.start + Math.ceil((from - r.start) / SLOT) * SLOT); t < r.end && t < to; t += SLOT) {
+        const c = countAt(ctx, d, t, r, dayList); if (c < need) n += need - c;
+      }
     }
     return n;
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleVlh, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -1231,8 +1375,9 @@
     // prima le aperture (pochi formati), poi le altre fasce con postazione, poi le generiche dalle più corte
     // per le hospitality prima la fascia lunga (in sala tutto il giorno), poi i rinforzi di pranzo e cena
     const isH = (r) => r.station === 'HOSPITALITY';
+    // le posizioni VLH (un'ora ciascuna) dopo le squadre di apertura e chiusura e i presidi: prima le squadre, poi la distribuzione
     const reqs = [...ctx.coverage].sort((a, b) =>
-      (a.station === null) - (b.station === null) || !a.opening - !b.opening || isH(a) - isH(b) ||
+      (a.station === null) - (b.station === null) || !!a.vlh - !!b.vlh || !a.opening - !b.opening || isH(a) - isH(b) ||
       (isH(a) && isH(b) ? (b.end - b.start) - (a.end - a.start) : (a.end - a.start) - (b.end - b.start)) || b.start - a.start);
     const generic = ctx.coverage.filter((r) => !r.station);
     const byNeed = (a, b) => remaining(b) - remaining(a) || cmpName(a, b);
@@ -1489,7 +1634,9 @@
         if (!base) continue;
         for (const r of reqs) {
           const need = reqMin(r, d);
-          if (!need) continue;
+          // le posizioni VLH non si inseguono una per una (con poche persone sarebbero migliaia di prove):
+          // contano comunque nel conto dei buchi, quindi nessuno spostamento le peggiora
+          if (!need || r.vlh) continue;
           for (let m = r.start; m < r.end && base; m += SLOT) {
             if (countAt(ctx, d, m, r, shifts) >= need) continue;
             let fixed = false;
@@ -1508,8 +1655,11 @@
                   if (a === old.start && st === old.station) continue;
                   const cand = { ...old, start: a, end: a + len, station: st };
                   if (!countsFor(ctx, cand, r) || !canPlace(e, cand, old)) continue;
+                  // lo spostamento cambia la copertura solo tra il vecchio e il nuovo orario: si ricontrolla solo lì
+                  const lo = Math.min(old.start, cand.start), hi = Math.max(old.end, cand.end);
+                  const before = deficitOf(ctx, shifts, d, lo, hi);
                   swapIn(old, cand);
-                  const nd = deficitOf(ctx, shifts, d);
+                  const nd = base - before + deficitOf(ctx, shifts, d, lo, hi);
                   if (nd < base) { base = nd; fixed = true; improved = true; break; }
                   swapIn(cand, old);
                 }
@@ -1730,7 +1880,7 @@
     ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf,
     STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
-    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay,
+    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds,
   };
   if (typeof module !== 'undefined') module.exports = root.Turni;
 })(typeof window !== 'undefined' ? window : globalThis);
