@@ -500,7 +500,7 @@ function renderTurni() {
     ctx.days.map((d) => { const need = T.reqMin(req, d); if (!need) return '<td class="c">—</td>'; const c = T.coverageMin(ctx, d, req); return `<td class="c ${c >= need ? 'okc' : req.soft ? 'soft' : 'bad'}" title="Presenti nel momento più scoperto / minimo richiesto${req.fromForecast ? ' (minimo calcolato dalle Ore totali previste)' : ''} (gli ultimi minuti prima della chiusura non contano)">${c}/${need}</td>`; }).join('')}<td></td></tr>`).join('');
   const rows = emps.map((e) => {
     const w = T.worked(ctx, e.id), t = T.target(ctx, e), dw = T.doubleWorked(ctx, e.id);
-    return `<tr><td class="name" title="${esc(T.TYPES[e.type])} · ${T.fmtDur(e.weeklyMinutes)}/sett.${e.trainee ? ' · in formazione' : ''}">${esc(T.fullName(e))}${ctx.days.some((d) => T.isTrainee(e, d)) ? ' 🎓' : ''}</td>${ctx.days.map((d) => cellHtml(ctx, e, d, cellV.get(e.id + '|' + d))).join('')}
+    return `<tr><td class="name" title="${esc(T.TYPES[e.type])} · ${T.fmtDur(e.weeklyMinutes)}/sett.">${esc(T.fullName(e))}${ctx.shifts.some((x) => x.aff && x.employeeId === e.id && x.day >= ctx.ws && x.day <= ctx.ws + 6) ? ' 🎓' : ''}</td>${ctx.days.map((d) => cellHtml(ctx, e, d, cellV.get(e.id + '|' + d))).join('')}
       <td class="tot ${w > t ? 'over' : w < t ? 'under' : 'exact'}">${T.fmtDur(w)}<div class="sub">su ${T.fmtDur(t)}${dw ? ` · +${T.fmtDur(dw)} doppi` : ''}</div></td></tr>`;
   }).join('');
 
@@ -548,7 +548,7 @@ function renderTurni() {
       <li>Aperture e chiusure le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality). Le <b>aperture vanno a rotazione</b>: sulle ultime 4 settimane apre prima chi ha aperto meno, e nella stessa settimana nessuno ne fa molte più degli altri, sempre se le altre regole lo permettono.</li>
       <li><b>Squadra di apertura</b>: all'apertura ci sono esattamente le persone indicate nelle fasce di apertura in Regole, nessun altro. Chi arriva dopo va bene.</li>
       <li><b>Data di inizio</b> (Personale): prima di quel giorno la persona non ha turni e le sue ore della settimana si riducono in proporzione.</li>
-      <li>🎓 = <b>in formazione</b> (sezione Formazione): in apertura e chiusura deve essere affiancato/a da un formato nella stessa postazione.</li>
+      <li>🎓 = <b>affiancamento</b> (sezione Formazione): impara ad aprire o chiudere, in più rispetto alla squadra e accanto a un formato.</li>
       <li><b>Genera turni</b> crea una bozza che rispetta le regole: prima aperture e chiusure (chi è segnato in Aperture e chiusure), poi rush e picchi, poi completa le ore di ognuno con orari vari, come negli orari passati del locale.</li>
       <li>I dati restano salvati in questo browser. Per portarli su un altro dispositivo o farne un backup usa <b>Esporta dati</b> / <b>Importa dati</b> in Regole.</li>
     </ul>
@@ -620,7 +620,6 @@ function renderDayModal() {
       ${ab ? `<div class="notice err">Questo giorno è ${T.absenceInfo(ab.type).phrase}: non dovrebbe lavorare.</div>` : ''}
       ${!T.started(e, day) ? `<div class="notice err">Entra il ${T.itDate(e.startDate)}: prima di quella data non può avere turni.</div>` : ''}
       ${restBox(e, day)}
-      ${T.isTrainee(e, day) ? `<div class="notice warn">🎓 In formazione: in apertura e chiusura deve avere accanto un formato nella stessa postazione.</div>` : ''}
       ${boxes || '<div class="muted">Nessun turno in questo giorno.</div>'}
       ${list.length < 2 ? `<div><button class="btn" onclick="addDraftShift()">+ ${list.length ? 'Aggiungi doppio' : 'Aggiungi turno'}</button></div>` : ''}
       <div class="notice ${total > max ? 'err' : 'info'}">Turno: <b>${T.fmtDur(total)}</b> (massimo ${T.fmtDur(max)})${list[1] ? ` · Doppio: <b>${T.fmtDur(list[1].end - list[1].start)}</b> (massimo ${T.fmtDur(dMax)}, almeno ${T.fmtDur(dGap)} di pausa) · ${e.doubleDays ? `fa ${e.doubleDays} doppi a settimana` : 'non ha doppi previsti'}` : ''}</div>
@@ -1574,7 +1573,7 @@ function renderPersonale() {
         <td>${e.fixedShift ? `<span class="pill on">Fisso ${T.fmtTime(e.fixedShift.start)}–${T.fmtTime(e.fixedShift.end)}</span>` : T.fmtDur(e.weeklyMinutes)}</td>
         <td>${e.restDays.length ? e.restDays.slice().sort().map((d) => T.DOW_SHORT[d]).join(', ') : '<span class="muted">nessuno</span>'}</td>
         <td>${e.type === 'CREW' ? (e.trainings.length ? e.trainings.map((s) => `<span class="pill on">${T.STATIONS[s].label}</span>`).join('') : '<span class="muted small">non inserita</span>') : '—'}</td>
-        <td>${e.active ? 'Sì' : '<b style="color:var(--err-ink)">No</b>'}${e.trainee ? ' <span class="pill" style="background:var(--warn)">🎓 in formazione</span>' : ''}${e.startDate != null && e.startDate > T.todayDay() ? ` <span class="pill" style="background:#e8eefc;color:var(--rest)">entra il ${T.itDate(e.startDate)}</span>` : ''}</td>
+        <td>${e.active ? 'Sì' : '<b style="color:var(--err-ink)">No</b>'}${e.startDate != null && e.startDate > T.todayDay() ? ` <span class="pill" style="background:#e8eefc;color:var(--rest)">entra il ${T.itDate(e.startDate)}</span>` : ''}</td>
       </tr>`;
     }).join('');
   }).join('');
@@ -1682,21 +1681,16 @@ function renderFormazione() {
   const people = state.employees.filter((e) => e.active);
   const today = T.todayDay();
   const counts = T.CREW_STATIONS.map((st) => `<span class="pill on">${T.STATIONS[st].label}: ${people.filter((e) => e.trainings.includes(st)).length}</span>`).join('');
-  const trainees = sortByName(people.filter((e) => e.trainee));
   const rows = ['HOSPITALITY', 'CREW'].map((type) => {
     const list = sortByName(people.filter((e) => e.type === type));
     if (!list.length) return '';
-    return `<tr class="group"><td colspan="${T.CREW_STATIONS.length + 2}">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td>${T.CREW_STATIONS.map((st) =>
-      `<td style="text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer" ${e.trainings.includes(st) ? 'checked' : ''} onchange="toggleTraining(${e.id},'${st}')"></td>`).join('')}
-      <td style="white-space:nowrap;background:${e.trainee ? 'var(--warn)' : ''}"><label style="cursor:pointer"><input type="checkbox" style="width:18px;height:18px;vertical-align:middle" ${e.trainee ? 'checked' : ''} onchange="setTrainee(${e.id},this.checked)"> 🎓</label>
-        ${e.trainee ? ` fino al <input type="date" value="${e.traineeUntil != null ? T.toIso(e.traineeUntil) : ''}" onchange="setTraineeUntil(${e.id},this.value)" title="Lascia vuoto se non sai quando finisce">` : ''}</td></tr>`).join('');
+    return `<tr class="group"><td colspan="${T.CREW_STATIONS.length + 1}">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b></td>${T.CREW_STATIONS.map((st) =>
+      `<td style="text-align:center"><input type="checkbox" style="width:18px;height:18px;cursor:pointer" ${e.trainings.includes(st) ? 'checked' : ''} onchange="toggleTraining(${e.id},'${st}')"></td>`).join('')}</tr>`).join('');
   }).join('');
   return `
   <h2>Formazione ${ib('formazione')}</h2>
-  <div class="notice warn" style="margin-bottom:10px"><b>🎓 In formazione</b>: chi sta ancora imparando non può fare apertura o chiusura da solo/a. In quelle fasce non conta per i minimi e deve avere accanto, nella stessa postazione, una persona già formata. Se metti la data "fino al", dal giorno dopo torna a contare normalmente.
-    ${trainees.length ? `<div style="margin-top:6px">Ora in formazione: ${trainees.map((e) => `<b>${esc(T.fullName(e))}</b>${e.traineeUntil != null ? ` (fino al ${T.itDate(e.traineeUntil)}${e.traineeUntil < today ? ', finita' : ''})` : ''}`).join(', ')}</div>` : ''}</div>
   <p>Formati → ${counts}</p>
-  <div class="card"><table class="list"><thead><tr><th>Nome</th>${T.CREW_STATIONS.map((st) => `<th style="text-align:center">${T.STATIONS[st].label}</th>`).join('')}<th>In formazione (affiancato)</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="card"><table class="list"><thead><tr><th>Nome</th>${T.CREW_STATIONS.map((st) => `<th style="text-align:center">${T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>
   ${renderAffiancamenti()}`;
 }
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -1768,8 +1762,6 @@ function deleteAff(id) {
   for (const x of state.shifts) if (x.aff === id) delete x.aff;
   save(); render();
 }
-function setTrainee(id, on) { const e = empById(id); e.trainee = on; if (!on) e.traineeUntil = null; save(); render(); }
-function setTraineeUntil(id, v) { empById(id).traineeUntil = v ? T.toDay(v) : null; save(); render(); }
 function toggleTraining(id, st) {
   const e = empById(id);
   e.trainings = e.trainings.includes(st) ? e.trainings.filter((s) => s !== st) : [...e.trainings, st];
@@ -1798,7 +1790,7 @@ function renderAperture() {
   return `
   <h2>Aperture e chiusure ${ib('aperture')}</h2>
   <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati.${state.config.hospSala !== false ? ' La <b>Sala</b> la possono chiudere sia crew sia hospitality: se non segni nessuno, possono chiuderla tutti i crew formati in Sala e tutte le hospitality.' : ''}<br>
-  ${state.config.traineeRule !== false ? 'Chi è 🎓 in formazione non apre e non chiude mai da solo/a. ' : ''}In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.</div>
+  In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.</div>
   <p>${pills}</p>
   <div class="card"><table class="list"><thead><tr><th>Nome</th>${OPENINGS_().map((st) => `<th style="text-align:center">Apertura<br>${T.STATIONS[st].label}</th>`).join('')}${CLOSINGS_().map((st) => `<th style="text-align:center">Chiusura<br>${st === 'SERVIZIO' ? 'Sala' : T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -2014,7 +2006,6 @@ function renderStore() {
 
   <h3>⚙️ Regole del locale</h3>
   <div class="card section">
-    ${sw('traineeRule', '🎓 Chi è in formazione non apre e non chiude mai da solo', 'In apertura e chiusura chi è in formazione non conta per i minimi e deve avere accanto un formato nella stessa postazione.')}
     ${sw('hospSala', 'Le hospitality possono coprire la Sala', 'Anche in chiusura: la Sala la possono fare crew formati in Sala e hospitality (segnate in Aperture e chiusure).')}
     ${sw('mcCapOn', 'Limite di persone al McCafé', `Al massimo <input type="number" min="1" max="5" value="${c.mcMax ?? 1}" style="width:50px" onchange="setRule('mcMax',Math.max(1,+this.value||1))"> persona/e; <input type="number" min="1" max="5" value="${c.mcMaxEarly ?? 2}" style="width:50px" onchange="setRule('mcMaxEarly',Math.max(1,+this.value||1))"> prima delle ${dayTimeSel(c.mcMaxFino ?? 720, "setRule('mcMaxFino',+this.value)")} nei giorni <span style="white-space:nowrap">${dayChk(mcDays, (d) => `setRule('mcEarlyDays',${toggleIn(mcDays, d)})`)}</span>. Al cambio turno 30 minuti insieme sono ammessi.`)}
     ${sw('shortRule', 'Turni brevi solo dentro i rush', `I turni di crew e hospitality sotto le <input type="text" value="${hrs(c.shortMin ?? 180)}" style="width:50px" onchange="const v=T.parseHours(this.value);if(v)setRule('shortMin',v)"> ore vanno dentro il pranzo (${dayTimeSel((c.shortLunch || [690, 900])[0], `setRule('shortLunch',[+this.value,${(c.shortLunch || [690, 900])[1]}])`)}–${dayTimeSel((c.shortLunch || [690, 900])[1], `setRule('shortLunch',[${(c.shortLunch || [690, 900])[0]},+this.value])`)}) o la cena (dalle ${dayTimeSel((c.shortDinner || [1110])[0], "setRule('shortDinner',[+this.value,1440])")}). Apertura e orari fissi esclusi.`)}

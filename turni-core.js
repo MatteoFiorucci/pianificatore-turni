@@ -561,7 +561,10 @@
   }
   const isRest = (e, day) => e.restDays.includes(dow(day));
   /** In formazione quel giorno (fino alla data indicata, se c'è): in apertura/chiusura deve essere affiancato. */
-  const isTrainee = (e, day) => !!e.trainee && (e.traineeUntil == null || day <= e.traineeUntil);
+  // La vecchia spunta "in formazione" (valida per tutta la persona, in ogni apertura e chiusura) non vale più:
+  // gli affiancamenti si programmano persona per persona nei piani della sezione Formazione (state.formazioni).
+  // Il dato resta salvato ma viene ignorato.
+  const isTrainee = () => false;
   /**
    * Può chiudere quella postazione? Se per la postazione è segnato qualcuno (sezione Aperture e chiusure), solo i segnati.
    * Se non è segnato nessuno, tutti i formati in quella postazione (per la Sala anche le hospitality).
@@ -1263,7 +1266,7 @@
     // niente turni che finiscono negli ultimi minuti prima della chiusura (es. 21:15): o si chiude alle 21:30 o si esce prima
     const lateEnd = (b, d) => b > CL(d) - (cfg.closeGrace ?? 30) && b < CL(d);
     function canPlace(e, cand, replacing = null) {
-      if (replacing && replacing.aff) return false; // i turni di affiancamento restano come sono
+      if (replacing && (replacing.aff || replacing.tut)) return false; // affiancamenti e formati accanto restano come sono
       if (!isAvail(ctx, e, cand.day)) return false;
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (inClosure(cand)) return false;
@@ -1437,14 +1440,28 @@
       const days = ctx.days.filter((d) => (p.da == null || d >= p.da) && isAvail(ctx, e, d) && (!pref || pref.includes(dow(d))) && tutors(d) > 0);
       const spread = [...days.filter((_, i) => i % 2 === 0), ...days.filter((_, i) => i % 2 === 1)];
       const order = spread.sort((a, b) => Math.min(tutors(b), 2) - Math.min(tutors(a), 2)); // prima i giorni con più formati liberi
+      const closing = p.tipo === 'CHIUSURA';
+      const at = (x, d, len, extra = {}) => (closing
+        ? { employeeId: x.id, day: d, start: CL(d) - len, end: CL(d), station: p.station, doppio: false, ...extra }
+        : { employeeId: x.id, day: d, start: OP(d), end: OP(d) + len, station: p.station, doppio: false, ...extra });
+      // il formato che apre (o chiude) accanto: se non c'è già, si mette insieme all'affiancamento
+      const tutorShift = (d) => {
+        if (seniorsAt(ctx, d, closing ? CL(d) - SLOT : OP(d), p.station, shifts)) return 'ok';
+        const pool = ctx.employees.filter((x) => x.id !== e.id && !x.fixedShift && !isTrainee(x, d) && isAvail(ctx, x, d) &&
+          !shifts.some((y) => y.employeeId === x.id && y.day === d) &&
+          (closing ? canClose(ctx, x, p.station) : (x.openings || []).includes(p.station) && autoOpenOk(x, p.station)))
+          .sort((a, b) => remaining(b) - remaining(a));
+        for (const x of pool) for (const len of [240, 210, 180, 270]) { const c = at(x, d, len, { tut: true }); if (canPlace(x, c)) return c; }
+        return null;
+      };
       for (const d of order) {
         if (got >= want) break;
         if (shifts.some((x) => x.employeeId === e.id && x.day === d)) continue;
+        const tutor = tutorShift(d);
+        if (!tutor) continue;
         for (let len = Math.min(p.durata || 240, maxFor(cfg, e, d)); len >= cfg.minShift; len -= 30) {
-          const cand = p.tipo === 'CHIUSURA'
-            ? { employeeId: e.id, day: d, start: CL(d) - len, end: CL(d), station: p.station, doppio: false, aff: p.id }
-            : { employeeId: e.id, day: d, start: OP(d), end: OP(d) + len, station: p.station, doppio: false, aff: p.id };
-          if (canPlace(e, cand)) { place(cand); got++; break; }
+          const cand = at(e, d, len, { aff: p.id });
+          if (canPlace(e, cand)) { if (tutor !== 'ok') place(tutor); place(cand); got++; break; }
         }
       }
       if (got < want) notes.push(`${label}: messi ${got} affiancamenti su ${want} previsti questa settimana` +
@@ -1536,7 +1553,7 @@
     }
     /** Allunga un turno della postazione di req che finisce a m (fino alla fine della fascia, se possibile). */
     function extendStation(d, m, req) {
-      const olds = added.filter((x) => x.day === d && x.station === req.station && !x.doppio && !x.aff && x.end === m);
+      const olds = added.filter((x) => x.day === d && x.station === req.station && !x.doppio && !x.aff && !x.tut && x.end === m);
       // mai oltre la chiusura del locale (o la fine della fascia, se finisce dopo)
       const ends = [...new Set([req.end, req.end + 30, req.end - 30, m + 120, m + 90, m + 60, m + 30])].filter((t) => t > m && t <= Math.max(CL(d), req.end)).sort((a, b) => b - a);
       for (const old of olds) {
@@ -1703,7 +1720,7 @@
     }
     // 5. riparazione: se resta un buco, sposta un turno dello stesso giorno (stessa durata) per chiuderlo
     //    senza aprirne altri. Con opts.moveAll sposta anche i turni che c'erano già.
-    const movable = () => (opts.moveAll ? shifts : added).filter((x) => { const e = ctx.byId.get(x.employeeId); return e && !e.fixedShift && !isDouble(x) && !x.aff; });
+    const movable = () => (opts.moveAll ? shifts : added).filter((x) => { const e = ctx.byId.get(x.employeeId); return e && !e.fixedShift && !isDouble(x) && !x.aff && !x.tut; });
     function swapIn(old, neu) {
       shifts[shifts.indexOf(old)] = neu;
       const k = added.indexOf(old);
@@ -1832,7 +1849,7 @@
     //    o spostando il turno di quel giorno della persona. Restano obbligatori: disponibilità (riposi, ferie, richieste),
     //    formazione per l'apertura/chiusura, ore massime al giorno, stacco tra i turni, squadra esatta.
     function canPlaceTeam(e, cand, replacing = null) {
-      if (replacing && replacing.aff) return false;
+      if (replacing && (replacing.aff || replacing.tut)) return false;
       if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
       if (isTrainee(e, cand.day) || dur(cand) <= 0) return false;
       if (!e.fixedShift && shortOffPeak(cfg, cand)) return false;
@@ -1956,6 +1973,7 @@
       const left = remaining(e);
       if (left > 0) notes.push(`${fullName(e)}: mancano ${fmtDur(left)} (nessuno spazio valido trovato)`);
     }
+    for (const x of added) delete x.tut; // segno usato solo durante la generazione
     return { added, notes, all: shifts };
   }
 
