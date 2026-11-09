@@ -388,6 +388,7 @@ const INFO = {
   'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero; il generatore non mette turni e conta quel giorno come una giornata di ferie per tutti.<br><b>🕒 Chiusura parziale</b> (manutenzione, chiusura anticipata): le previsioni calano della quota di clienti che di solito entra in quelle ore; niente turni e niente minimi in quegli orari.<br><b>⭐ Evento o ricorrenza</b> (promozioni, ricorrenze, feste locali): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni, nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto molti più clienti del solito.`],
   'mgr': [`Squadra manager`, `I manager hanno un calendario a parte (non entrano nelle Ore totali e nei rush dei crew).<br><br><b>Ruolo e ore</b>: ore da contratto di ognuno, su 6 giorni; i giorni in cui possono riposare si scelgono nella sezione <b>Store</b>.<br><b>Giorni ordine</b>: giorni in cui quella persona fa l'ordine: entra entro l'orario impostato nella sezione Store (o in apertura), non riposa e il giorno prima non fa la sera.<br><b>Orario flessibile</b>: giorni in cui può fare un orario a metà giornata invece di apertura o chiusura.<br><b>1 centrale</b>: una volta a settimana, nei primi giorni della settimana, un turno centrale (es. per controllare gli orari).<br><br>Ogni giorno: un manager in apertura e uno in chiusura. Nei giorni di <b>delivery</b> c'è un secondo manager in apertura. <b>Carpigiani</b> (ogni 2 settimane, qualsiasi manager): il giorno dello smontaggio due manager la sera, il giorno del rimontaggio due manager in apertura. Stacchi, durate dei turni e manager minimi al giorno: sezione <b>Store</b>. Il weekend gira tra aperture, centrali e chiusure.`],
   'mgr-weekend': [`Weekend dei manager`, `Quante aperture, centrali e cene ha fatto ognuno nel fine settimana nelle ultime 4 settimane (questa compresa). Il generatore le fa a rotazione, così in un mese ognuno fa almeno un'apertura, un centrale e una cena.`],
+  'vlhGen': [`Turni creati in base alla VLH`, `Quando è attivo, il generatore guarda i clienti previsti ora per ora e le tabelle VLH: in ogni ora mette le persone che servono per le posizioni da aprire, area per area (MFY, OA, McCafé, sala). Restano valide squadre di apertura e chiusura, presidi delle postazioni, ore da contratto e riposi.<br><br>Se le persone non bastano, le posizioni restano <b>scoperte</b> e le trovi tra i problemi della settimana. Se nella sezione Previsioni hai scritto a mano le <b>Ore totali</b> del giorno, la VLH non le supera: toglie prima le posizioni aperte per pochi clienti (mai le prime tre). Le Ore totali stimate in automatico non fanno da limite.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Le postazioni del locale si impostano nella sezione Store. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> e per <b>chiudere</b> ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
   'doppi': [`Doppi`, `Indica chi fa il turno doppio (un secondo turno nello stesso giorno, ore in più rispetto al contratto) e quanti giorni a settimana. In <b>Ore massime per doppio</b> puoi abbassare la durata per chi non può fare il doppio standard: il generatore e i controlli ne tengono conto.
@@ -1025,23 +1026,7 @@ const VLH_SHEETS = [[8, 9, 10, 11, 12, 13, 14, 15], [15, 16, 17, 18, 19, 20, 21,
 /** Foglio mostrato: 0 pranzo, 1 cena, 2 tutte e due. All'inizio: oggi dopo le 15 la cena, altrimenti il pranzo. */
 const vlhSheet = () => ui.vlhSheet ?? (ui.day === T.todayDay() && new Date().getHours() >= 15 ? 1 : 0);
 /** GC previsti nell'ora h: valore scritto a mano, altrimenti dalla fonte scelta (nostra previsione o SmartBusiness). */
-function vlhGC(day, h) {
-  const iso = T.toIso(day), man = ((state.vlhGC || {})[iso] || {})[h];
-  if (man != null) return { gc: man, man: true };
-  if ((state.config.vlhFonte || 'nostra') === 'sb') {
-    const v = (((state.autoForecast || {}).orarioSB || {})[iso] || {})[String(h)];
-    return { gc: v != null ? v : null };
-  }
-  const fd = T.forecastDay((state.forecasts || {})[T.mondayOf(day)], T.dow(day) - 1);
-  const prof = ((state.autoForecast || {}).profiloOrario || {})[String(T.dow(day))];
-  if (!fd || !fd.gc || !prof) return { gc: null };
-  const clo = T.closureOf(state.eventi, day), cfg = state.config;
-  const shut = (x) => clo && (clo.full || (x * 60 < clo.to && (x + 1) * 60 > clo.from));
-  const dh = T.dayHours(cfg, day), h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60);
-  let share = 0; for (let x = h0; x < h1; x++) if (!shut(x)) share += prof[(x - 5 + 24) % 24] || 0;
-  if (!share || shut(h) || h < h0 || h >= h1) return { gc: 0 };
-  return { gc: Math.round((fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / share) };
-}
+function vlhGC(day, h) { return T.vlhHourGC(state, day, h); }
 function setVlhGC(day, h, v) {
   const iso = T.toIso(day); state.vlhGC = state.vlhGC || {};
   const o = state.vlhGC[iso] = state.vlhGC[iso] || {};
@@ -1065,6 +1050,22 @@ function importVlh(input) {
   f.text().then((t) => { const d = JSON.parse(t); if (!d.giorni) throw new Error('formato'); state.vlh = d; save(); render(); })
     .catch(() => alert('File non valido: serve il file delle tabelle VLH.'));
 }
+/** Riquadro della pagina VLH: interruttore "turni in base alla VLH" e ore richieste dalla VLH nel giorno. */
+function vlhGenNote(day) {
+  const on = state.config.vlhGen !== false;
+  const v = on ? T.vlhNeeds(state, day) : null;
+  const n = (x) => String(x).replace('.', ',');
+  let txt = '';
+  if (on && !v) txt = 'Per questo giorno mancano i clienti previsti ora per ora: i turni usano le fasce di Regole e le Ore totali.';
+  else if (v) {
+    txt = `Questo giorno la VLH chiede <b>${n(v.total)} ore</b> di posizioni (crew e sala)`;
+    if (v.budget != null) txt += v.trimmed.length ? `: servirebbero ${n(v.want)} ore ma le Ore totali scritte sono <b>${v.budget}</b>, quindi sono tolte ${v.trimmed.length} posizioni nelle ore con meno clienti.` : `, entro le Ore totali scritte (${v.budget}).`;
+    else txt += '.';
+  }
+  return `<div class="card no-print notice info small" style="margin-bottom:10px">
+    <label style="font-weight:600;cursor:pointer"><input type="checkbox" ${on ? 'checked' : ''} onchange="state.config.vlhGen=this.checked;save();render()"> Crea i turni in base alla VLH</label> ${ib('vlhGen')}
+    ${txt ? `<div style="margin-top:4px">${txt}</div>` : ''}</div>`;
+}
 function renderVLH() {
   const day = ui.day, dow = T.dow(day), V = VLH();
   const nav = `<div class="toolbar">
@@ -1087,6 +1088,7 @@ function renderVLH() {
   }
   const ctx = T.makeCtx(state, T.mondayOf(day));
   const shifts = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
+  const genNote = vlhGenNote(day);
   // in turno nell'ora h: crew e hospitality (doppi compresi) presenti almeno mezz'ora
   const people = (h) => shifts.filter((s) => Math.min(s.end, (h + 1) * 60) - Math.max(s.start, h * 60) >= 30)
     .map((s) => ({ id: s.employeeId, station: s.station, trainings: ctx.byId.get(s.employeeId).trainings || [], name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
@@ -1137,7 +1139,7 @@ function renderVLH() {
         return `<td class="next vslot ${out ? 'fuori' : ''}" data-h="${h}" data-code="${p.code}"><div class="pos">${p.n} ${esc(p.name)}</div>${x ? `<div class="who man" data-h="${h}" data-code="${p.code}" data-id="${x.id}" onpointerdown="vlhDragStart(event)">${esc(x.name)}</div>` : ''}</td>`; }).join('')}</tr>`).join('')}`;
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
-  return nav + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">torna alla proposta automatica</a>` : ''}. In stampa puoi correggerli a penna.</div>
+  return nav + genNote + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">torna alla proposta automatica</a>` : ''}. In stampa puoi correggerli a penna.</div>
     ${VLH_SHEETS.filter((hs, k) => vlhSheet() === 2 || vlhSheet() === k).map((hs) => `<div class="card vlhsheet"><div class="vlhscroll">${sheet(hs)}</div></div>`).join('')}`;
 }
 
