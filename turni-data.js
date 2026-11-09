@@ -38,6 +38,8 @@
     st.reqCreds = st.reqCreds || {};
     // v25: settimane pubblicate per i dipendenti (copia fissata al momento della pubblicazione)
     st.publishedWeeks = st.publishedWeeks || {};
+    // piani di affiancamento in apertura e chiusura (sezione Formazione)
+    st.formazioni = st.formazioni || [];
     // v26: eventi e chiusure (sezione Previsioni) e suggerimenti ignorati
     st.eventi = st.eventi || [];
     st.eventiIgnorati = st.eventiIgnorati || [];

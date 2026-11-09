@@ -243,6 +243,21 @@
   /** Durata massima del doppio della persona: la sua (sezione Doppi) se è impostata, altrimenti quella di Regole. */
   const doubleMaxOf = (cfg, e) => (e && e.doubleMax > 0 ? Math.min(e.doubleMax, cfg.doubleMax ?? 180) : cfg.doubleMax ?? 180);
   const restFor = (state, e, ws) => { const o = state.restWeek && state.restWeek[ws] && state.restWeek[ws][e.id]; return Array.isArray(o) ? o : e.restDays; };
+  // ---------- formazione: piani di affiancamento in apertura e chiusura ----------
+  /**
+   * state.formazioni = [{ id, empId, tipo: 'APERTURA' | 'CHIUSURA', station: 'CUCINA' | 'MCCAFE', volte, perSettimana,
+   *                       giorni: [1–7 preferiti], durata (minuti), da (giorno di inizio), fine (giorno in cui è diventato autonomo) }]
+   * Il generatore mette la persona in apertura (o chiusura) in quella postazione, IN PIÙ rispetto alla squadra e accanto a un
+   * formato, fino a perSettimana volte a settimana; dopo "volte" affiancamenti fatti è autonoma: apre (o chiude) da sola.
+   * I turni di affiancamento hanno aff = id del piano.
+   */
+  const AFF_TIPI = [['APERTURA', 'CUCINA'], ['APERTURA', 'MCCAFE'], ['CHIUSURA', 'MCCAFE']];
+  const affLabel = (p) => { const st = STATIONS[p.station]; return `${p.tipo === 'CHIUSURA' ? 'chiusura' : 'apertura'} ${st ? (st.label.length <= 12 ? st.label : st.short || st.label) : p.station}`; };
+  /** Affiancamenti di un piano prima di un giorno (quelli già fatti, se before = oggi). */
+  const affDone = (state, p, before) => (state.shifts || []).filter((x) => x.aff === p.id && x.day < before).length;
+  /** Il piano è finito prima di quel giorno? (affiancamenti completati, oppure segnato autonomo a mano) */
+  const affFinished = (state, p, day) => (p.fine != null && p.fine <= day) || affDone(state, p, day) >= (p.volte || 1);
+
   function makeCtx(state, ws) {
     applyStore(state.config);
     // riposi spostati solo per questa settimana (sezione Turni): la persona vale con quei riposi solo qui
@@ -250,6 +265,15 @@
     const noTrainee = state.config.traineeRule === false;
     const employees = state.employees.filter((e) => e.active).map((e) => (restFor(state, e, ws) === e.restDays ? e : { ...e, restDays: restFor(state, e, ws), restMoved: true }))
       .map((e) => (noTrainee && e.trainee ? { ...e, trainee: false } : e));
+    // piani di affiancamento finiti prima di questa settimana: la persona apre (o chiude) da sola in quella postazione
+    const plans = (state.formazioni || []).filter((p) => p && p.empId != null);
+    for (let i = 0; i < employees.length; i++) {
+      const e = employees[i], done = plans.filter((p) => p.empId === e.id && affFinished(state, p, ws));
+      if (!done.length) continue;
+      const openings = [...new Set([...(e.openings || []), ...done.filter((p) => p.tipo === 'APERTURA').map((p) => p.station)])];
+      const closings = [...new Set([...(e.closings || []), ...done.filter((p) => p.tipo === 'CHIUSURA').map((p) => p.station)])];
+      employees[i] = { ...e, openings, closings };
+    }
     // postazioni per cui qualcuno è segnato come formato alla chiusura (se nessuno: chiudono tutti i formati)
     const closingMarked = new Set(employees.flatMap((e) => e.closings || []));
     const ctx = {
@@ -293,6 +317,9 @@
     // VLH: nei giorni con i clienti previsti ora per ora, il fabbisogno dei crew viene dalle posizioni VLH di ogni ora
     // (per postazione e in totale), al posto delle fasce generiche e delle Ore totali distribuite col profilo.
     // Restano squadre di apertura e chiusura, presidi delle postazioni e fasce delle hospitality.
+    // piani di affiancamento ancora aperti in questa settimana (left = quanti ne mancano prima di lunedì)
+    ctx.formazioni = plans.filter((p) => (p.da == null || p.da <= ws + 6) && !affFinished(state, p, ws) && ctx.byId.has(p.empId))
+      .map((p) => ({ ...p, left: Math.max(0, (p.volte || 1) - affDone(state, p, ws)) }));
     ctx.vlh = {};
     for (let k = 0; k < 7; k++) { const v = vlhNeeds(state, ws + k); if (v) ctx.vlh[k] = v; }
     const vlhDays = Object.keys(ctx.vlh).map(Number);
@@ -680,6 +707,7 @@
   function countsFor(ctx, s, req) {
     const e = ctx.byId.get(s.employeeId);
     if (!e) return false;
+    if (s.aff && req && (req.opening || req.closing || req.exact)) return false; // in affiancamento: in più rispetto alla squadra
     const station = req && req.station, opening = req && req.opening;
     if (station && isTrainee(e, s.day)) return false;
     if (req && req.closing && station && !canClose(ctx, e, station)) return false;
@@ -728,7 +756,7 @@
    */
   function teamFit(ctx, cand, list) {
     const e = ctx.byId.get(cand.employeeId);
-    if (!e || isTrainee(e, cand.day)) return null;
+    if (!e || isTrainee(e, cand.day) || cand.aff) return null;
     const bySlot = new Map();
     for (const r of ctx.coverage) {
       if (!r.exact) continue;
@@ -830,7 +858,7 @@
   function seniorsAt(ctx, day, minute, station, list) {
     return list.filter((x) => {
       const e = ctx.byId.get(x.employeeId);
-      if (!e || isTrainee(e, day) || x.day !== day || x.start > minute || x.end < minute + SLOT) return false;
+      if (!e || x.aff || isTrainee(e, day) || x.day !== day || x.start > minute || x.end < minute + SLOT) return false;
       return x.station === station || (station === 'SERVIZIO' && x.station === 'HOSPITALITY') || (station === 'HOSPITALITY' && x.station === 'SERVIZIO');
     }).length;
   }
@@ -944,6 +972,28 @@
         const e = ctx.byId.get(s.employeeId);
         out.push(V('TRAINEE', 'ERROR', `${fullName(e)} è in formazione: il ${shortDate(s.day)} alle ${fmtTime(u.t)} (${u.req.name}) è da solo/a in ${STATIONS[s.station].label}, deve essere affiancato/a da un formato`, e.id, s.day));
       }
+    }
+    return out;
+  }
+
+  /**
+   * Formazione: ogni affiancamento deve avere accanto un formato nella stessa postazione (all'apertura o alla chiusura);
+   * avviso se in settimana ci sono meno affiancamenti di quelli previsti dal piano.
+   */
+  function ruleAffiancamenti(ctx) {
+    const out = [];
+    for (const s of ctx.shifts) {
+      if (!s.aff || s.day < ctx.ws || s.day > ctx.ws + 6) continue;
+      const p = (ctx.formazioni || []).find((x) => x.id === s.aff) || { tipo: s.end >= dayHours(ctx.cfg, s.day).close ? 'CHIUSURA' : 'APERTURA', station: s.station };
+      const e = ctx.byId.get(s.employeeId);
+      if (!e) continue;
+      const t = p.tipo === 'CHIUSURA' ? s.end - SLOT : s.start;
+      if (!seniorsAt(ctx, s.day, t, s.station, ctx.shifts)) out.push(V('AFF', 'ERROR', `${fullName(e)} è in affiancamento (${affLabel(p)}) il ${shortDate(s.day)} ma alle ${fmtTime(p.tipo === 'CHIUSURA' ? s.end : s.start)} non c'è nessun formato in ${STATIONS[s.station].label}`, e.id, s.day));
+    }
+    for (const p of ctx.formazioni || []) {
+      const e = ctx.byId.get(p.empId), want = Math.min(p.perSettimana || p.volte || 1, p.left);
+      const got = ctx.shifts.filter((x) => x.aff === p.id && x.day >= ctx.ws && x.day <= ctx.ws + 6).length;
+      if (e && got < want) out.push(V('AFF', 'WARNING', `${fullName(e)} · formazione in ${affLabel(p)}: ${got} affiancamenti su ${want} previsti questa settimana (fatti finora ${p.volte - p.left} su ${p.volte})`, e.id, null));
     }
     return out;
   }
@@ -1081,7 +1131,7 @@
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleVlh, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleVlh, ruleAffiancamenti, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -1213,6 +1263,7 @@
     // niente turni che finiscono negli ultimi minuti prima della chiusura (es. 21:15): o si chiude alle 21:30 o si esce prima
     const lateEnd = (b, d) => b > CL(d) - (cfg.closeGrace ?? 30) && b < CL(d);
     function canPlace(e, cand, replacing = null) {
+      if (replacing && replacing.aff) return false; // i turni di affiancamento restano come sono
       if (!isAvail(ctx, e, cand.day)) return false;
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (inClosure(cand)) return false;
@@ -1235,7 +1286,7 @@
       }
       const dbl = shifts.find((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s));
       if (dbl && Math.max(dbl.start - cand.end, cand.start - dbl.end) < D_GAP) return false;
-      if (unaccompanied(ctx, cand, shifts)) return false; // in formazione: mai da solo in apertura/chiusura
+      if (!cand.aff && unaccompanied(ctx, cand, shifts)) return false; // in formazione: mai da solo in apertura/chiusura
       const cf = closingFit(ctx, cand, shifts.filter((s) => s !== replacing));
       if (cf && cf !== 'ok') return false; // squadra di chiusura esatta
       if (!e.fixedShift && mcOver(cand, replacing)) return false; // McCafé: 1 persona (2 sab/dom prima del pranzo)
@@ -1370,6 +1421,37 @@
       }
     }
 
+    // 0b. formazione: affiancamenti in apertura/chiusura programmati dal manager (in più rispetto alla squadra)
+    for (const p of ctx.formazioni || []) {
+      const e = ctx.byId.get(p.empId);
+      if (!e || e.fixedShift) continue;
+      const want = Math.min(p.perSettimana || p.volte || 1, p.left), label = `${fullName(e)} · formazione in ${affLabel(p)}`;
+      if (!want) continue;
+      if (!(e.trainings || []).includes(p.station)) { notes.push(`${label}: prima va segnato/a come formato/a in ${STATIONS[p.station].label} (sezione Formazione)`); continue; }
+      let got = shifts.filter((x) => x.aff === p.id && x.day >= ctx.ws && x.day <= ctx.ws + 6).length;
+      const pref = (p.giorni || []).length ? p.giorni : null;
+      // prima i giorni scelti dal manager (nell'ordine della settimana), poi gli altri, distanziati
+      // solo i giorni in cui è libero almeno un formato che apre (o chiude) quella postazione, così non resta mai da solo/a
+      const tutors = (d) => ctx.employees.filter((x) => x.id !== e.id && !isTrainee(x, d) && isAvail(ctx, x, d) &&
+        (p.tipo === 'CHIUSURA' ? canClose(ctx, x, p.station) : (x.openings || []).includes(p.station) && autoOpenOk(x, p.station))).length;
+      const days = ctx.days.filter((d) => (p.da == null || d >= p.da) && isAvail(ctx, e, d) && (!pref || pref.includes(dow(d))) && tutors(d) > 0);
+      const spread = [...days.filter((_, i) => i % 2 === 0), ...days.filter((_, i) => i % 2 === 1)];
+      const order = spread.sort((a, b) => Math.min(tutors(b), 2) - Math.min(tutors(a), 2)); // prima i giorni con più formati liberi
+      for (const d of order) {
+        if (got >= want) break;
+        if (shifts.some((x) => x.employeeId === e.id && x.day === d)) continue;
+        for (let len = Math.min(p.durata || 240, maxFor(cfg, e, d)); len >= cfg.minShift; len -= 30) {
+          const cand = p.tipo === 'CHIUSURA'
+            ? { employeeId: e.id, day: d, start: CL(d) - len, end: CL(d), station: p.station, doppio: false, aff: p.id }
+            : { employeeId: e.id, day: d, start: OP(d), end: OP(d) + len, station: p.station, doppio: false, aff: p.id };
+          if (canPlace(e, cand)) { place(cand); got++; break; }
+        }
+      }
+      if (got < want) notes.push(`${label}: messi ${got} affiancamenti su ${want} previsti questa settimana` +
+        (!ctx.days.some((d) => tutors(d) > 0) ? ` (nessun formato che ${p.tipo === 'CHIUSURA' ? 'chiude' : 'apre'} questa postazione: segnalo nella sezione Aperture e chiusure)`
+          : pref ? ` (giorni scelti: ${pref.map((g) => DOW_SHORT[g]).join(', ')})` : ''));
+    }
+
     // 1. coperture
     const LENGTHS = [180, 240, 210, 150, 270, 300, 120];
     // prima le aperture (pochi formati), poi le altre fasce con postazione, poi le generiche dalle più corte
@@ -1454,7 +1536,7 @@
     }
     /** Allunga un turno della postazione di req che finisce a m (fino alla fine della fascia, se possibile). */
     function extendStation(d, m, req) {
-      const olds = added.filter((x) => x.day === d && x.station === req.station && !x.doppio && x.end === m);
+      const olds = added.filter((x) => x.day === d && x.station === req.station && !x.doppio && !x.aff && x.end === m);
       // mai oltre la chiusura del locale (o la fine della fascia, se finisce dopo)
       const ends = [...new Set([req.end, req.end + 30, req.end - 30, m + 120, m + 90, m + 60, m + 30])].filter((t) => t > m && t <= Math.max(CL(d), req.end)).sort((a, b) => b - a);
       for (const old of olds) {
@@ -1621,7 +1703,7 @@
     }
     // 5. riparazione: se resta un buco, sposta un turno dello stesso giorno (stessa durata) per chiuderlo
     //    senza aprirne altri. Con opts.moveAll sposta anche i turni che c'erano già.
-    const movable = () => (opts.moveAll ? shifts : added).filter((x) => { const e = ctx.byId.get(x.employeeId); return e && !e.fixedShift && !isDouble(x); });
+    const movable = () => (opts.moveAll ? shifts : added).filter((x) => { const e = ctx.byId.get(x.employeeId); return e && !e.fixedShift && !isDouble(x) && !x.aff; });
     function swapIn(old, neu) {
       shifts[shifts.indexOf(old)] = neu;
       const k = added.indexOf(old);
@@ -1750,6 +1832,7 @@
     //    o spostando il turno di quel giorno della persona. Restano obbligatori: disponibilità (riposi, ferie, richieste),
     //    formazione per l'apertura/chiusura, ore massime al giorno, stacco tra i turni, squadra esatta.
     function canPlaceTeam(e, cand, replacing = null) {
+      if (replacing && replacing.aff) return false;
       if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
       if (isTrainee(e, cand.day) || dur(cand) <= 0) return false;
       if (!e.fixedShift && shortOffPeak(cfg, cand)) return false;
@@ -1880,7 +1963,7 @@
     ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf,
     STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
-    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds,
+    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
   };
   if (typeof module !== 'undefined') module.exports = root.Turni;
 })(typeof window !== 'undefined' ? window : globalThis);
