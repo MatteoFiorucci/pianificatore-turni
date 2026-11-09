@@ -388,6 +388,7 @@ const INFO = {
   'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero; il generatore non mette turni e conta quel giorno come una giornata di ferie per tutti.<br><b>🕒 Chiusura parziale</b> (manutenzione, chiusura anticipata): le previsioni calano della quota di clienti che di solito entra in quelle ore; niente turni e niente minimi in quegli orari.<br><b>⭐ Evento o ricorrenza</b> (promozioni, ricorrenze, feste locali): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni, nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto molti più clienti del solito.`],
   'mgr': [`Squadra manager`, `I manager hanno un calendario a parte (non entrano nelle Ore totali e nei rush dei crew).<br><br><b>Ruolo e ore</b>: ore da contratto di ognuno, su 6 giorni; i giorni in cui possono riposare si scelgono nella sezione <b>Store</b>.<br><b>Giorni ordine</b>: giorni in cui quella persona fa l'ordine: entra entro l'orario impostato nella sezione Store (o in apertura), non riposa e il giorno prima non fa la sera.<br><b>Orario flessibile</b>: giorni in cui può fare un orario a metà giornata invece di apertura o chiusura.<br><b>1 centrale</b>: una volta a settimana, nei primi giorni della settimana, un turno centrale (es. per controllare gli orari).<br><br>Ogni giorno: un manager in apertura e uno in chiusura. Nei giorni di <b>delivery</b> c'è un secondo manager in apertura. <b>Carpigiani</b> (ogni 2 settimane, qualsiasi manager): il giorno dello smontaggio due manager la sera, il giorno del rimontaggio due manager in apertura. Stacchi, durate dei turni e manager minimi al giorno: sezione <b>Store</b>. Il weekend gira tra aperture, centrali e chiusure.`],
   'mgr-weekend': [`Weekend dei manager`, `Quante aperture, centrali e cene ha fatto ognuno nel fine settimana nelle ultime 4 settimane (questa compresa). Il generatore le fa a rotazione, così in un mese ognuno fa almeno un'apertura, un centrale e una cena.`],
+  'affiancamenti': [`Affiancamenti in apertura e chiusura`, `Qui programmi chi deve imparare ad <b>aprire</b> la cucina (MFY) o il McCafé, oppure a <b>chiudere</b> il McCafé. Per ogni persona scegli quante volte in tutto (es. 4), quante al massimo a settimana (es. 3) e, se vuoi, in quali giorni.<br><br>Quando generi i turni, il programma la mette in apertura (o in chiusura) in quella postazione <b>in più</b> rispetto alla squadra, solo nei giorni in cui c'è un formato che apre (o chiude) accanto a lei. Nel lineare questi turni hanno il segno 🎓.<br><br>Finiti gli affiancamenti, la persona diventa <b>autonoma</b>: viene segnata da sola in Aperture e chiusure e da lì in poi apre (o chiude) senza affiancamento. Puoi anche segnarla autonoma prima, con il pulsante ✅.<br><br>La chiusura della cucina non ha affiancamenti da programmare: in chiusura in cucina ci sono sempre più persone.`],
   'vlhGen': [`Turni creati in base alla VLH`, `Quando è attivo, il generatore guarda i clienti previsti ora per ora e le tabelle VLH: in ogni ora mette le persone che servono per le posizioni da aprire, area per area (MFY, OA, McCafé, sala). Restano valide squadre di apertura e chiusura, presidi delle postazioni, ore da contratto e riposi.<br><br>Se le persone non bastano, le posizioni restano <b>scoperte</b> e le trovi tra i problemi della settimana. Se nella sezione Previsioni hai scritto a mano le <b>Ore totali</b> del giorno, la VLH non le supera: toglie prima le posizioni aperte per pochi clienti (mai le prime tre). Le Ore totali stimate in automatico non fanno da limite.`],
   'formazione': [`Formazione`, `Segna in quali postazioni è formato ogni crew e ogni hospitality: il generatore mette le persone solo dove sono formate. Le postazioni del locale si impostano nella sezione Store. Chi può <b>aprire</b> si segna nella sezione <a href="#" onclick="closeModal();go('aperture');return false">Aperture</a>.`],
   'aperture': [`Aperture e chiusure`, `Segna chi è formato per <b>aprire</b> e per <b>chiudere</b> ogni postazione. Il generatore sceglie solo tra queste persone, crew o hospitality, e non sposta mai chi ha un orario fisso.`],
@@ -442,8 +443,27 @@ function applyStoreUi() {
   if (!el) { el = document.createElement('style'); el.id = 'stcss'; document.head.appendChild(el); }
   el.textContent = (state.config.stations || []).map((x) => `.st-${x.id}{background:${x.color || '#888'}}`).join('');
 }
+/**
+ * Piani di affiancamento finiti (tutti gli affiancamenti già fatti): la persona viene segnata autonoma in
+ * Aperture e chiusure e il piano si chiude. Gira a ogni aggiornamento della pagina (salva solo se cambia qualcosa).
+ */
+function syncFormazioni() {
+  if (!T.affDone || !(state.formazioni || []).length) return;
+  const today = T.todayDay();
+  let changed = false;
+  for (const p of state.formazioni) {
+    if (p.fine != null || T.affDone(state, p, today) < (p.volte || 1)) continue;
+    const last = Math.max(...state.shifts.filter((x) => x.aff === p.id && x.day < today).map((x) => x.day));
+    p.fine = last + 1;
+    const e = empById(p.empId);
+    if (e) { const k = p.tipo === 'CHIUSURA' ? 'closings' : 'openings'; e[k] = [...new Set([...(e[k] || []), p.station])]; }
+    changed = true;
+  }
+  if (changed) save();
+}
 function render() {
   if (ui.locked) return renderGate();
+  syncFormazioni();
   applyStoreUi();
   renderBrand(); renderSync();
   const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
@@ -930,10 +950,10 @@ function renderGiornaliero() {
   const row = (s) => {
     const e = ctx.byId.get(s.employeeId);
     const lim = T.limitOf(ctx, e.id, day);
-    const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}${lim ? ` · richiesta accettata: ${lim.label}` : ''}`;
+    const tip = `${T.fullName(e)} · ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} · ${T.STATIONS[s.station].label}${s.doppio ? ' · doppio' : ''}${s.aff ? ' · affiancamento (formazione)' : ''}${lim ? ` · richiesta accettata: ${lim.label}` : ''}`;
     return `<div class="lrow ${editing ? '' : 'click'}" ${editing ? `data-rsid="${s.id}"` : `onclick="openDay(${e.id},${day})"`} title="${esc(tip)}">
       <div class="lpos">${T.STATIONS[s.station].short}</div>
-      <div class="lname">${bad.has(e.id) ? '<span class="pdot" style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
+      <div class="lname">${bad.has(e.id) ? '<span class="pdot" style="color:var(--err-ink)" title="Ha un problema: vedi a destra">● </span>' : ''}${esc(T.fullName(e))}${T.isTrainee(e, day) || s.aff ? ' 🎓' : ''}${lim ? ` <span class="reqtag" title="Richiesta accettata: ${esc(lim.label)}">richiesta</span>` : ''}</div>
       <div class="ltime" data-t="a">${T.fmtTime(s.start)}</div><div class="ltime" data-t="b">${T.fmtTime(s.end)}</div>
       <div class="ltrack" style="${grid}"><div class="lbar st-${s.station}${editing ? ' drag' : ''}" ${editing ? `data-sid="${s.id}" onpointerdown="dragStart(event)"` : ''} style="left:${pct(s.start)};width:${(((s.end - s.start) / span) * 100).toFixed(3)}%"><span class="lbl">${T.STATIONS[s.station].short}</span>${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div>
     </div>`;
@@ -1676,7 +1696,77 @@ function renderFormazione() {
   <div class="notice warn" style="margin-bottom:10px"><b>🎓 In formazione</b>: chi sta ancora imparando non può fare apertura o chiusura da solo/a. In quelle fasce non conta per i minimi e deve avere accanto, nella stessa postazione, una persona già formata. Se metti la data "fino al", dal giorno dopo torna a contare normalmente.
     ${trainees.length ? `<div style="margin-top:6px">Ora in formazione: ${trainees.map((e) => `<b>${esc(T.fullName(e))}</b>${e.traineeUntil != null ? ` (fino al ${T.itDate(e.traineeUntil)}${e.traineeUntil < today ? ', finita' : ''})` : ''}`).join(', ')}</div>` : ''}</div>
   <p>Formati → ${counts}</p>
-  <div class="card"><table class="list"><thead><tr><th>Nome</th>${T.CREW_STATIONS.map((st) => `<th style="text-align:center">${T.STATIONS[st].label}</th>`).join('')}<th>In formazione (affiancato)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+  <div class="card"><table class="list"><thead><tr><th>Nome</th>${T.CREW_STATIONS.map((st) => `<th style="text-align:center">${T.STATIONS[st].label}</th>`).join('')}<th>In formazione (affiancato)</th></tr></thead><tbody>${rows}</tbody></table></div>
+  ${renderAffiancamenti()}`;
+}
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+/** Sezione Formazione: piani di affiancamento in apertura (MFY, McCafé) e chiusura (McCafé). */
+function renderAffiancamenti() {
+  if (!T.AFF_TIPI) return '';
+  const today = T.todayDay(), plans = state.formazioni || [];
+  const giorni = (p) => ((p.giorni || []).length ? p.giorni.map((g) => T.DOW_SHORT[g]).join(', ') : 'tutti');
+  const rows = plans.map((p) => {
+    const e = empById(p.empId), done = T.affDone(state, p, today);
+    const planned = state.shifts.filter((x) => x.aff === p.id && x.day >= today).map((x) => x.day).sort((a, b) => a - b);
+    const stato = p.fine != null ? `<span class="pill on">✅ autonomo/a dal ${T.itDate(p.fine)}</span>`
+      : `${done} fatti su ${p.volte}${planned.length ? `<div class="small muted">programmati: ${planned.map((d) => T.shortDate(d)).join(', ')}</div>` : ''}`;
+    return `<tr><td><b>${e ? esc(T.fullName(e)) : '<span class="muted">persona eliminata</span>'}</b></td><td>${cap(T.affLabel(p))}</td>
+      <td>${stato}</td><td style="text-align:center">${p.perSettimana}</td><td>${giorni(p)}</td><td>${p.da != null ? T.itDate(p.da) : '—'}</td>
+      <td style="white-space:nowrap"><button class="btn" onclick="editAff('${p.id}')" title="Modifica">✏️</button>
+        ${p.fine == null ? `<button class="btn" onclick="affAutonomo('${p.id}')" title="Segna autonomo/a da oggi">✅</button>` : ''}
+        <button class="btn" onclick="deleteAff('${p.id}')" title="Elimina il piano">🗑</button></td></tr>`;
+  }).join('');
+  return `<h3 style="margin-top:22px">Affiancamenti in apertura e chiusura ${ib('affiancamenti')}</h3>
+  <div class="card">${plans.length ? `<table class="list"><thead><tr><th>Persona</th><th>Affiancamento</th><th>Avanzamento</th><th>Max a settimana</th><th>Giorni</th><th>Dal</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+    : '<p class="muted" style="margin:0 0 8px">Nessun affiancamento programmato.</p>'}
+    <button class="btn primary" onclick="editAff(null)" style="margin-top:8px">+ Programma un affiancamento</button></div>`;
+}
+function editAff(id) {
+  const p = (state.formazioni || []).find((x) => x.id === id) || { tipo: 'APERTURA', station: 'MCCAFE', volte: 4, perSettimana: 3, giorni: [], durata: 240, da: T.mondayOf(T.todayDay()) + 7 };
+  const people = sortByName(state.employees.filter((e) => e.active));
+  const tipi = T.AFF_TIPI.filter(([, st]) => T.CREW_STATIONS.includes(st));
+  showModal(`<h3>${id ? 'Modifica' : 'Programma'} un affiancamento</h3>
+    <label>Persona<br><select id="a-emp">${people.map((e) => `<option value="${e.id}" ${e.id === p.empId ? 'selected' : ''}>${esc(T.fullName(e))}</option>`).join('')}</select></label>
+    <label style="display:block;margin-top:8px">Affiancamento<br><select id="a-tipo">${tipi.map(([t, st]) => `<option value="${t}|${st}" ${t === p.tipo && st === p.station ? 'selected' : ''}>${cap(T.affLabel({ tipo: t, station: st }))}</option>`).join('')}</select></label>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px">
+      <label>Volte in tutto<br><input id="a-volte" type="number" min="1" max="30" value="${p.volte}" style="width:80px"></label>
+      <label>Max a settimana<br><input id="a-sett" type="number" min="1" max="7" value="${p.perSettimana}" style="width:80px"></label>
+      <label>Durata del turno (ore)<br><input id="a-dur" type="number" min="2" max="8" step="0.5" value="${(p.durata || 240) / 60}" style="width:80px"></label>
+      <label>Dal<br><input id="a-da" type="date" value="${p.da != null ? T.toIso(p.da) : ''}"></label>
+    </div>
+    <div style="margin-top:8px">Giorni preferiti <span class="small muted">(nessuno = qualsiasi giorno)</span><br>
+      ${[1, 2, 3, 4, 5, 6, 7].map((g) => `<label style="margin-right:8px"><input type="checkbox" class="a-g" value="${g}" ${(p.giorni || []).includes(g) ? 'checked' : ''}> ${T.DOW_SHORT[g]}</label>`).join('')}</div>
+    <p id="a-err" class="notice err" style="display:none"></p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="saveAff(${id ? `'${id}'` : 'null'})">Salva</button></div>`);
+}
+function saveAff(id) {
+  const [tipo, station] = document.getElementById('a-tipo').value.split('|');
+  const empId = +document.getElementById('a-emp').value, e = empById(empId);
+  const volte = Math.round(+document.getElementById('a-volte').value), per = Math.round(+document.getElementById('a-sett').value);
+  const dur = Math.round(+document.getElementById('a-dur').value * 60), daV = document.getElementById('a-da').value;
+  const err = (m) => { const x = document.getElementById('a-err'); x.style.display = 'block'; x.textContent = m; };
+  if (!e) return err('Scegli la persona.');
+  if (!(volte >= 1) || !(per >= 1)) return err('Indica quante volte in tutto e quante al massimo a settimana.');
+  if (!(e.trainings || []).includes(station)) return err(`${T.fullName(e)} non è segnato/a come formato/a in ${T.STATIONS[station].label}: segnalo prima nella tabella qui sopra.`);
+  const data = { empId, tipo, station, volte, perSettimana: Math.min(per, volte), durata: dur || 240, da: daV ? T.toDay(daV) : null,
+    giorni: [...document.querySelectorAll('.a-g:checked')].map((x) => +x.value) };
+  state.formazioni = state.formazioni || [];
+  const old = state.formazioni.find((x) => x.id === id);
+  if (old) Object.assign(old, data); else state.formazioni.push({ id: 'aff' + newId(), fine: null, ...data });
+  save(); closeModal(); render();
+}
+function affAutonomo(id) {
+  const p = (state.formazioni || []).find((x) => x.id === id), e = p && empById(p.empId);
+  if (!p) return;
+  p.fine = T.todayDay();
+  if (e) { const k = p.tipo === 'CHIUSURA' ? 'closings' : 'openings'; e[k] = [...new Set([...(e[k] || []), p.station])]; }
+  save(); render();
+}
+function deleteAff(id) {
+  state.formazioni = (state.formazioni || []).filter((x) => x.id !== id);
+  // i turni già messi restano, ma non sono più affiancamenti
+  for (const x of state.shifts) if (x.aff === id) delete x.aff;
+  save(); render();
 }
 function setTrainee(id, on) { const e = empById(id); e.trainee = on; if (!on) e.traineeUntil = null; save(); render(); }
 function setTraineeUntil(id, v) { empById(id).traineeUntil = v ? T.toDay(v) : null; save(); render(); }
