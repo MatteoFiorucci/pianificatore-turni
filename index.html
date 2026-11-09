@@ -682,7 +682,8 @@ function askGenerate() {
     <p><b>Completa</b>: tiene i turni già inseriti e aggiunge quelli che mancano.<br><b>Da zero</b>: cancella tutti i turni della settimana e li ricrea.</p>
     <p class="muted small">Il generatore rispetta riposi fissi, orari fissi, ferie, massimo giornaliero, stacchi 11h/36h e ore da contratto distribuite su tutti i giorni lavorativi. Mette i doppi solo a chi li fa (sezione Doppi), nei rush e preferibilmente nel weekend.</p>
     ${warn}
-    ${(state.managers || []).length && !(state.mgrShifts || []).some((x) => x.day >= ui.ws && x.day <= ui.ws + 6) ? '<div class="notice info" style="margin-top:12px">Consiglio: genera prima i turni dei <b>manager</b> di questa settimana. Nelle ore intermedie del pomeriggio i manager in più coprono al posto dei crew, così le ore dei crew vanno sui rush di pranzo e cena.</div>' : ''}
+    ${(state.managers || []).some((m) => m.active !== false) ? `<label class="notice info" style="display:block;margin-top:12px;cursor:pointer"><input type="checkbox" id="g-mgr" checked> Genera anche i turni dei <b>manager</b>, prima di crew e hospitality
+      <span class="small" style="display:block;margin-top:4px">${(state.mgrShifts || []).some((x) => x.day >= ui.ws && x.day <= ui.ws + 6) ? 'Questa settimana ci sono già turni manager: con <b>Completa</b> restano come sono, con <b>Da zero</b> vengono rifatti.' : 'Nelle ore intermedie del pomeriggio i manager in più coprono al posto dei crew, così le ore dei crew vanno sui rush di pranzo e cena.'}</span></label>` : ''}
     <div class="actions">
       <button class="btn" onclick="closeModal()">Annulla</button>
       <button class="btn" onclick="startGenerate(true)">Da zero</button>
@@ -690,10 +691,35 @@ function askGenerate() {
     </div>`);
 }
 function startGenerate(fromScratch) {
+  const box = document.getElementById('g-mgr'), withMgr = !!(box && box.checked);
   showModal('<h3>⚙ Sto generando i turni…</h3><p class="muted">Provo alcune varianti e tengo la migliore. Ci vuole qualche secondo.</p>');
-  setTimeout(() => runGenerate(fromScratch), 30);
+  setTimeout(() => runGenerate(fromScratch, withMgr), 30);
 }
-function runGenerate(fromScratch) {
+/**
+ * Turni dei manager della settimana, prima di quelli di crew e hospitality (il generatore dei crew ne tiene conto).
+ * Prova alcune varianti e tiene quella con meno errori. Con "Completa" i turni manager già presenti restano.
+ * Restituisce { n, err, warn } oppure { kept: true } / null.
+ */
+function genMgrForWeek(fromScratch) {
+  const M = MGR(), ws = ui.ws;
+  if (!M || !(state.managers || []).some((m) => m.active !== false)) return null;
+  const inWeek = (x) => x.day >= ws && x.day <= ws + 6;
+  if (!fromScratch && (state.mgrShifts || []).some(inWeek)) return { kept: true };
+  const others = (state.mgrShifts || []).filter((x) => !inWeek(x)), base = { ...state, mgrShifts: others };
+  ui.mgrGen = (ui.mgrGen || 0) + 1;
+  let best = null;
+  for (let k = 0; k < 4; k++) {
+    const r = M.generate(base, ws, { seed: ui.mgrGen * 4 + k });
+    const err = r.problems.filter((p) => p.sev === 'ERROR').length, sc = err * 100 + r.problems.length;
+    if (!best || sc < best.sc) best = { r, err, sc };
+    if (!best.sc) break;
+  }
+  state.mgrShifts = others.concat(best.r.shifts.map((x) => ({ ...x, id: newId() })));
+  return { n: best.r.shifts.length, err: best.err, warn: best.r.problems.length - best.err };
+}
+function runGenerate(fromScratch, withMgr = false) {
+  // 1. prima i manager, 2. poi crew e hospitality
+  const mgr = withMgr ? genMgrForWeek(fromScratch) : null;
   if (fromScratch) state.shifts = state.shifts.filter((s) => s.day < ui.ws || s.day > ui.ws + 6);
   // prova alcune varianti e tiene la migliore (meno errori, poi meno avvisi); ogni "Genera" dà varianti nuove
   ui.genCount = (ui.genCount || 0) + 1;
@@ -708,7 +734,9 @@ function runGenerate(fromScratch) {
   res.added.forEach((s) => state.shifts.push({ ...s, id: newId() }));
   save(); render();
   const notes = best.sc.err ? res.notes : [];
-  showModal(`<h3>Generazione completata</h3><p>Aggiunti <b>${res.added.length}</b> turni · <b style="color:${best.sc.err ? 'var(--err-ink)' : 'var(--green)'}">${best.sc.err} errori</b> · ${best.sc.warn} avvisi.</p>
+  const mgrLine = !mgr ? '' : mgr.kept ? '<p><b>Manager</b>: turni già presenti, lasciati come sono.</p>'
+    : `<p><b>Manager</b>: creati <b>${mgr.n}</b> turni · <b style="color:${mgr.err ? 'var(--err-ink)' : 'var(--green)'}">${mgr.err} errori</b> · ${mgr.warn} avvisi${mgr.err ? ' (li trovi nella vista Manager)' : ''}.</p>`;
+  showModal(`<h3>Generazione completata</h3>${mgrLine}<p>${mgr ? '<b>Crew e hospitality</b>: aggiunti' : 'Aggiunti'} <b>${res.added.length}</b> turni · <b style="color:${best.sc.err ? 'var(--err-ink)' : 'var(--green)'}">${best.sc.err} errori</b> · ${best.sc.warn} avvisi.</p>
     ${notes.length ? `<ul>${notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul><p class="small muted">Prova <b>🛠 Risolvi problemi</b>: cerca altre soluzioni e ti spiega cosa non si può sistemare.</p>` : '<p>✅ Tutte le coperture e le ore sono state assegnate.</p>'}
     <div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
 }
