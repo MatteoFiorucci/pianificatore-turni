@@ -1310,7 +1310,8 @@
     /** Allunga un turno della postazione di req che finisce a m (fino alla fine della fascia, se possibile). */
     function extendStation(d, m, req) {
       const olds = added.filter((x) => x.day === d && x.station === req.station && !x.doppio && x.end === m);
-      const ends = [...new Set([req.end, req.end + 30, req.end - 30, m + 120, m + 90, m + 60, m + 30])].filter((t) => t > m).sort((a, b) => b - a);
+      // mai oltre la chiusura del locale (o la fine della fascia, se finisce dopo)
+      const ends = [...new Set([req.end, req.end + 30, req.end - 30, m + 120, m + 90, m + 60, m + 30])].filter((t) => t > m && t <= Math.max(CL(d), req.end)).sort((a, b) => b - a);
       for (const old of olds) {
         const e = ctx.byId.get(old.employeeId);
         if (!e || e.fixedShift) continue;
