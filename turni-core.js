@@ -65,7 +65,8 @@
   // afternoonStart/End = post-rush del pranzo (14:30–19:00): niente turni "rigidi" tutti lì dentro, meglio sfalsati
   // dinnerPreStart = da quando può entrare chi copre la cena (pre-rush, 16:30); lunchPeak/dinnerPeak = cuore dei rush
   // avoidShifts: orari che il generatore non propone mai da solo [inizio, fine, inizio al posto, fine al posto] (a mano restano validi)
-  const DEFAULT_CONFIG = { avoidShifts: [[780, 1080, 720, 1020]], dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30, requestMargin: 30, requestAfter: 120 };
+  // vlhFrom: da che ora valgono le posizioni VLH per creare i turni (prima: solo squadre di apertura e fasce di Regole)
+  const DEFAULT_CONFIG = { vlhFrom: 660, avoidShifts: [[780, 1080, 720, 1020]], dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30, requestMargin: 30, requestAfter: 120 };
   // min = minimo di crew per giorno (lun→dom). Valori presi dagli orari reali delle settimane 39–44.
   const all = (n) => [n, n, n, n, n, n, n];
   const DEFAULT_COVERAGE = [
@@ -498,14 +499,15 @@
     const V = root.TurniVLH;
     if (!V || !state.vlh || !state.vlh.giorni || state.config.vlhGen === false) return null;
     const dh = dayHours(state.config, day), dw = dow(day);
-    const h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60), hours = {};
+    const from = Math.max(dh.open, state.config.vlhFrom ?? 660);
+    const h0 = Math.floor(from / 60), h1 = Math.ceil(dh.close / 60), hours = {};
     for (let h = h0; h < h1; h++) {
       const g = vlhHourGC(state, day, h);
       if (g.gc == null) continue;
       const r = V.forHour(state.vlh, dw, h, g.gc);
       if (!r) continue;
-      const from = Math.max(h * 60, dh.open), to = Math.min(h * 60 + 60, dh.close);
-      if (to > from) hours[h] = { gc: g.gc, from, to, open: r.open.slice() };
+      const a = Math.max(h * 60, from), to = Math.min(h * 60 + 60, dh.close);
+      if (to > a) hours[h] = { gc: g.gc, from: a, to, open: r.open.slice() };
     }
     if (!Object.keys(hours).length) return null;
     const len = (x) => (x.to - x.from) / 60;
@@ -926,11 +928,11 @@
    * Fanno eccezione l'apertura e gli orari fissi. Finestre: pranzo 11:30–15:00, cena 18:30–chiusura (modificabili).
    */
   /**
-   * Turno del pranzo che esce prima della fine del rush: entra tra le 11:00 e le 13:00 ed esce prima delle 15:00
-   * (es. 12:30–14:30). Il rush del pranzo va coperto fino alla fine: chi fa il pranzo resta almeno fino alle 15:00.
+   * Turno del pranzo che esce prima della fine del rush: entra tra le 10:00 e le 13:00 ed esce prima delle 15:00
+   * (es. 12:30–14:30 o 10:30–14:30). Il rush del pranzo va coperto fino alla fine: chi fa il pranzo resta almeno fino alle 15:00.
    * Non riguarda chi apre né i turni della mattina. Orari modificabili (lunchShiftFrom, lunchShiftTo, lunchRushEnd).
    */
-  const leavesLunchRush = (cfg, s) => cfg.lunchRushRule !== false && s.start >= (cfg.lunchShiftFrom ?? 660) &&
+  const leavesLunchRush = (cfg, s) => cfg.lunchRushRule !== false && s.start >= (cfg.lunchShiftFrom ?? 600) &&
     s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 900);
   function shortOffPeak(cfg, s) {
     if (cfg.shortRule === false || s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= dayHours(cfg, s.day).open) return false;
@@ -1286,6 +1288,8 @@
       if (replacing && (replacing.aff || replacing.tut)) return false; // affiancamenti e formati accanto restano come sono
       if (!e.fixedShift && avoided(cand.start, cand.end)) return false; // orario da evitare (es. 13:00–18:00)
       if (!e.fixedShift && leavesLunchRush(cfg, cand)) return false; // a pranzo si resta fino alla fine del rush (15:00)
+      // chi è in formazione non va in apertura o in chiusura da solo-generatore: solo con un piano di affiancamento (o a mano)
+      if (!cand.aff && isTrainee(e, cand.day) && (cand.start <= OP(cand.day) || cand.end >= CL(cand.day))) return false;
       if (!isAvail(ctx, e, cand.day)) return false;
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (inClosure(cand)) return false;
