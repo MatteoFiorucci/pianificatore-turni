@@ -64,7 +64,8 @@
   // weekdayLongPerWeek = turni lunghi (oltre crewMaxWeekday) da lunedì a giovedì per persona a settimana, a rotazione
   // afternoonStart/End = post-rush del pranzo (14:30–19:00): niente turni "rigidi" tutti lì dentro, meglio sfalsati
   // dinnerPreStart = da quando può entrare chi copre la cena (pre-rush, 16:30); lunchPeak/dinnerPeak = cuore dei rush
-  const DEFAULT_CONFIG = { dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30, requestMargin: 30, requestAfter: 120 };
+  // avoidShifts: orari che il generatore non propone mai da solo [inizio, fine, inizio al posto, fine al posto] (a mano restano validi)
+  const DEFAULT_CONFIG = { avoidShifts: [[780, 1080, 720, 1020]], dinnerPreStart: 990, lunchPeak: [750, 840], dinnerPeak: [1140, 1230], afternoonStart: 870, afternoonEnd: 1140, crewMaxWeekday: 240, crewMax: 300, weekdayLongPerWeek: 1, hospMax: 300, minShift: 120, rest11: 660, rest36: 2160, open: 450, close: 1290, doubleMax: 180, doubleGap: 120, closeGrace: 30, requestMargin: 30, requestAfter: 120 };
   // min = minimo di crew per giorno (lun→dom). Valori presi dagli orari reali delle settimane 39–44.
   const all = (n) => [n, n, n, n, n, n, n];
   const DEFAULT_COVERAGE = [
@@ -1267,6 +1268,7 @@
     const lateEnd = (b, d) => b > CL(d) - (cfg.closeGrace ?? 30) && b < CL(d);
     function canPlace(e, cand, replacing = null) {
       if (replacing && (replacing.aff || replacing.tut)) return false; // affiancamenti e formati accanto restano come sono
+      if (!e.fixedShift && avoided(cand.start, cand.end)) return false; // orario da evitare (es. 13:00–18:00)
       if (!isAvail(ctx, e, cand.day)) return false;
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (inClosure(cand)) return false;
@@ -1342,7 +1344,18 @@
     let seed = (opts.seed ?? ctx.ws) >>> 0;
     const rnd = () => { seed = (seed + 0x6D2B79F5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const hist = ctx.hist || {};
-    const tplOf = (type) => (hist.templates && hist.templates[type]) || [];
+    // orari da evitare (es. 13:00–18:00): negli orari storici diventano quello preferito (es. 12:00–17:00)
+    const AVOID = cfg.avoidShifts || [];
+    const avoided = (a, b) => AVOID.some((x) => x[0] === a && x[1] === b);
+    const tplCache = {};
+    const tplOf = (type) => tplCache[type] || (tplCache[type] = (() => {
+      const m = new Map();
+      for (const [a, b, n] of (hist.templates && hist.templates[type]) || []) {
+        const sw = AVOID.find((x) => x[0] === a && x[1] === b), k = sw ? sw[2] + '|' + sw[3] : a + '|' + b;
+        const cur = m.get(k); m.set(k, cur ? [cur[0], cur[1], cur[2] + n] : (sw ? [sw[2], sw[3], n] : [a, b, n]));
+      }
+      return [...m.values()].sort((x, y) => y[2] - x[2]);
+    })());
     const tplTop = { CREW: Math.max(1, ...tplOf('CREW').map((x) => x[2])), HOSPITALITY: Math.max(1, ...tplOf('HOSPITALITY').map((x) => x[2])) };
     const tplFreq = (type, a, b) => { const t = tplOf(type).find((x) => x[0] === a && x[1] === b); return t ? t[2] / tplTop[type] : 0; };
     const band = (a) => (a < 630 ? 0 : a < 780 ? 1 : a < 1020 ? 2 : 3);
