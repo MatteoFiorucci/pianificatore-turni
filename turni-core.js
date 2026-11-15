@@ -1585,6 +1585,7 @@
             const m = firstHole(d, r), sl = coverSlot(d, m, r);
             if (sl) { place(sl); progress = true; break; }
             stuck.add(d + '|' + r.id);
+            if (r.vlh) continue; // le posizioni VLH scoperte hanno la loro riga nella tabella: niente nota per ognuna
             const c = countAt(ctx, d, m, r, shifts), need = reqMin(r, d);
             let n = m + SLOT; const endC = covEnd(cfg, r);
             while (n < endC && countAt(ctx, d, n, r, shifts) < need) n += SLOT;
@@ -1594,8 +1595,12 @@
         if (!progress) break;
       }
     };
-    let genericDone = false, hospDone = false;
+    let genericDone = false, hospDone = false, vlhDone = false;
+    // posizioni VLH per postazione: tutte insieme e a turno (un posto alla volta nell'ora più scoperta in proporzione),
+    // non un'ora dopo l'altra: se le persone non bastano, pranzo e cena restano scoperti in proporzione e non solo il pranzo
+    const vlhStation = ctx.coverage.filter((r) => r.vlh && r.station);
     for (const req of reqs) for (const d of daysByDifficulty) {
+      if (req.vlh && req.station) { if (!vlhDone) { coverBalanced(vlhStation, 'crew'); vlhDone = true; } continue; }
       if (!req.station) { if (!genericDone) { coverBalanced(generic, 'crew'); genericDone = true; } continue; }
       // hospitality: anche loro a turno tra la fascia lunga in sala e i rinforzi di pranzo e cena
       if (isH(req)) { if (!hospDone) { coverBalanced(hospReqs, 'hospitality'); hospDone = true; } continue; }
