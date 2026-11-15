@@ -562,10 +562,8 @@
   }
   const isRest = (e, day) => e.restDays.includes(dow(day));
   /** In formazione quel giorno (fino alla data indicata, se c'è): in apertura/chiusura deve essere affiancato. */
-  // La vecchia spunta "in formazione" (valida per tutta la persona, in ogni apertura e chiusura) non vale più:
-  // gli affiancamenti si programmano persona per persona nei piani della sezione Formazione (state.formazioni).
-  // Il dato resta salvato ma viene ignorato.
-  const isTrainee = () => false;
+  // spunta "in formazione" (sezione Formazione): vale solo per chi è spuntato, fino alla data indicata
+  const isTrainee = (e, day) => !!e.trainee && (e.traineeUntil == null || day <= e.traineeUntil);
   /**
    * Può chiudere quella postazione? Se per la postazione è segnato qualcuno (sezione Aperture e chiusure), solo i segnati.
    * Se non è segnato nessuno, tutti i formati in quella postazione (per la Sala anche le hospitality).
