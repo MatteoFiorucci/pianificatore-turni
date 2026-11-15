@@ -609,7 +609,7 @@
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     SHORT_OFFPEAK: 'Turno breve fuori dai rush', TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
     DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena', REQUEST: 'Richiesta del personale',
-    CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé', VLH: 'Posizioni VLH', AFF: 'Affiancamento',
+    CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé', VLH: 'Posizioni VLH', AFF: 'Affiancamento', LUNCH_RUSH: 'Rush del pranzo',
   };
   const V = (rule, sev, msg, emp = null, day = null) => ({ rule, sev, msg, emp, day });
 
@@ -927,10 +927,28 @@
    * 19:00–21:00). Vietati quelli che spezzano la giornata fuori dai picchi (es. 14:00–16:00, 15:00–17:00, 18:00–20:00).
    * Fanno eccezione l'apertura e gli orari fissi. Finestre: pranzo 11:30–15:00, cena 18:30–chiusura (modificabili).
    */
+  /**
+   * Turno del pranzo che esce prima della fine del rush: entra tra le 11:00 e le 13:00 ed esce prima delle 15:00
+   * (es. 12:30–14:30). Il rush del pranzo va coperto fino alla fine: chi fa il pranzo resta almeno fino alle 15:00.
+   * Non riguarda chi apre né i turni della mattina. Orari modificabili (lunchShiftFrom, lunchShiftTo, lunchRushEnd).
+   */
+  const leavesLunchRush = (cfg, s) => cfg.lunchRushRule !== false && s.start >= (cfg.lunchShiftFrom ?? 660) &&
+    s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 900);
   function shortOffPeak(cfg, s) {
     if (cfg.shortRule === false || s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= dayHours(cfg, s.day).open) return false;
     const [l0, l1] = cfg.shortLunch || [690, 900], [d0, d1] = cfg.shortDinner || [1110, dayHours(cfg, s.day).close];
     return !((s.start >= l0 && s.end <= l1) || (s.start >= d0 && s.end <= d1));
+  }
+  function ruleLunchRush(ctx) {
+    const out = [];
+    for (const s of ctx.shifts) {
+      if (s.day < ctx.ws || s.day > ctx.ws + 6 || !leavesLunchRush(ctx.cfg, s)) continue;
+      const e = ctx.byId.get(s.employeeId);
+      if (!e || e.fixedShift) continue;
+      const p = parts(s.day);
+      out.push(V('LUNCH_RUSH', 'WARNING', `${fullName(e)} · ${DOW_LONG[dow(s.day)]} ${p.d}/${p.m}: ${fmtTime(s.start)}–${fmtTime(s.end)} esce prima della fine del rush del pranzo (${fmtTime(ctx.cfg.lunchRushEnd ?? 900)})`, e.id, s.day));
+    }
+    return out;
   }
   function ruleShortOffPeak(ctx) {
     const out = [];
@@ -1135,7 +1153,7 @@
   }
 
   function validate(ctx) {
-    const all = [ruleCoverage, ruleVlh, ruleAffiancamenti, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
+    const all = [ruleCoverage, ruleVlh, ruleLunchRush, ruleAffiancamenti, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -1269,6 +1287,7 @@
     function canPlace(e, cand, replacing = null) {
       if (replacing && (replacing.aff || replacing.tut)) return false; // affiancamenti e formati accanto restano come sono
       if (!e.fixedShift && avoided(cand.start, cand.end)) return false; // orario da evitare (es. 13:00–18:00)
+      if (!e.fixedShift && leavesLunchRush(cfg, cand)) return false; // a pranzo si resta fino alla fine del rush (15:00)
       if (!isAvail(ctx, e, cand.day)) return false;
       if (!fitsLimit(ctx, cand)) return false; // richiesta del personale accettata (es. impegno la sera)
       if (inClosure(cand)) return false;
@@ -1302,6 +1321,7 @@
       if (doublesLeft(e) <= 0 || !isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
       if (dur(cand) <= 0 || dur(cand) > doubleMaxOf(cfg, e) || cand.start < OP(cand.day) || cand.end > CL(cand.day)) return false;
       if (lateEnd(cand.end, cand.day)) return false;
+      if (leavesLunchRush(cfg, cand)) return false; // anche il doppio del pranzo resta fino alla fine del rush
       if (shortOffPeak(cfg, cand)) return false; // doppi brevi solo dentro i rush
       const main = dayMain(e.id, cand.day);
       if (main.length !== 1 || shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s))) return false;
