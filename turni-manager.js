@@ -117,7 +117,8 @@
   const MGR_DEFAULT = { short: [180, 300], long: [360, 510], breakFrom: 360, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
   /** Legge le regole dei manager dalle impostazioni dello store (valori di partenza se mancano). */
   function loadCfg(state) {
-    CFG = (state && state.config) || {};
+    // impostazioni del locale con gli orari ridotti dei giorni speciali (eventi "Orario ridotto")
+    CFG = state && state.config ? (T.cfgWithEvents ? T.cfgWithEvents(state) : state.config) : {};
     const g = { ...MGR_DEFAULT, ...(CFG.mgr || {}) };
     SHORT = g.short; LONG = g.long; BREAK_FROM = g.breakFrom; BREAK_MIN = g.breakMin; REST12 = g.rest; REST36 = g.rest36; ORDER_BY = g.orderBy; REST_DAYS = g.restDays;
     return g;
@@ -191,7 +192,10 @@
       const restOf = new Map();
       const used = new Map();
       let ok = true;
-      for (const m of shuffle([...team])) {
+      // settimana con una chiusura totale (es. Natale): il riposo è il giorno di chiusura, nessun riposo in più,
+      // così le ore del contratto si fanno negli altri giorni aperti
+      const closedWeek = state.config.closureRest !== false && [0, 1, 2, 3, 4, 5, 6].some((k) => state.eventi && T.closureOf && (T.closureOf(state.eventi, ws + k) || {}).full);
+      for (const m of closedWeek ? [] : shuffle([...team])) {
         const room = (d) => team.length - (used.get(d) || 0) - 1 >= needOn(state, ws, d - 1);
         const cand = shuffle(REST_DAYS.filter((d) => room(d) && !(m.orderDays || []).includes(d)))
           .sort((a, b) => (used.get(a) || 0) - (used.get(b) || 0) + ((m.flexDays || []).includes(a) - (m.flexDays || []).includes(b)) * 0.5);

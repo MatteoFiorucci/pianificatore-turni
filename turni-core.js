@@ -38,6 +38,25 @@
   }
   /** Orario del locale nel giorno d (anche 24h): impostazioni per giorno della settimana, altrimenti apertura/chiusura generali. */
   function dayHours(cfg, d) {
+    const o = cfg && cfg.dateHours && cfg.dateHours[d];
+    if (o) { const b = dayHoursBase(cfg, d); return { open: o.open ?? b.open, close: o.close ?? b.close, special: true }; }
+    return dayHoursBase(cfg, d);
+  }
+  /**
+   * Orari ridotti di giorni precisi, dagli eventi "Orario ridotto" (es. il 24/12 chiude alle 20:30):
+   * { giorno: { open, close } }. Si mettono in cfg.dateHours e valgono per tutto (turni, fasce, VLH, manager).
+   */
+  function dateHoursMap(eventi) {
+    const out = {};
+    for (const ev of eventi || []) {
+      if (ev.tipo !== 'ORARIO' || !ev.dal) continue;
+      for (let d = toDay(ev.dal); d <= toDay(ev.al || ev.dal); d++) out[d] = { open: ev.apre ?? null, close: ev.chiude ?? null };
+    }
+    return out;
+  }
+  /** Impostazioni del locale con gli orari ridotti dei giorni speciali. */
+  const cfgWithEvents = (state) => ({ ...state.config, dateHours: dateHoursMap(state.eventi) });
+  function dayHoursBase(cfg, d) {
     const h = cfg && cfg.hours && cfg.hours[dow(d)];
     if (h && h.h24) return { open: 0, close: 1440, h24: true };
     if (h && h.open != null && h.close != null) return { open: h.open, close: h.close };
@@ -265,7 +284,14 @@
     // riposi spostati solo per questa settimana (sezione Turni): la persona vale con quei riposi solo qui
     // (regola dello store spenta "chi è in formazione non apre e non chiude da solo": nessuno è trattato come in formazione)
     const noTrainee = state.config.traineeRule === false;
-    const employees = state.employees.filter((e) => e.active).map((e) => (restFor(state, e, ws) === e.restDays ? e : { ...e, restDays: restFor(state, e, ws), restMoved: true }))
+    // settimana con chiusure totali (es. Natale): il riposo fisso va nei giorni di chiusura, così le ore del contratto
+    // non si perdono e si distribuiscono sugli altri giorni aperti (salvo riposi spostati a mano per questa settimana)
+    const closedDows = state.config.closureRest === false ? [] : [0, 1, 2, 3, 4, 5, 6].filter((k) => (closureOf(state.eventi, ws + k) || {}).full).map((k) => k + 1);
+    const closureRest = (e) => {
+      const keep = e.restDays.filter((d) => !closedDows.includes(d)).slice(0, Math.max(0, e.restDays.length - closedDows.length));
+      return { ...e, restDays: [...closedDows, ...keep].sort(), restMoved: true, closureRest: true };
+    };
+    const employees = state.employees.filter((e) => e.active).map((e) => (restFor(state, e, ws) === e.restDays ? (closedDows.length && !e.fixedShift ? closureRest(e) : e) : { ...e, restDays: restFor(state, e, ws), restMoved: true }))
       .map((e) => (noTrainee && e.trainee ? { ...e, trainee: false } : e));
     // piani di affiancamento finiti prima di questa settimana: la persona apre (o chiude) da sola in quella postazione
     const plans = (state.formazioni || []).filter((p) => p && p.empId != null);
@@ -292,7 +318,7 @@
       next: state.shifts.filter((s) => s.day > ws + 6 && s.day <= ws + 8),
       absences: state.absences,
       coverage: state.coverage,
-      cfg: state.config,
+      cfg: cfgWithEvents(state),
       hist: state.hist || root.TurniStorico || null, // orari reali e abitudini (turni-storico.js)
       forecast: null,
       // turni lunghi in settimana fatti nelle 4 settimane precedenti (per farli a rotazione)
@@ -392,6 +418,24 @@
       if (base.open > 0) ctx.coverage.push({ id: 'n24a', name: 'Notte (24h)', start: 0, end: base.open, min: only(n.early ?? 2), station: null, night: true });
       if (base.close < 1440) ctx.coverage.push({ id: 'n24b', name: 'Sera tardi (24h)', start: base.close, end: 1440, min: only(n.late ?? 2), station: null, night: true });
     }
+    // giorni con orario ridotto (eventi "Orario ridotto"): le fasce si fermano alla chiusura di quel giorno e partono
+    // dalla sua apertura (le squadre di apertura e chiusura sono già spostate qui sopra sull'orario del giorno)
+    const special = [0, 1, 2, 3, 4, 5, 6].filter((k) => (ctx.cfg.dateHours || {})[ws + k]);
+    if (special.length) {
+      const clipped = [];
+      ctx.coverage = ctx.coverage.map((r) => {
+        let min = [0, 1, 2, 3, 4, 5, 6].map((k) => (r.min ? r.min[k] : r.minStaff)), changed = false;
+        for (const k of special) {
+          if (!min[k]) continue;
+          const h = dayHours(ctx.cfg, ws + k);
+          if (r.start >= h.open && r.end <= h.close) continue;
+          const a = Math.max(r.start, h.open), b = Math.min(r.end, h.close);
+          if (b - a >= 30) clipped.push({ ...r, id: `${r.id}#${k}`, start: a, end: b, min: min.map((v, j) => (j === k ? v : 0)) });
+          min = min.map((v, j) => (j === k ? 0 : v)); changed = true;
+        }
+        return changed ? { ...r, min } : r;
+      }).concat(clipped);
+    }
     return ctx;
   }
 
@@ -475,7 +519,7 @@
     if (!fd || !fd.gc || !prof) return { gc: null };
     const clo = closureOf(state.eventi, day);
     const shut = (x) => clo && (clo.full || (x * 60 < clo.to && (x + 1) * 60 > clo.from));
-    const dh = dayHours(state.config, day), h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60);
+    const dh = dayHours(cfgWithEvents(state), day), h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60);
     let share = 0; for (let x = h0; x < h1; x++) if (!shut(x)) share += prof[(x - 5 + 24) % 24] || 0;
     if (!share || shut(h) || h < h0 || h >= h1) return { gc: 0 };
     return { gc: Math.round((fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / share) };
@@ -498,7 +542,7 @@
   function vlhNeeds(state, day) {
     const V = root.TurniVLH;
     if (!V || !state.vlh || !state.vlh.giorni || state.config.vlhGen === false) return null;
-    const dh = dayHours(state.config, day), dw = dow(day);
+    const dh = dayHours(cfgWithEvents(state), day), dw = dow(day);
     const from = Math.max(dh.open, state.config.vlhFrom ?? 660);
     const h0 = Math.floor(from / 60), h1 = Math.ceil(dh.close / 60), hours = {};
     for (let h = h0; h < h1; h++) {
@@ -763,7 +807,7 @@
     if (!e || isTrainee(e, cand.day) || cand.aff) return null;
     const bySlot = new Map();
     for (const r of ctx.coverage) {
-      if (!r.exact) continue;
+      if (!r.exact || !reqMin(r, cand.day)) continue; // solo le squadre di quel giorno (con orari diversi ci sono copie per giorno)
       const t = teamSlot(r);
       if (!(cand.start <= t && cand.end >= t + SLOT)) continue;
       if (!bySlot.has(t)) bySlot.set(t, []);
@@ -1028,7 +1072,9 @@
     const label = (r) => r.name.replace(/^(Chiusura|Apertura) /, '');
     for (const d of ctx.days) {
       for (const r of exact) {
-        const t = teamSlot(r), need = reqMin(r, d), c = countAt(ctx, d, t, r);
+        const t = teamSlot(r), need = reqMin(r, d);
+        if (!need) continue; // squadra di un altro giorno (copia per un giorno con orario diverso)
+        const c = countAt(ctx, d, t, r);
         const when = r.exact === 'start' ? `alle ${fmtTime(r.start)} ci sono` : `alle ${fmtTime(r.end)} restano`;
         if (c > need) out.push(V('CLOSING_TEAM', 'ERROR', `${DOW_LONG[dow(d)]} ${shortDate(d).split(' ')[1]} · ${r.name}: ${when} ${c} persone, previste ${need}`, null, d));
       }
@@ -2019,7 +2065,7 @@
 
   root.Turni = {
     ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf,
-    STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
+    STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, dateHoursMap, cfgWithEvents, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
   };

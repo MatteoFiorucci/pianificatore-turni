@@ -333,17 +333,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611152210"></script>
-<script src="turni-core.js?v=202611152210"></script>
-<script src="turni-manager.js?v=202611152210"></script>
-<script src="turni-vlh.js?v=202611152210"></script>
+<script src="turni-storico.js?v=202611161619"></script>
+<script src="turni-core.js?v=202611161619"></script>
+<script src="turni-manager.js?v=202611161619"></script>
+<script src="turni-vlh.js?v=202611161619"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611152210"></script>
-<script src="turni-cloud-config.js?v=202611152210"></script>
-<script src="turni-cloud.js?v=202611152210"></script>
-<script src="turni-cripto.js?v=202611152210"></script>
-<script src="lineare-ufficiale.js?v=202611152210"></script>
+<script src="turni-data.js?v=202611161619"></script>
+<script src="turni-cloud-config.js?v=202611161619"></script>
+<script src="turni-cloud.js?v=202611161619"></script>
+<script src="turni-cripto.js?v=202611161619"></script>
+<script src="lineare-ufficiale.js?v=202611161619"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -385,7 +385,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e <b>Ore totali</b>.<br><br><b>Ore totali</b> = le ore di lavoro del giorno come nel totale del lineare (hospitality + crew + doppi turni), <b>senza le ore manager</b>.<br><br>Il generatore toglie le ore hospitality tipiche di quel giorno (media delle 4 settimane prima) e distribuisce le ore che restano tra i crew nelle fasce; le hospitality seguono le loro fasce in Regole. I giorni senza Ore totali usano i minimi di Regole.`],
   'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico delle vendite, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione del sistema di cassa, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Ore totali</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati si usa un valore di partenza). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Ore totali diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la previsione del sistema di cassa, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi per canale, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
-  'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero; il generatore non mette turni e conta quel giorno come una giornata di ferie per tutti.<br><b>🕒 Chiusura parziale</b> (manutenzione, chiusura anticipata): le previsioni calano della quota di clienti che di solito entra in quelle ore; niente turni e niente minimi in quegli orari.<br><b>⭐ Evento o ricorrenza</b> (promozioni, ricorrenze, feste locali): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni, nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto molti più clienti del solito.`],
+  'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero e nessun turno. Nella settimana della chiusura il riposo di ognuno (crew, hospitality e manager) va nei giorni di chiusura e le ore del contratto non si perdono: si distribuiscono sugli altri giorni aperti.<br><b>🕐 Orario ridotto</b> (es. il 24 chiude alle 20:30, o apre più tardi): quel giorno il generatore usa il nuovo orario come se fosse quello normale. La squadra di chiusura si sposta sulla nuova chiusura, nessun turno va oltre, e le previsioni calano della quota di clienti che di solito entra nelle ore perse.<br><b>🕒 Chiusura parziale</b> (manutenzione in mezzo alla giornata): le previsioni calano della quota di clienti di quelle ore; niente turni e niente minimi in quegli orari. Per aprire più tardi o chiudere prima usa "Orario ridotto".<br><b>⭐ Evento o ricorrenza</b> (promozioni, ricorrenze, feste locali): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni, nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto molti più clienti del solito.`],
   'mgr': [`Squadra manager`, `I manager hanno un calendario a parte (non entrano nelle Ore totali e nei rush dei crew).<br><br><b>Ruolo e ore</b>: ore da contratto di ognuno, su 6 giorni; i giorni in cui possono riposare si scelgono nella sezione <b>Store</b>.<br><b>Giorni ordine</b>: giorni in cui quella persona fa l'ordine: entra entro l'orario impostato nella sezione Store (o in apertura), non riposa e il giorno prima non fa la sera.<br><b>Orario flessibile</b>: giorni in cui può fare un orario a metà giornata invece di apertura o chiusura.<br><b>1 centrale</b>: una volta a settimana, nei primi giorni della settimana, un turno centrale (es. per controllare gli orari).<br><br>Ogni giorno: un manager in apertura e uno in chiusura. Nei giorni di <b>delivery</b> c'è un secondo manager in apertura. <b>Carpigiani</b> (ogni 2 settimane, qualsiasi manager): il giorno dello smontaggio due manager la sera, il giorno del rimontaggio due manager in apertura. Stacchi, durate dei turni e manager minimi al giorno: sezione <b>Store</b>. Il weekend gira tra aperture, centrali e chiusure.`],
   'mgr-weekend': [`Weekend dei manager`, `Quante aperture, centrali e cene ha fatto ognuno nel fine settimana nelle ultime 4 settimane (questa compresa). Il generatore le fa a rotazione, così in un mese ognuno fa almeno un'apertura, un centrale e una cena.`],
   'affiancamenti': [`Affiancamenti in apertura e chiusura`, `Qui programmi chi deve imparare ad <b>aprire</b> la cucina (MFY) o il McCafé, oppure a <b>chiudere</b> il McCafé. Per ogni persona scegli quante volte in tutto (es. 4), quante al massimo a settimana (es. 3) e, se vuoi, in quali giorni.<br><br>Quando generi i turni, il programma la mette in apertura (o in chiusura) in quella postazione <b>in più</b> rispetto alla squadra, solo nei giorni in cui c'è un formato che apre (o chiude) accanto a lei. Nel lineare questi turni hanno il segno 🎓.<br><br>Finiti gli affiancamenti, la persona diventa <b>autonoma</b>: viene segnata da sola in Aperture e chiusure e da lì in poi apre (o chiude) senza affiancamento. Puoi anche segnarla autonoma prima, con il pulsante ✅.<br><br>La chiusura della cucina non ha affiancamenti da programmare: in chiusura in cucina ci sono sempre più persone.`],
@@ -875,7 +875,7 @@ function renderMgrTurni() {
   }).join('');
   const covRow = (label, fn) => `<tr class="cov"><td class="name">${label}</td>${days.map((d) => { const v = fn(d); return `<td class="c ${v ? 'okc' : 'bad'}">${v ? '✓' : '✕'}</td>`; }).join('')}<td></td></tr>`;
   const dl = (d) => list.filter((x) => x.day === d);
-  const hh = (d) => T.dayHours(state.config, d), wkH = T.dayHours(state.config, ws);
+  const hh = (d) => T.dayHours(T.cfgWithEvents(state), d), wkH = T.dayHours(state.config, ws);
   const cov = team.length ? covRow(`Apertura ${T.fmtTime(wkH.open)}`, (d) => dl(d).some((x) => x.start <= hh(d).open)) + covRow(`Chiusura ${T.fmtTime(wkH.close)}`, (d) => dl(d).some((x) => x.end >= hh(d).close)) : '';
   const st = MGR().weekendStats(state, ws);
   const weeksOk = new Set((state.mgrShifts || []).filter((x) => x.day >= ws - 21 && x.day <= ws + 6).map((x) => T.mondayOf(x.day))).size >= 4;
@@ -1321,7 +1321,7 @@ function clearFc() { if (state.forecasts) delete state.forecasts[ui.ws]; save();
 
 // ================= EVENTI E CHIUSURE =================
 // ev = { id, nome, tipo, dal, al, da, a (minuti, chiusura parziale), effetto (% manuale o null), confronto: [date passate] }
-const EV_TIPI = { CHIUSURA: '🔒 Chiusura totale', PARZIALE: '🕒 Chiusura parziale', EVENTO: '⭐ Evento o ricorrenza', ZONA: '🏬 Novità in zona' };
+const EV_TIPI = { CHIUSURA: '🔒 Chiusura totale', ORARIO: '🕐 Orario ridotto (apre dopo / chiude prima)', PARZIALE: '🕒 Chiusura parziale (ore in mezzo alla giornata)', EVENTO: '⭐ Evento o ricorrenza', ZONA: '🏬 Novità in zona' };
 const isoAdd = (iso, n) => T.toIso(T.toDay(iso) + n);
 const itIso = (iso) => iso.split('-').reverse().join('/');
 const pctTxt = (f) => `${f >= 1 ? '+' : '−'}${Math.round(Math.abs(f - 1) * 100)}%`;
@@ -1330,6 +1330,14 @@ const histIdx = (iso) => { const i = state.autoForecast && state.autoForecast.in
 /** Effetto di un evento su un giorno: moltiplicatori di clienti (g) e vendite (s), con la spiegazione. */
 function eventEffect(ev, iso) {
   if (ev.tipo === 'CHIUSURA') return { g: 0, s: 0, txt: 'locale chiuso: niente vendite e niente turni' };
+  if (ev.tipo === 'ORARIO') {
+    const prof = ((state.autoForecast || {}).profiloOrario || {})[String(T.dow(T.toDay(iso)))];
+    if (!prof) return { g: 1, s: 1, txt: 'manca il profilo orario: carica le previsioni automatiche' };
+    const dh = T.dayHours(state.config, T.toDay(iso)), a0 = ev.apre ?? dh.open, b0 = ev.chiude ?? dh.close;
+    let share = 0;
+    prof.forEach((q, h) => { const a = (h + 5) * 60, b = a + 60; share += q * (Math.max(0, Math.min(b, a0) - a) + Math.max(0, b - Math.max(a, b0))) / 60; });
+    return { g: 1 - share, s: 1 - share, txt: `${pctTxt(1 - share)}: nelle ore in cui il locale è chiuso di solito entra il ${Math.round(share * 100)}% dei clienti` };
+  }
   if (ev.tipo === 'PARZIALE') {
     const prof = ((state.autoForecast || {}).profiloOrario || {})[String(T.dow(T.toDay(iso)))];
     if (!prof) return { g: 1, s: 1, txt: 'manca il profilo orario: carica le previsioni automatiche' };
@@ -1435,8 +1443,10 @@ function opsTags(d) {
 }
 const dayTags = (d) => { const t = opsTags(d) + evTags(d); return t ? `<div>${t}</div>` : ''; };
 function evTags(day) {
-  return T.eventsOn(state.eventi, day).map((ev) => `<span class="evtag ${ev.tipo === 'CHIUSURA' || ev.tipo === 'PARZIALE' ? 'closed' : ''}" title="${esc(EV_TIPI[ev.tipo] || '')}">${ev.tipo === 'CHIUSURA' ? '🔒' : ev.tipo === 'PARZIALE' ? '🕒' : ev.tipo === 'ZONA' ? '🏬' : '⭐'} ${esc(ev.nome)}${ev.tipo === 'PARZIALE' ? ` ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : ''}</span>`).join(' ');
+  return T.eventsOn(state.eventi, day).map((ev) => `<span class="evtag ${ev.tipo === 'CHIUSURA' || ev.tipo === 'PARZIALE' || ev.tipo === 'ORARIO' ? 'closed' : ''}" title="${esc(EV_TIPI[ev.tipo] || '')}">${ev.tipo === 'CHIUSURA' ? '🔒' : ev.tipo === 'PARZIALE' ? '🕒' : ev.tipo === 'ORARIO' ? '🕐' : ev.tipo === 'ZONA' ? '🏬' : '⭐'} ${esc(ev.nome)}${ev.tipo === 'PARZIALE' ? ` ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : ''}${ev.tipo === 'ORARIO' ? ` ${orarioTxt(ev)}` : ''}</span>`).join(' ');
 }
+/** Orario ridotto in breve: "apre 9:00 · chiude 20:30". */
+const orarioTxt = (ev) => [ev.apre != null ? `apre ${T.fmtTime(ev.apre)}` : '', ev.chiude != null ? `chiude ${T.fmtTime(ev.chiude)}` : ''].filter(Boolean).join(' · ');
 /** Suggerimenti dallo storico per i prossimi 4 mesi: festività in cui il locale era chiuso, periodi con molti più clienti.
  *  Si suggerisce solo quando lo stesso schema c'è in tutti e due gli anni passati; i giorni vicini diventano un unico periodo. */
 const FESTE = { '01-01': 'Capodanno', '01-06': 'Epifania', '04-25': 'Festa della Liberazione', '05-01': 'Festa del lavoro', '06-02': 'Festa della Repubblica', '08-15': 'Ferragosto', '11-01': 'Ognissanti', '12-08': 'Immacolata', '12-24': 'Vigilia di Natale', '12-25': 'Natale', '12-26': 'Santo Stefano', '12-31': 'San Silvestro' };
@@ -1475,7 +1485,7 @@ function renderEventi() {
   const today = T.todayDay();
   const list = [...(state.eventi || [])].sort((a, b) => a.dal.localeCompare(b.dal));
   const future = list.filter((ev) => T.toDay(ev.al || ev.dal) >= today), past = list.filter((ev) => T.toDay(ev.al || ev.dal) < today);
-  const when = (ev) => (ev.al && ev.al !== ev.dal ? `${itIso(ev.dal)} – ${itIso(ev.al)}` : itIso(ev.dal)) + (ev.tipo === 'PARZIALE' ? ` · ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : '');
+  const when = (ev) => (ev.al && ev.al !== ev.dal ? `${itIso(ev.dal)} – ${itIso(ev.al)}` : itIso(ev.dal)) + (ev.tipo === 'PARZIALE' ? ` · ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : '') + (ev.tipo === 'ORARIO' ? ` · ${orarioTxt(ev)}` : '');
   const row = (ev) => `<tr class="clickable" onclick="editEvent(${ev.id})"><td style="white-space:nowrap">${when(ev)}</td><td><b>${esc(ev.nome)}</b><br><span class="small muted">${EV_TIPI[ev.tipo]}</span></td><td class="small">${esc(evSummary(ev))}</td></tr>`;
   const sug = eventSuggestions();
   return `<div class="card section">
@@ -1506,7 +1516,7 @@ function evSet(fld, v) {
   if (fld === 'dal') { const shift = e.dal && v ? T.toDay(v) - T.toDay(e.dal) : 0; if (e.al && e.al === e.dal || !e.al || T.toDay(e.al) < T.toDay(v)) e.al = v; if (shift && e.confronto && e.confronto.length && e.confrontoAuto !== false) e.confronto = e.confronto.map((c) => isoAdd(c, shift)); }
   if (fld === 'confronto') { e.confrontoAuto = false; v = String(v).split(/[,;\s]+/).map((t) => { const m = t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null; }).filter(Boolean); }
   if (fld === 'effetto') v = v === '' ? null : +String(v).replace(',', '.');
-  if (fld === 'da' || fld === 'a') v = +v;
+  if (fld === 'da' || fld === 'a' || fld === 'apre' || fld === 'chiude') v = +v;
   e[fld] = v;
   showEventModal();
 }
@@ -1520,6 +1530,9 @@ function showEventModal() {
       <label class="f">Nome<input type="text" value="${esc(e.nome || '')}" placeholder="es. Black Friday, Natale, inventario" onchange="ui.evDraft.nome=this.value"></label>
       <label class="f">Tipo<select onchange="evSet('tipo',this.value)">${opt}</select></label>
       <div class="row"><label class="f">Dal<input type="date" value="${e.dal || ''}" onchange="evSet('dal',this.value)"></label><label class="f">Al<input type="date" value="${e.al || ''}" onchange="evSet('al',this.value)"></label></div>
+      ${e.tipo === 'ORARIO' ? `<div class="row"><label class="f">Apre alle${timeSelect(e.apre ?? T.dayHours(state.config, T.toDay(e.dal)).open, "evSet('apre',this.value)")}</label><label class="f">Chiude alle${timeSelect(e.chiude ?? T.dayHours(state.config, T.toDay(e.dal)).close, "evSet('chiude',this.value)")}</label></div>
+        <div class="small muted">Il generatore usa questo orario in quei giorni: la squadra di chiusura (e di apertura) si sposta sul nuovo orario e nessun turno va oltre.</div>` : ''}
+      ${e.tipo === 'CHIUSURA' ? `<div class="small muted">Nella settimana della chiusura il riposo di ognuno va nei giorni di chiusura e le ore del contratto si distribuiscono sugli altri giorni aperti (anche per i manager).</div>` : ''}
       ${e.tipo === 'PARZIALE' ? `<div class="row"><label class="f">Chiuso dalle${timeSelect(e.da, "evSet('da',this.value)")}</label><label class="f">alle${timeSelect(e.a, "evSet('a',this.value)")}</label></div>` : ''}
       ${e.tipo === 'EVENTO' ? `<label class="f">Date di confronto negli anni passati <span class="small muted">(gg/mm/aaaa, separate da virgola)</span><input type="text" value="${(e.confronto || []).map(itIso).join(', ')}" onchange="evSet('confronto',this.value)"></label>
         <div class="small"><button class="link" onclick="evPropose('settimana')">stesso giorno della settimana</button> (es. Black Friday) · <button class="link" onclick="evPropose('data')">stessa data</button> (es. Natale)</div>` : ''}
@@ -1558,6 +1571,13 @@ function saveEvent() {
   if (!e.dal) return alert('Indica la data.');
   if (!e.al || T.toDay(e.al) < T.toDay(e.dal)) e.al = e.dal;
   if (e.tipo === 'PARZIALE' && !(e.a > e.da)) return alert('L\'orario di chiusura non è valido.');
+  if (e.tipo === 'ORARIO') {
+    const dh = T.dayHours(state.config, T.toDay(e.dal));
+    const apre = e.apre ?? dh.open, chiude = e.chiude ?? dh.close;
+    if (!(chiude - apre >= 120)) return alert('L\'orario non è valido: il locale deve restare aperto almeno 2 ore.');
+    e.apre = apre === dh.open ? null : apre; e.chiude = chiude === dh.close ? null : chiude;
+    if (e.apre == null && e.chiude == null) return alert('L\'orario è uguale a quello normale: cambia l\'apertura o la chiusura.');
+  }
   if (e.perGiorno) { for (const k of Object.keys(e.perGiorno)) if (k < e.dal || k > e.al || isNaN(e.perGiorno[k])) delete e.perGiorno[k]; if (!Object.keys(e.perGiorno).length || (e.tipo !== 'EVENTO' && e.tipo !== 'ZONA')) delete e.perGiorno; }
   if (e.tipo === 'ZONA' && (e.effetto == null || isNaN(e.effetto)) && !e.perGiorno) return alert('Indica l\'effetto in % (es. 20, o -10 se il nuovo negozio porterà via clienti), per tutto il periodo o giorno per giorno.');
   e.nome = e.nome.trim();
