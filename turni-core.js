@@ -291,7 +291,7 @@
       const keep = e.restDays.filter((d) => !closedDows.includes(d)).slice(0, Math.max(0, e.restDays.length - closedDows.length));
       return { ...e, restDays: [...closedDows, ...keep].sort(), restMoved: true, closureRest: true };
     };
-    const employees = state.employees.filter((e) => e.active).map((e) => (restFor(state, e, ws) === e.restDays ? (closedDows.length && !e.fixedShift ? closureRest(e) : e) : { ...e, restDays: restFor(state, e, ws), restMoved: true }))
+    const employees = state.employees.filter((e) => e.active && (e.endDate == null || e.endDate >= ws)).map((e) => (restFor(state, e, ws) === e.restDays ? (closedDows.length && !e.fixedShift ? closureRest(e) : e) : { ...e, restDays: restFor(state, e, ws), restMoved: true }))
       .map((e) => (noTrainee && e.trainee ? { ...e, trainee: false } : e));
     // piani di affiancamento finiti prima di questa settimana: la persona apre (o chiude) da sola in quella postazione
     const plans = (state.formazioni || []).filter((p) => p && p.empId != null);
@@ -618,7 +618,8 @@
   const canClose = (ctx, e, station) => (e.closings || []).includes(station) ||
     (!(ctx.closingMarked && ctx.closingMarked.has(station)) && (e.trainings.includes(station) || (station === 'SERVIZIO' && e.type === 'HOSPITALITY')));
   /** In forza quel giorno? Prima della data di inizio (assunzione) non si può pianificare. */
-  const started = (e, day) => e.startDate == null || day >= e.startDate;
+  /** In forza quel giorno: dopo la data di inizio (assunzione) e fino all'ultimo giorno di lavoro (dimissioni, fine contratto). */
+  const started = (e, day) => (e.startDate == null || day >= e.startDate) && (e.endDate == null || day <= e.endDate);
   const isAvail = (ctx, e, day) => started(e, day) && !isRest(e, day) && !absenceOn(ctx, e.id, day) && !(limitOf(ctx, e.id, day) || {}).off;
   /** Ore del contratto: contano solo i turni normali, i doppi sono ore in più. */
   const worked = (ctx, id) => sumDur(ctx.shifts.filter((s) => s.employeeId === id && !isDouble(s)));
@@ -1116,7 +1117,9 @@
     const out = [];
     for (const x of ctx.shifts) {
       const e = ctx.byId.get(x.employeeId);
-      if (e && !started(e, x.day)) out.push(V('START_DATE', 'ERROR', `${fullName(e)} entra il ${shortDate(e.startDate)}: non può avere turni il ${shortDate(x.day)}`, e.id, x.day));
+      if (e && !started(e, x.day)) out.push(V('START_DATE', 'ERROR', e.endDate != null && x.day > e.endDate
+        ? `${fullName(e)} ha finito di lavorare il ${shortDate(e.endDate)}: non può avere turni il ${shortDate(x.day)}`
+        : `${fullName(e)} entra il ${shortDate(e.startDate)}: non può avere turni il ${shortDate(x.day)}`, e.id, x.day));
     }
     return out;
   }
