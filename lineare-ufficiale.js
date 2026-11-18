@@ -9,7 +9,7 @@
   const MESI = ['GENNAIO', 'FEBBRAIO', 'MARZO', 'APRILE', 'MAGGIO', 'GIUGNO', 'LUGLIO', 'AGOSTO', 'SETTEMBRE', 'OTTOBRE', 'NOVEMBRE', 'DICEMBRE'];
   const POST = { CUCINA: 'MFY', FRONT: 'OA', MCCAFE: 'McCafè', SERVIZIO: 'Sala', HOSPITALITY: 'SAT' };
   const COL = { CUCINA: '#c8323a', FRONT: '#4a86b0', MCCAFE: '#6e4030', SERVIZIO: '#9a9a9a', HOSPITALITY: '#7e72b8' };
-  const YEL = '#f2b632', GREEN = '#2f5f4f', LINE = '#555', THIN = '#b5b5b5';
+  const YEL = '#f2b632', GREEN = '#2f5f4f', LINE = '#000', THIN = '#333';
 
   // misure in mm (foglio A4 verticale, margini 6 mm)
   const W = 198, H = 283;
@@ -49,12 +49,12 @@
     const out = [];
     const t = (x, y, s, o = {}) => out.push(`<text x="${x}" y="${y}" font-size="${o.fs || 1.9}" ${o.b ? 'font-weight="700"' : ''} ${o.a ? `text-anchor="${o.a}"` : ''} fill="${o.c || '#000'}" ${o.i ? 'font-style="italic"' : ''} ${o.tr ? `transform="${o.tr}"` : ''}>${X(s)}</text>`);
     const r = (x, y, w, h, o = {}) => out.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${o.f || 'none'}" stroke="${o.s || 'none'}" stroke-width="${o.sw || 0.15}"/>`);
-    const l = (x1, y1, x2, y2, c = THIN, w = 0.08) => out.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"/>`);
+    const l = (x1, y1, x2, y2, c = THIN, w = 0.12) => out.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"/>`);
 
     // barra gialla con le ore 5…24, 1…5
     const hourBar = (y, title) => {
       r(X_G, y, 96 * QW, 2.2, { f: YEL, s: LINE });
-      for (let q = 4; q < 96; q += 4) l(X_G + q * QW, y, X_G + q * QW, y + 2.2, '#555', 0.15);
+      for (let q = 4; q < 96; q += 4) l(X_G + q * QW, y, X_G + q * QW, y + 2.2, '#000', 0.15);
       for (let i = 0; i < 24; i++) { const h = (5 + i) % 24 || 24; t(X_G + (i * 4 + 2) * QW, y + 1.65, h, { fs: 1.4, b: 1, a: 'middle' }); }
       if (title) t(X_G + 48 * QW, y - 0.6, title, { fs: 2, b: 1, a: 'middle', i: 1 });
     };
@@ -66,9 +66,9 @@
       // griglia
       r(X_POS, y, X_T2 + 6.5 - X_POS, n * RH, { s: LINE, sw: 0.2 });
       r(X_G, y, 96 * QW, n * RH, { s: LINE, sw: 0.2 });
-      for (let i = 1; i < n; i++) { l(X_POS, y + i * RH, X_T2 + 6.5, y + i * RH, '#9a9a9a', 0.12); l(X_G, y + i * RH, X_GE, y + i * RH, '#9a9a9a', 0.12); }
+      for (let i = 1; i < n; i++) { l(X_POS, y + i * RH, X_T2 + 6.5, y + i * RH, '#000', 0.12); l(X_G, y + i * RH, X_GE, y + i * RH, '#000', 0.12); }
       [X_NAME, X_T1, X_T2].forEach((x) => l(x, y, x, y + n * RH, LINE, 0.12));
-      for (let q = 1; q < 96; q++) l(X_G + q * QW, y, X_G + q * QW, y + n * RH, q % 4 ? '#bdbdbd' : '#555', q % 4 ? 0.1 : 0.22);
+      for (let q = 1; q < 96; q++) l(X_G + q * QW, y, X_G + q * QW, y + n * RH, q % 4 ? '#555' : '#000', q % 4 ? 0.1 : 0.25);
       // turni
       rows.slice(0, n).forEach((s, i) => {
         if (!s) return;
@@ -92,7 +92,7 @@
       r(X_R + RW - 3.2, y, 3.2, h, { f: GREEN });
       t(X_R + RW - 1, y + h / 2, title, { fs: 1.7, b: 1, c: '#fff', a: 'middle', tr: `rotate(-90 ${X_R + RW - 1} ${y + h / 2})` });
       l(X_R + (RW - 3.2) / 2, y, X_R + (RW - 3.2) / 2, y + h, THIN, 0.1);
-      for (let i = 1; i < n; i++) l(X_R, y + i * RH, X_R + RW - 3.2, y + i * RH, THIN, 0.08);
+      for (let i = 1; i < n; i++) l(X_R, y + i * RH, X_R + RW - 3.2, y + i * RH, THIN, 0.12);
     };
     // elenco (riposi, ferie): titolo verde su 2 righe, poi un nome per riga, su due colonne
     const listBox = (y, n, title, items) => {
@@ -100,7 +100,7 @@
       const y1 = y + 2 * RH, per = n - 2;
       r(X_R, y1, RW, per * RH, { s: LINE, sw: 0.2 });
       l(X_R + RW / 2, y1, X_R + RW / 2, y1 + per * RH, THIN, 0.1);
-      for (let i = 1; i < per; i++) l(X_R, y1 + i * RH, X_R + RW, y1 + i * RH, THIN, 0.08);
+      for (let i = 1; i < per; i++) l(X_R, y1 + i * RH, X_R + RW, y1 + i * RH, THIN, 0.12);
       items.slice(0, per * 2).forEach((s, i) => t(X_R + 0.6 + (i >= per ? RW / 2 : 0), y1 + (i % per) * RH + RH - 0.6, s, { fs: 1.45 }));
     };
 

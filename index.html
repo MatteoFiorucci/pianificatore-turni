@@ -258,6 +258,10 @@
     .lhead { font-size: 8px; } .lhead .ltrack span { font-size: 8px; font-weight: 700; color: #000; top: 1px; }
     .lcount .ltrack span { font-size: 7.5px; }
     .lbar, .lrow .ltrack, .lcount.total, .lsec h4, .sw { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* griglia nera in stampa (righe e colonne) */
+    .lrow .ltrack { background-image: var(--gridp) !important; }
+    .lrow { border-bottom: 1px solid #000; } .lsec h4 { border-bottom: 1px solid #000; }
+    .lcount .ltrack span { border-left: 1px solid #000; }
     .legend { font-size: 9.5px; margin-top: 4px !important; }
     .dayside { display: flex; gap: 8px; margin-top: 6px; break-inside: avoid; }
     .dayside .card { flex: 1; padding: 4px 8px; margin: 0; border: 1px solid #bbb; border-radius: 4px; font-size: 10px; }
@@ -333,17 +337,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611171212"></script>
-<script src="turni-core.js?v=202611171212"></script>
-<script src="turni-manager.js?v=202611171212"></script>
-<script src="turni-vlh.js?v=202611171212"></script>
+<script src="turni-storico.js?v=202611181220"></script>
+<script src="turni-core.js?v=202611181220"></script>
+<script src="turni-manager.js?v=202611181220"></script>
+<script src="turni-vlh.js?v=202611181220"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611171212"></script>
-<script src="turni-cloud-config.js?v=202611171212"></script>
-<script src="turni-cloud.js?v=202611171212"></script>
-<script src="turni-cripto.js?v=202611171212"></script>
-<script src="lineare-ufficiale.js?v=202611171212"></script>
+<script src="turni-data.js?v=202611181220"></script>
+<script src="turni-cloud-config.js?v=202611181220"></script>
+<script src="turni-cloud.js?v=202611181220"></script>
+<script src="turni-cripto.js?v=202611181220"></script>
+<script src="lineare-ufficiale.js?v=202611181220"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -990,7 +994,10 @@ function renderGiornaliero() {
   const gx = (m) => (((m - H0 * 60) / span) * 100).toFixed(4);
   let gl = '';
   for (let m = H0 * 60; m <= H1 * 60; m += 15) gl += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='${m % 60 ? '%23d0d0d8' : '%238c8c96'}' stroke-width='1' shape-rendering='crispEdges'/>`;
-  const grid = `background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'>${gl}</svg>&quot;);background-size:100% 100%;background-repeat:no-repeat`;
+  // in stampa la stessa griglia ma nera (ore) e grigio scuro (quarti d'ora), così si vede bene sul foglio
+  let glp = '';
+  for (let m = H0 * 60; m <= H1 * 60; m += 15) glp += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='${m % 60 ? '%23777777' : '%23000000'}' stroke-width='1' shape-rendering='crispEdges'/>`;
+  const grid = `background-image:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'>${gl}</svg>&quot;);background-size:100% 100%;background-repeat:no-repeat;--gridp:url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100%25' height='100%25'>${glp}</svg>&quot;)`;
   const day_ = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
   const typeOf = (s) => ctx.byId.get(s.employeeId).type;
   const sections = [
@@ -1048,7 +1055,7 @@ function renderGiornaliero() {
     ${ef && ef.g > 0 && Math.abs(ef.g - 1) > 0.005 ? `<div class="lrow lcount evrow"><div></div><div class="lname">di cui evento ⭐</div><div class="ltime" style="grid-column: span 2">${sgn(fd.gc - fd.gc / ef.g)}</div><div class="ltrack">${hours.map((h) => { const x = gcAt(h) - gcAt(h) / ef.g; return `<span>${Math.abs(x) >= 0.5 ? sgn(x) : ''}</span>`; }).join('')}</div></div>` : ''}` : '';
   const crewPresent = (h) => { let mx = 0; for (let m = h * 60; m < (h + 1) * 60; m += 15) mx = Math.max(mx, day_.filter((s) => typeOf(s) === 'CREW' && s.start <= m && s.end >= m + 15).length); return mx; };
   const counts = `<div class="countwrap"><div class="lsec"><h4>Ore per fascia oraria</h4>${head}
-    ${mDay.length ? countRow('Ore manager', mDay) : ''}${countRow('Ore hospitality', sections[0][1])}${countRow('Ore crew', sections[1][1])}${countRow('Ore doppi turni', sections[2][1])}${countRow(mDay.length ? 'Totale (senza manager)' : 'Totale', day_, 'total')}
+    ${mDay.length ? countRow('Ore manager', mDay) : ''}${countRow('Ore hospitality', sections[0][1])}${countRow('Ore crew', sections[1][1])}${countRow('Ore doppi turni', sections[2][1])}${countRow('Totale', mDay.concat(day_), 'total')}
     <div class="lrow lcount"><div></div><div class="lname">Crew presenti (max)</div><div class="ltime" style="grid-column: span 2"></div><div class="ltrack">${hours.map((h) => `<span>${crewPresent(h)}</span>`).join('')}</div></div>${gcRows}</div></div>`;
   // riga di previsione in testa (in stampa sostituisce la colonna di destra)
   const im = fd && evImpact(fd, iso);
