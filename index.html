@@ -337,17 +337,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611181328"></script>
-<script src="turni-core.js?v=202611181328"></script>
-<script src="turni-manager.js?v=202611181328"></script>
-<script src="turni-vlh.js?v=202611181328"></script>
+<script src="turni-storico.js?v=202611181357"></script>
+<script src="turni-core.js?v=202611181357"></script>
+<script src="turni-manager.js?v=202611181357"></script>
+<script src="turni-vlh.js?v=202611181357"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611181328"></script>
-<script src="turni-cloud-config.js?v=202611181328"></script>
-<script src="turni-cloud.js?v=202611181328"></script>
-<script src="turni-cripto.js?v=202611181328"></script>
-<script src="lineare-ufficiale.js?v=202611181328"></script>
+<script src="turni-data.js?v=202611181357"></script>
+<script src="turni-cloud-config.js?v=202611181357"></script>
+<script src="turni-cloud.js?v=202611181357"></script>
+<script src="turni-cripto.js?v=202611181357"></script>
+<script src="riepilogo.js?v=202611181357"></script>
+<script src="lineare-ufficiale.js?v=202611181357"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -546,6 +547,7 @@ function renderTurni() {
     ${publishChip()}
     <button class="btn" onclick="askClearWeek()">Svuota settimana</button>
     <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">🛠 Risolvi problemi</button>
+    <button class="btn" onclick="Riepilogo.apri(ui.ws)" title="Tabelle della settimana (manager, hospitality, crew, doppi): stampa, PDF ed Excel">📄 Riepilogo</button>
     <button class="btn primary" onclick="askGenerate()">⚙ Genera turni</button>
   </div>
   ${ctx.forecast ? (() => { const fd = (k) => T.forecastDay((state.forecasts || {})[ui.ws], k) || {};
@@ -895,6 +897,7 @@ function renderMgrTurni() {
     <div class="spacer"></div>
     <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
     <button class="btn" onclick="clearMgrWeek()">Svuota</button>
+    <button class="btn" onclick="Riepilogo.apri(ui.ws)" title="Tabelle della settimana (manager, hospitality, crew, doppi): stampa, PDF ed Excel">📄 Riepilogo</button>
     <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>⚙ Genera turni manager</button>
   </div>
   ${team.length && !state.config.carpiStart ? `<div class="notice warn" style="margin-bottom:10px">🍦 Per segnare la Carpigiani nei giorni giusti indica <b>un martedì di smontaggio</b> (poi ogni 2 settimane): <input type="date" onchange="if(this.value){state.config.carpiStart=this.value;save();render()}" style="margin-left:6px"></div>` : ''}
