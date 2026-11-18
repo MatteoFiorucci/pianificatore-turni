@@ -979,6 +979,17 @@
    */
   const leavesLunchRush = (cfg, s) => cfg.lunchRushRule !== false && s.start >= (cfg.lunchShiftFrom ?? 600) &&
     s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 900);
+  /**
+   * Orari "puliti" dei turni messi dal generatore: inizio e fine all'ora intera (es. 13–16, 19–21).
+   * La mezz'ora va bene solo legata all'orario del locale: chi apre può finire alla mezz'ora (7:30–12:30),
+   * chi chiude può iniziare alla mezz'ora (17:30–21:30). Mai i quarti d'ora (18:45). Si spegne con roundTimes = false.
+   */
+  function roundTimeOk(cfg, s) {
+    if (cfg.roundTimes === false) return true;
+    const h = dayHours(cfg, s.day), opens = s.start <= h.open, closes = s.end >= h.close;
+    const ok = (t, half) => t % 60 === 0 || (half && t % 30 === 0);
+    return (opens || ok(s.start, closes)) && (closes || ok(s.end, opens));
+  }
   function shortOffPeak(cfg, s) {
     if (cfg.shortRule === false || s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= dayHours(cfg, s.day).open) return false;
     const [l0, l1] = cfg.shortLunch || [690, 900], [d0, d1] = cfg.shortDinner || [1110, dayHours(cfg, s.day).close];
@@ -1337,6 +1348,7 @@
       if (replacing && (replacing.aff || replacing.tut)) return false; // affiancamenti e formati accanto restano come sono
       if (!e.fixedShift && avoided(cand.start, cand.end)) return false; // orario da evitare (es. 13:00–18:00)
       if (!e.fixedShift && leavesLunchRush(cfg, cand)) return false; // a pranzo si resta fino alla fine del rush (15:00)
+      if (!e.fixedShift && !cand.aff && !roundTimeOk(cfg, cand)) return false; // orari all'ora intera (13–16, non 13:30–16:30)
       // chi è in formazione non va in apertura o in chiusura da solo-generatore: solo con un piano di affiancamento (o a mano)
       if (!cand.aff && isTrainee(e, cand.day) && (cand.start <= OP(cand.day) || cand.end >= CL(cand.day))) return false;
       if (!isAvail(ctx, e, cand.day)) return false;
@@ -1373,6 +1385,7 @@
       if (dur(cand) <= 0 || dur(cand) > doubleMaxOf(cfg, e) || cand.start < OP(cand.day) || cand.end > CL(cand.day)) return false;
       if (lateEnd(cand.end, cand.day)) return false;
       if (leavesLunchRush(cfg, cand)) return false; // anche il doppio del pranzo resta fino alla fine del rush
+      if (!roundTimeOk(cfg, cand)) return false; // doppio all'ora intera (19–21, non 18:45–20:45)
       if (shortOffPeak(cfg, cand)) return false; // doppi brevi solo dentro i rush
       const main = dayMain(e.id, cand.day);
       if (main.length !== 1 || shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s))) return false;
@@ -1734,39 +1747,44 @@
       CREW: [720, 1080, 1110, 690, 750, 1050, 660, 780, 1140, 630, 840, 900, 540, 480, 450],
       HOSPITALITY: [1050, 1020, 990, 660, 690, 720, 750, 780, 960, 1080, 1110, 630, 450],
     };
-    for (const e of [...flexible].sort((a, b) => remaining(b) - remaining(a))) {
-      let guard = 0;
-      while (remaining(e) >= cfg.minShift && guard++ < 14) {
-        const free = ctx.days.filter((d) => isAvail(ctx, e, d) && !dayMain(e.id, d).length);
-        if (!free.length) break;
-        const rem = remaining(e), max = Math.max(...free.map((d) => (e.type === 'CREW' && !isWeekend(d) ? cfg.crewMaxWeekday ?? 240 : maxFor(cfg, e, d))));
-        const even = rem / free.length;
-        const lens = free.length === 1 ? [rem] : [...new Set([Math.round(even / 15) * 15, roundUp30(ceilDiv(rem, free.length)), Math.floor(even / 30) * 30, Math.ceil(even / 15) * 15, Math.floor(even / 15) * 15])]
-          .map((l) => Math.min(clamp(l, cfg.minShift, max), rem));
-        const isHt = e.type === 'HOSPITALITY';
-        const crowd = (d, a, b) => (isHt ? crowding(d, a, b, hospReqs, { station: 'HOSPITALITY' }) : crowding(d, a, b));
-        let placed = null;
-        // le ore in più vanno dove c'è meno gente rispetto a quella richiesta, con orari reali e vari
-        for (const len of lens) {
-          const opts = [];
-          for (const d of free) {
-            for (const st of fillStarts[e.type]) if (st >= OP(d) && st + len <= CL(d)) opts.push([d, st, st + len]);
-            for (const [a, b] of tplOf(e.type)) {
-              const dl = b - a;
-              if (Math.abs(dl - len) <= 30 && dl <= rem && dl <= max && dl >= cfg.minShift && a >= OP(d) && b <= CL(d)) opts.push([d, a, b]);
+    // con gli orari interi si provano anche tutte le altre ore piene (es. 19–21 per le ultime 2 ore del contratto)
+    if (cfg.roundTimes !== false) for (const k of Object.keys(fillStarts)) for (let h = 420; h <= 1260; h += 60) if (!fillStarts[k].includes(h)) fillStarts[k].push(h);
+    const fillHours = () => {
+      for (const e of [...flexible].sort((a, b) => remaining(b) - remaining(a))) {
+        let guard = 0;
+        while (remaining(e) >= cfg.minShift && guard++ < 14) {
+          const free = ctx.days.filter((d) => isAvail(ctx, e, d) && !dayMain(e.id, d).length);
+          if (!free.length) break;
+          const rem = remaining(e), max = Math.max(...free.map((d) => (e.type === 'CREW' && !isWeekend(d) ? cfg.crewMaxWeekday ?? 240 : maxFor(cfg, e, d))));
+          const even = rem / free.length;
+          const lens = free.length === 1 ? [rem] : [...new Set([Math.round(even / 15) * 15, roundUp30(ceilDiv(rem, free.length)), Math.floor(even / 30) * 30, Math.ceil(even / 15) * 15, Math.floor(even / 15) * 15])]
+            .map((l) => Math.min(clamp(l, cfg.minShift, max), rem));
+          const isHt = e.type === 'HOSPITALITY';
+          const crowd = (d, a, b) => (isHt ? crowding(d, a, b, hospReqs, { station: 'HOSPITALITY' }) : crowding(d, a, b));
+          let placed = null;
+          // le ore in più vanno dove c'è meno gente rispetto a quella richiesta, con orari reali e vari
+          for (const len of lens) {
+            const opts = [];
+            for (const d of free) {
+              for (const st of fillStarts[e.type]) if (st >= OP(d) && st + len <= CL(d)) opts.push([d, st, st + len]);
+              for (const [a, b] of tplOf(e.type)) {
+                const dl = b - a;
+                if (Math.abs(dl - len) <= 30 && dl <= rem && dl <= max && dl >= cfg.minShift && a >= OP(d) && b <= CL(d)) opts.push([d, a, b]);
+              }
             }
+            const scored = opts.map(([d, a, b]) => ({ d, a, b, sc: crowd(d, a, b) - natural(e, d, a, b) * 0.35 - rushBalance(pickStation(e, d, a, b), d, a, b) * 0.5 + (isHt ? hospBalance(d, a, b) : 0) })).sort((x, y) => x.sc - y.sc);
+            for (const o of scored) {
+              const s = { employeeId: e.id, day: o.d, start: o.a, end: o.b, station: pickStation(e, o.d, o.a, o.b), doppio: false };
+              if (canPlace(e, s)) { placed = s; break; }
+            }
+            if (placed) break;
           }
-          const scored = opts.map(([d, a, b]) => ({ d, a, b, sc: crowd(d, a, b) - natural(e, d, a, b) * 0.35 - rushBalance(pickStation(e, d, a, b), d, a, b) * 0.5 + (isHt ? hospBalance(d, a, b) : 0) })).sort((x, y) => x.sc - y.sc);
-          for (const o of scored) {
-            const s = { employeeId: e.id, day: o.d, start: o.a, end: o.b, station: pickStation(e, o.d, o.a, o.b), doppio: false };
-            if (canPlace(e, s)) { placed = s; break; }
-          }
-          if (placed) break;
+          if (!placed) break;
+          place(placed);
         }
-        if (!placed) break;
-        place(placed);
       }
-    }
+    };
+    fillHours();
 
     // 3. doppi rimasti: rush di pranzo o cena, prima nel weekend
     const RUSH = [[720, 900], [1080, 1260]];
@@ -1807,6 +1825,8 @@
         }
       }
     }
+    // 4b. ore di contratto ancora da fare (es. le ultime 2 ore con gli orari interi): un altro giro di riempimento
+    if (cfg.roundTimes !== false) fillHours();
     // 5. riparazione: se resta un buco, sposta un turno dello stesso giorno (stessa durata) per chiuderlo
     //    senza aprirne altri. Con opts.moveAll sposta anche i turni che c'erano già.
     const movable = () => (opts.moveAll ? shifts : added).filter((x) => { const e = ctx.byId.get(x.employeeId); return e && !e.fixedShift && !isDouble(x) && !x.aff && !x.tut; });
@@ -2067,7 +2087,7 @@
   }
 
   root.Turni = {
-    ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf,
+    ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf, roundTimeOk,
     STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, dateHoursMap, cfgWithEvents, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
