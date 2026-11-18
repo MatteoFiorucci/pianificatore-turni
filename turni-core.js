@@ -895,7 +895,8 @@
       if (!avail.length || target(ctx, e) === 0) continue;
       const missing = avail.filter((d) => !shiftsOf(ctx, e.id, d).length);
       if (!missing.length) continue;
-      const done = worked(ctx, e.id) >= target(ctx, e);
+      // giorno vuoto con una richiesta accettata (es. "solo sera", impegno fisso): spazio ridotto, basta un avviso
+      const done = worked(ctx, e.id) >= target(ctx, e) && missing.some((d) => !limitOf(ctx, e.id, d));
       out.push(V('WORK_DAYS', done ? 'ERROR' : 'WARNING',
         `${fullName(e)}: lavora ${avail.length - missing.length} giorni su ${avail.length}, senza turno ${missing.map(shortDate).join(', ')}${done ? ': le ore vanno distribuite su tutti i giorni' : ''}`,
         e.id, missing[0]));
@@ -1149,11 +1150,23 @@
     return out;
   }
 
+  /**
+   * Turni lunghi da lunedì a giovedì concessi a una persona: di norma weekdayLongPerWeek; di più se senza non ci stanno
+   * le ore di contratto (es. settimana con chiusure e riposo spostato sui giorni chiusi): le ore di contratto vanno fatte.
+   */
+  function longLimitOf(ctx, e) {
+    const cfg = ctx.cfg, base = cfg.weekdayLongPerWeek ?? 1, norm = cfg.crewMaxWeekday ?? 240, gain = cfg.crewMax - norm;
+    if (e.type !== 'CREW') return base;
+    const days = ctx.days.filter((d) => isAvail(ctx, e, d)), wd = days.filter((d) => !isWeekend(d)).length, we = days.length - wd;
+    const need = target(ctx, e) - (we * cfg.crewMax + wd * norm + Math.min(base, wd) * gain);
+    return need > 0 && gain > 0 ? Math.min(wd, base + Math.ceil(need / gain)) : base;
+  }
   /** Turni lunghi (oltre le 4h) da lunedì a giovedì: a rotazione, al massimo N a testa a settimana. */
   function ruleLongShifts(ctx) {
-    const out = [], lim = ctx.cfg.weekdayLongPerWeek ?? 1;
+    const out = [];
     for (const e of ctx.employees) {
       if (e.fixedShift) continue;
+      const lim = longLimitOf(ctx, e);
       const long = ctx.shifts.filter((x) => x.employeeId === e.id && isLongWeekday(ctx.cfg, e, x));
       if (long.length > lim) out.push(V('LONG_SHIFTS', 'WARNING', `${fullName(e)} fa ${long.length} turni lunghi (oltre ${fmtDur(ctx.cfg.crewMaxWeekday ?? 240)}) da lunedì a giovedì (${long.map((x) => shortDate(x.day)).join(', ')}): a rotazione al massimo ${lim} a testa`, e.id, long[long.length - 1].day));
     }
@@ -1164,7 +1177,8 @@
   function ruleWeekendRest(ctx) {
     const out = [];
     for (const e of ctx.employees) {
-      if (e.fixedShift) continue;
+      // riposo spostato solo per questa settimana (a mano, o sui giorni di chiusura del locale): non è il riposo fisso
+      if (e.fixedShift || e.restMoved) continue;
       const bad = e.restDays.filter((x) => x >= 5);
       if (bad.length) out.push(V('WEEKEND_REST', 'WARNING', `${fullName(e)} ha il riposo fisso di ${bad.map((x) => DOW_LONG[x]).join(' e ')}: da venerdì a domenica sono tutti a disposizione, sposta il riposo in settimana (Personale)`, e.id));
     }
@@ -1334,9 +1348,22 @@
      * Ore che una persona può ancora fare nei giorni liberi: weekend fino a 5h, da lunedì a giovedì 4h
      * più i turni lunghi che le restano (a rotazione).
      */
+    // ore di contratto obbligatorie: se con i turni corti in settimana non ci stanno (es. settimana con chiusure, riposo
+    // spostato sui giorni chiusi), la persona può fare in settimana tutti i turni lunghi che le servono
+    const longLimMap = new Map(), overMap = new Map();
+    const freeDaysAll = (e) => ctx.days.filter((d) => isAvail(ctx, e, d));
+    function longLim(e) {
+      if (!longLimMap.has(e.id)) longLimMap.set(e.id, longLimitOf(ctx, e));
+      return longLimMap.get(e.id);
+    }
+    /** Le ore di contratto sono più di quelle possibili nei giorni liberi (anche con tutti i turni lunghi). */
+    function overTarget(e) {
+      if (!overMap.has(e.id)) overMap.set(e.id, target(ctx, e) > freeDaysAll(e).reduce((t, d) => t + maxFor(cfg, e, d), 0));
+      return overMap.get(e.id);
+    }
     function capacity(e, days, cand) {
       if (e.type !== 'CREW') return days.reduce((t, d) => t + maxFor(cfg, e, d), 0);
-      const norm = cfg.crewMaxWeekday ?? 240, lim = cfg.weekdayLongPerWeek ?? 1;
+      const norm = cfg.crewMaxWeekday ?? 240, lim = longLim(e);
       const used = shifts.filter((x) => x.employeeId === e.id && isLongWeekday(cfg, e, x)).length + (cand && isLongWeekday(cfg, e, cand) ? 1 : 0);
       const wd = days.filter((d) => !isWeekend(d)).length, we = days.length - wd;
       return we * cfg.crewMax + wd * norm + Math.min(Math.max(0, lim - used), wd) * (cfg.crewMax - norm);
@@ -1364,12 +1391,13 @@
       if (!replacing && others.length) return false;
       if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
       if (isLongWeekday(cfg, e, cand) && !e.fixedShift &&
-        shifts.filter((x) => x !== replacing && x.employeeId === e.id && isLongWeekday(cfg, e, x)).length >= (cfg.weekdayLongPerWeek ?? 1)) return false;
+        shifts.filter((x) => x !== replacing && x.employeeId === e.id && isLongWeekday(cfg, e, x)).length >= longLim(e)) return false;
       const extra = dur(cand) - (replacing ? dur(replacing) : 0);
       if (extra > remaining(e)) return false;
       if (!e.fixedShift) {
         const fl = freeDayList(e, cand.day), f = fl.length, after = remaining(e) - extra;
-        if (after < cfg.minShift * f || after > capacity(e, fl, cand)) return false;
+        // le ore di contratto vanno fatte: se non ci stanno comunque (es. pochi giorni liberi), si fanno tutte quelle possibili
+        if (after < cfg.minShift * f || (after > capacity(e, fl, cand) && !overTarget(e))) return false;
       }
       const dbl = shifts.find((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s));
       if (dbl && Math.max(dbl.start - cand.end, cand.start - dbl.end) < D_GAP) return false;
@@ -2075,6 +2103,80 @@
         if (!best) break;
         best.s.station = 'MCCAFE';
         for (const [t, st1] of best.alts) t.station = st1;
+      }
+    }
+
+    // 10. ore di contratto obbligatorie: a chi non le ha ancora tutte si allungano i turni che ha, poi si aggiunge un turno
+    //     nei giorni liberi. Restano le regole vere (disponibilità, massimo al giorno, stacchi, squadre esatte, orari interi,
+    //     rush del pranzo, McCafé); non contano le preferenze (es. turni lunghi in settimana a rotazione).
+    function canPlaceHours(e, cand, rep = null) {
+      if (rep && (rep.aff || rep.tut || isDouble(rep))) return false;
+      if (cand.start < OP(cand.day) || cand.end > CL(cand.day) || lateEnd(cand.end, cand.day)) return false;
+      if (avoided(cand.start, cand.end) || leavesLunchRush(cfg, cand) || !roundTimeOk(cfg, cand) || mcOver(cand, rep)) return false;
+      if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand) || shortOffPeak(cfg, cand)) return false;
+      if (isTrainee(e, cand.day) && (cand.start <= OP(cand.day) || cand.end >= CL(cand.day))) return false;
+      if (unaccompanied(ctx, cand, shifts.filter((x) => x !== rep))) return false;
+      if (dur(cand) - (rep ? dur(rep) : 0) > remaining(e)) return false;
+      if (cand.start <= OP(cand.day) && shifts.some((x) => x.employeeId === e.id && x.day === cand.day && isDouble(x))) return false;
+      const others = dayMain(e.id, cand.day).filter((x) => x !== rep);
+      if (!rep && others.length) return false;
+      if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
+      const dbl = shifts.find((x) => x.employeeId === e.id && x.day === cand.day && isDouble(x));
+      if (dbl && Math.max(dbl.start - cand.end, cand.start - dbl.end) < D_GAP) return false;
+      const cf = closingFit(ctx, cand, shifts.filter((x) => x !== rep));
+      if (cf && cf !== 'ok') return false;
+      return restOk(e, cand, rep);
+    }
+    // preferenze (solo nei primi giri): niente turni ibridi o rigidi nel pomeriggio, turni lunghi in settimana a rotazione
+    const prefOk = (e, c, rep) => !(e.type === 'CREW' && (isHybridAfternoon(cfg, c) || isLongWithoutRush(cfg, c))) && !isRigidAfternoon(cfg, c)
+      && !(isLongWeekday(cfg, e, c) && shifts.filter((x) => x !== rep && x.employeeId === e.id && isLongWeekday(cfg, e, x)).length >= longLim(e));
+    const newShift = (e, strict) => {
+      const rem = remaining(e), opts = [];
+      for (const d of ctx.days) {
+        if (!isAvail(ctx, e, d) || dayMain(e.id, d).length) continue;
+        for (let len = Math.min(rem, maxFor(cfg, e, d)); len >= cfg.minShift; len -= 30)
+          for (let a = OP(d); a + len <= CL(d); a += 30) opts.push({ d, a, b: a + len, g: benefit(d, a, a + len) + len / 600 });
+      }
+      opts.sort((x, y) => y.g - x.g);
+      for (const o of opts) {
+        const c = { employeeId: e.id, day: o.d, start: o.a, end: o.b, station: pickStation(e, o.d, o.a, o.b), doppio: false };
+        if (canPlaceHours(e, c) && (!strict || prefOk(e, c))) { place(c); return true; }
+      }
+      return false;
+    };
+    const extend = (e, strict) => {
+      const rem = remaining(e);
+      for (const s of added.filter((x) => x.employeeId === e.id && !isDouble(x) && !x.aff && !x.tut).sort((a, b) => dur(a) - dur(b)))
+        for (let ext = Math.floor(Math.min(rem, maxFor(cfg, e, s.day) - dur(s)) / 30) * 30; ext >= 30; ext -= 30) {
+          const c = [{ ...s, end: s.end + ext }, { ...s, start: s.start - ext }].find((x) => canPlaceHours(e, x, s) && (!strict || prefOk(e, x, s)));
+          if (c) { replace(s, c); return true; }
+        }
+      return false;
+    };
+    for (const e of flexible) {
+      // prima un turno nei giorni liberi (le ore si distribuiscono su tutti i giorni), poi si allungano quelli che ci sono;
+      // le preferenze si lasciano solo se altrimenti le ore non ci stanno
+      for (let guard = 0; remaining(e) >= 30 && guard < 12; guard++)
+        if (!(newShift(e, true) || extend(e, true) || newShift(e, false) || extend(e, false))) break;
+    }
+    // ore fatte ma un giorno disponibile senza turno: un turno lungo della persona si accorcia e le ore vanno su quel giorno
+    for (const e of flexible) {
+      const empty = () => ctx.days.filter((d) => isAvail(ctx, e, d) && !dayMain(e.id, d).length);
+      for (let guard = 0; empty().length && remaining(e) <= 0 && guard < 3; guard++) {
+        let ok = false;
+        for (const L of [180, 120, 150, 240]) {
+          for (const s of added.filter((x) => x.employeeId === e.id && !isDouble(x) && !x.aff && !x.tut && dur(x) - L >= cfg.minShift).sort((a, b) => dur(b) - dur(a))) {
+            for (const c of [{ ...s, end: s.end - L }, { ...s, start: s.start + L }]) {
+              if (!canPlaceHours(e, c, s)) continue;
+              replace(s, c);
+              if (newShift(e, true) || newShift(e, false)) { ok = true; break; }
+              replace(c, s); // non c'è posto nel giorno vuoto: si torna come prima
+            }
+            if (ok) break;
+          }
+          if (ok) break;
+        }
+        if (!ok) break;
       }
     }
 

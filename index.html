@@ -337,18 +337,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611181514"></script>
-<script src="turni-core.js?v=202611181514"></script>
-<script src="turni-manager.js?v=202611181514"></script>
-<script src="turni-vlh.js?v=202611181514"></script>
+<script src="turni-storico.js?v=202611181725"></script>
+<script src="turni-core.js?v=202611181725"></script>
+<script src="turni-manager.js?v=202611181725"></script>
+<script src="turni-vlh.js?v=202611181725"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611181514"></script>
-<script src="turni-cloud-config.js?v=202611181514"></script>
-<script src="turni-cloud.js?v=202611181514"></script>
-<script src="turni-cripto.js?v=202611181514"></script>
-<script src="riepilogo.js?v=202611181514"></script>
-<script src="lineare-ufficiale.js?v=202611181514"></script>
+<script src="turni-data.js?v=202611181725"></script>
+<script src="turni-cloud-config.js?v=202611181725"></script>
+<script src="turni-cloud.js?v=202611181725"></script>
+<script src="turni-cripto.js?v=202611181725"></script>
+<script src="riepilogo.js?v=202611181725"></script>
+<script src="lineare-ufficiale.js?v=202611181725"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -897,6 +897,7 @@ function renderMgrTurni() {
     <div class="spacer"></div>
     <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
     <button class="btn" onclick="clearMgrWeek()">Svuota</button>
+    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveMgrWeek()">🛠 Risolvi problemi</button>
     <button class="btn" onclick="Riepilogo.apri(ui.ws)" title="Tabelle della settimana (manager, hospitality, crew, doppi): stampa, PDF ed Excel">📄 Riepilogo</button>
     <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>⚙ Genera turni manager</button>
   </div>
@@ -958,6 +959,43 @@ function genMgr() {
   save(); render();
   const e = r.problems.filter((p) => p.sev === 'ERROR').length;
   showModal(`<h3>Turni manager creati</h3><p><b style="color:${e ? 'var(--err-ink)' : 'var(--green)'}">${e} errori</b> · ${r.problems.length - e} avvisi.${e ? ' Li trovi a destra: si sistemano cliccando la casella o rigenerando (ogni volta prova combinazioni nuove).' : ''}</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+}
+/** Risolvi problemi dei manager: prova più varianti dei turni manager della settimana e propone la migliore. */
+function solveMgrWeek() {
+  showModal('<h3>🛠 Sto cercando la soluzione migliore…</h3><p class="muted">Provo a rifare i turni manager della settimana in più varianti. Ci vuole qualche secondo.</p>');
+  setTimeout(() => {
+    const M = MGR(), ws = ui.ws, inWeek = (x) => x.day >= ws && x.day <= ws + 6;
+    const others = (state.mgrShifts || []).filter((x) => !inWeek(x)), base = { ...state, mgrShifts: others };
+    const score = (probs) => { const err = probs.filter((p) => p.sev === 'ERROR').length; return { err, warn: probs.length - err, score: err * 100 + probs.length, probs }; };
+    const before = score(M.check(state, ws));
+    ui.mgrGen = (ui.mgrGen || 0) + 1;
+    let best = null;
+    for (let k = 0; k < 12; k++) {
+      const r = M.generate(base, ws, { seed: ui.mgrGen * 101 + k });
+      const sc = score(M.check({ ...base, mgrShifts: others.concat(r.shifts) }, ws, r.shifts));
+      if (!best || sc.score < best.sc.score) best = { shifts: r.shifts, sc };
+    }
+    ui.mgrSolution = best;
+    const better = best.sc.score < before.score, left = best.sc.probs.filter((p) => p.sev === 'ERROR');
+    showModal(`
+      <h3>🛠 Risolvi problemi manager · ${T.weekLabel(ws)}</h3>
+      <p>Adesso: <b style="color:${before.err ? 'var(--err-ink)' : 'var(--green)'}">${before.err} errori</b> · ${before.warn} avvisi<br>
+      Soluzione migliore trovata: <b style="color:${best.sc.err ? 'var(--err-ink)' : 'var(--green)'}">${best.sc.err} errori</b> · ${best.sc.warn} avvisi
+      <span class="muted small">(turni manager rifatti, ${best.shifts.length} turni)</span></p>
+      ${better ? '' : '<div class="notice warn">Non ho trovato niente di meglio della settimana attuale.</div>'}
+      ${left.length ? `<p><b>Cosa resta</b> (non si può sistemare da solo con le regole attuali: controlla riposi, ferie e regole dei manager nello Store):</p>
+        <ul style="max-height:260px;overflow:auto;padding-left:18px">${left.map((p) => `<li style="margin-bottom:6px">${esc(p.msg)}</li>`).join('')}</ul>` : '<p>✅ Nessun errore nella soluzione proposta.</p>'}
+      <div class="actions">
+        <button class="btn" onclick="closeModal()">Annulla</button>
+        ${better ? '<button class="btn primary" onclick="applyMgrSolution()">Applica la soluzione</button>' : ''}
+      </div>`);
+  }, 30);
+}
+function applyMgrSolution() {
+  const sol = ui.mgrSolution; if (!sol) return;
+  const ws = ui.ws;
+  state.mgrShifts = (state.mgrShifts || []).filter((x) => x.day < ws || x.day > ws + 6).concat(sol.shifts.map((x) => ({ ...x, id: newId() })));
+  ui.mgrSolution = null; save(); closeModal(); render();
 }
 function clearMgrWeek() { const ws = ui.ws; if (!confirm('Togliere tutti i turni manager di questa settimana?')) return; state.mgrShifts = (state.mgrShifts || []).filter((x) => x.day < ws || x.day > ws + 6); save(); render(); }
 function openMgrDay(id, day) {
