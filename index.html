@@ -337,18 +337,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611181401"></script>
-<script src="turni-core.js?v=202611181401"></script>
-<script src="turni-manager.js?v=202611181401"></script>
-<script src="turni-vlh.js?v=202611181401"></script>
+<script src="turni-storico.js?v=202611181514"></script>
+<script src="turni-core.js?v=202611181514"></script>
+<script src="turni-manager.js?v=202611181514"></script>
+<script src="turni-vlh.js?v=202611181514"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611181401"></script>
-<script src="turni-cloud-config.js?v=202611181401"></script>
-<script src="turni-cloud.js?v=202611181401"></script>
-<script src="turni-cripto.js?v=202611181401"></script>
-<script src="riepilogo.js?v=202611181401"></script>
-<script src="lineare-ufficiale.js?v=202611181401"></script>
+<script src="turni-data.js?v=202611181514"></script>
+<script src="turni-cloud-config.js?v=202611181514"></script>
+<script src="turni-cloud.js?v=202611181514"></script>
+<script src="turni-cripto.js?v=202611181514"></script>
+<script src="riepilogo.js?v=202611181514"></script>
+<script src="lineare-ufficiale.js?v=202611181514"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1282,7 +1282,7 @@ async function applyAutoForecasts(data) {
   if (TurniCloud.loggedIn()) await cloudPull(); // parte dai dati online più recenti
   state.forecasts = state.forecasts || {};
   const ratio = chRatio();
-  // settimane con turni già fatti: i numeri restano fermi (si aggiornano solo GC SmartBusiness e quote per canale)
+  // settimane con turni già fatti: i numeri già presenti restano fermi (si aggiornano solo GC SmartBusiness e quote per canale)
   const planned = new Set(state.shifts.map((s) => T.mondayOf(s.day)));
   // storico dei giorni speciali e clienti per ora: servono a stimare l'effetto di eventi e chiusure
   const old = state.autoForecast || {};
@@ -1292,7 +1292,8 @@ async function applyAutoForecasts(data) {
     const day = Math.round(Date.parse(iso) / 864e5), ws = T.mondayOf(day), k = day - ws;
     const f = fcOf(ws), d = f.days[k], prev = d.auto || {};
     if (p.canali) d.canali = p.canali;
-    if (planned.has(ws)) {
+    // ferma solo se aveva già dei numeri: una settimana con i turni ma senza previsioni (es. generata prima) si riempie
+    if (planned.has(ws) && (d.auto || d.gc != null || d.sales != null || d.crewHours != null)) {
       if (d.auto) {
         if (p.gcSB != null) d.auto.gcSB = p.gcSB;
         // per poter applicare gli eventi che il manager aggiunge dopo
