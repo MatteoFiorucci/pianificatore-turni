@@ -337,17 +337,17 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611181249"></script>
-<script src="turni-core.js?v=202611181249"></script>
-<script src="turni-manager.js?v=202611181249"></script>
-<script src="turni-vlh.js?v=202611181249"></script>
+<script src="turni-storico.js?v=202611181310"></script>
+<script src="turni-core.js?v=202611181310"></script>
+<script src="turni-manager.js?v=202611181310"></script>
+<script src="turni-vlh.js?v=202611181310"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611181249"></script>
-<script src="turni-cloud-config.js?v=202611181249"></script>
-<script src="turni-cloud.js?v=202611181249"></script>
-<script src="turni-cripto.js?v=202611181249"></script>
-<script src="lineare-ufficiale.js?v=202611181249"></script>
+<script src="turni-data.js?v=202611181310"></script>
+<script src="turni-cloud-config.js?v=202611181310"></script>
+<script src="turni-cloud.js?v=202611181310"></script>
+<script src="turni-cripto.js?v=202611181310"></script>
+<script src="lineare-ufficiale.js?v=202611181310"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -2035,7 +2035,7 @@ function renderRegole() {
 // un locale nuovo imposta qui le sue regole senza toccare il motore dei turni.
 const DAY_TIMES = []; for (let m = 0; m <= 1440; m += 15) DAY_TIMES.push(m);
 const dayTimeSel = (v, on) => `<select onchange="${on}">${DAY_TIMES.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${t === 1440 ? '24:00' : T.fmtTime(t)}</option>`).join('')}</select>`;
-const MGR_DEF = { short: [180, 300], long: [360, 510], breakFrom: 360, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+const MGR_DEF = { short: [180, 300], long: [390, 510], breakFrom: 390, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
 function storeStations() { if (!Array.isArray(state.config.stations) || !state.config.stations.length) state.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x })); return state.config.stations; }
 function setHour(d, k, v) {
   const c = state.config; c.hours = c.hours || {};

@@ -22,8 +22,8 @@
   const DAY = 1440;
   const ROLE_TXT = { AS: 'Apertura corta (poi notte)', N: 'Notte', A: 'Apertura', C: 'Chiusura', CEN: 'Centrale', D: 'Delivery', C2: 'Secondo in chiusura', X: 'Rinforzo', M2: 'Secondo in apertura', F: 'Flessibile' };
   // durata dei turni manager (regola tassativa, orario di presenza): corti da 3 a 5 ore senza pausa, oppure lunghi
-  // da 6:00 a 8:30 con una pausa di 30 minuti timbrata (uscita e rientro); il turno di 5:30 non esiste.
-  // La pausa non conta nelle ore lavorate: un turno di presenza 7:30–14:00 (6:30) vale 6 ore di contratto.
+  // da 6:30 a 8:30 con una pausa di 30 minuti timbrata (uscita e rientro); i turni di 5:30 e 6:00 non esistono.
+  // La pausa non conta nelle ore lavorate: un turno di presenza 7:30–15:00 (7:30) vale 7 ore di contratto.
   let SHORT = [180, 300], LONG = [360, 510], BREAK_FROM = 360, BREAK_MIN = 30;
   const lenOk = (l) => (l >= SHORT[0] && l <= SHORT[1]) || (l >= LONG[0] && l <= LONG[1]);
   /** Ore lavorate di un turno di presenza lungo l minuti (tolta la pausa timbrata nei turni lunghi). */
@@ -114,7 +114,7 @@
     return (loadCfg(state).minPerDay ?? 2) + (T.dayHours(state.config, ws + k).h24 ? 1 : 0) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
   }
   let REST_DAYS = [1, 2, 3, 4]; // il riposo dei manager è da lunedì a giovedì
-  const MGR_DEFAULT = { short: [180, 300], long: [360, 510], breakFrom: 360, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
+  const MGR_DEFAULT = { short: [180, 300], long: [390, 510], breakFrom: 390, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
   /** Legge le regole dei manager dalle impostazioni dello store (valori di partenza se mancano). */
   function loadCfg(state) {
     // impostazioni del locale con gli orari ridotti dei giorni speciali (eventi "Orario ridotto")
@@ -385,7 +385,7 @@
       for (const d of m.orderDays || []) {
         const day = ws + d - 1, s = mine.find((x) => x.day === day);
         if (absentOn(state, m, day)) continue;
-        if (!s) V('ERROR', `${name(m)}: ${when(day)} c'è l'ordine (entro le 12:30), non può riposare`, m.id, day);
+        if (!s) V('ERROR', `${name(m)}: ${when(day)} c'è l'ordine (entro le ${T.fmtTime(ORDER_BY)}), non può riposare`, m.id, day);
         else if (s.start > ORDER_BY) V('ERROR', `${name(m)}: ${when(day)} c'è l'ordine, deve entrare entro le ${T.fmtTime(ORDER_BY)}`, m.id, day);
       }
       if (m.centralWeekly && !mine.some((s) => T.dow(s.day) <= 4 && s.start > OPEN(s.day) && s.end < CLOSE(s.day) - 30)) V('WARNING', `${name(m)}: manca il turno centrale tra lunedì e giovedì`, m.id);

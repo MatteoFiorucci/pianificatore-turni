@@ -6,7 +6,7 @@
 (function (root) {
   'use strict';
   const T = root.Turni || (typeof require !== 'undefined' ? require('./turni-core.js') : null);
-  const VERSION = 32;
+  const VERSION = 33;
 
   function emptyState() {
     return {
@@ -95,6 +95,12 @@
       if (Array.isArray(g.long) && g.long[0] === 390) g.long = [360, g.long[1]];
       if (g.breakFrom == null) g.breakFrom = 360;
       if (g.breakMin == null) g.breakMin = 30;
+    }
+    // v33: turni lunghi dei manager da 6:30 a 8:30 (i turni di 5:30 e 6:00 non esistono); la pausa c'è da 6:30 in su
+    if ((st.version || 1) < 33 && st.config.mgr) {
+      const g = st.config.mgr;
+      if (Array.isArray(g.long) && g.long[0] === 360) g.long = [390, g.long[1]];
+      if (g.breakFrom === 360) g.breakFrom = 390;
     }
     if (!st.nextId) st.nextId = Math.max(1, ...st.employees.map((e) => e.id), ...st.shifts.map((x) => x.id || 0), ...st.absences.map((a) => a.id || 0)) + 1;
     st.version = Math.max(st.version || 1, VERSION);
