@@ -9,7 +9,7 @@
   const MESI = ['GENNAIO', 'FEBBRAIO', 'MARZO', 'APRILE', 'MAGGIO', 'GIUGNO', 'LUGLIO', 'AGOSTO', 'SETTEMBRE', 'OTTOBRE', 'NOVEMBRE', 'DICEMBRE'];
   const POST = { CUCINA: 'MFY', FRONT: 'OA', MCCAFE: 'McCafè', SERVIZIO: 'Sala', HOSPITALITY: 'SAT' };
   const COL = { CUCINA: '#c8323a', FRONT: '#4a86b0', MCCAFE: '#6e4030', SERVIZIO: '#9a9a9a', HOSPITALITY: '#7e72b8' };
-  const YEL = '#f2b632', GREEN = '#2f5f4f', LINE = '#000', THIN = '#333';
+  const YEL = '#f2b632', GREEN = '#2f5f4f', LINE = '#000', THIN = '#000';
 
   // misure in mm (foglio A4 verticale, margini 6 mm)
   const W = 198, H = 283;
@@ -49,7 +49,7 @@
     const out = [];
     const t = (x, y, s, o = {}) => out.push(`<text x="${x}" y="${y}" font-size="${o.fs || 1.9}" ${o.b ? 'font-weight="700"' : ''} ${o.a ? `text-anchor="${o.a}"` : ''} fill="${o.c || '#000'}" ${o.i ? 'font-style="italic"' : ''} ${o.tr ? `transform="${o.tr}"` : ''}>${X(s)}</text>`);
     const r = (x, y, w, h, o = {}) => out.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${o.f || 'none'}" stroke="${o.s || 'none'}" stroke-width="${o.sw || 0.15}"/>`);
-    const l = (x1, y1, x2, y2, c = THIN, w = 0.12) => out.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"/>`);
+    const l = (x1, y1, x2, y2, c = THIN, w = 0.15) => out.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="${w}"/>`);
 
     // barra gialla con le ore 5…24, 1…5
     const hourBar = (y, title) => {
@@ -67,9 +67,9 @@
       // griglia
       r(X_POS, y, X_T2 + 6.5 - X_POS, n * RH, { s: LINE, sw: 0.2 });
       r(X_G, y, 96 * QW, n * RH, { s: LINE, sw: 0.2 });
-      for (let i = 1; i < n; i++) { l(X_POS, y + i * RH, X_T2 + 6.5, y + i * RH, '#000', 0.12); l(X_G, y + i * RH, X_GE, y + i * RH, '#000', 0.12); }
+      for (let i = 1; i < n; i++) { l(X_POS, y + i * RH, X_T2 + 6.5, y + i * RH, '#000', 0.15); l(X_G, y + i * RH, X_GE, y + i * RH, '#000', 0.15); }
       [X_NAME, X_T1, X_T2].forEach((x) => l(x, y, x, y + n * RH, LINE, 0.12));
-      for (let q = 1; q < 96; q++) l(X_G + q * QW, y, X_G + q * QW, y + n * RH, q % 4 ? '#555' : '#000', q % 4 ? 0.1 : 0.25);
+      for (let q = 1; q < 96; q++) l(X_G + q * QW, y, X_G + q * QW, y + n * RH, '#000', q % 4 ? 0.15 : 0.35);
       // turni
       rows.slice(0, n).forEach((s, i) => {
         if (!s) return;
@@ -93,16 +93,16 @@
       r(X_R, y, RW, h, { s: LINE, sw: 0.2 });
       r(X_R + RW - 3.2, y, 3.2, h, { f: GREEN });
       t(X_R + RW - 1, y + h / 2, title, { fs: 1.7, b: 1, c: '#fff', a: 'middle', tr: `rotate(-90 ${X_R + RW - 1} ${y + h / 2})` });
-      l(X_R + (RW - 3.2) / 2, y, X_R + (RW - 3.2) / 2, y + h, THIN, 0.1);
-      for (let i = 1; i < n; i++) l(X_R, y + i * RH, X_R + RW - 3.2, y + i * RH, THIN, 0.12);
+      l(X_R + (RW - 3.2) / 2, y, X_R + (RW - 3.2) / 2, y + h, THIN, 0.15);
+      for (let i = 1; i < n; i++) l(X_R, y + i * RH, X_R + RW - 3.2, y + i * RH, THIN, 0.15);
     };
     // elenco (riposi, ferie): titolo verde su 2 righe, poi un nome per riga, su due colonne
     const listBox = (y, n, title, items) => {
       r(X_R, y, RW, 2 * RH, { f: GREEN }); t(X_R + RW / 2, y + 2 * RH - 1.2, title, { fs: 2.6, b: 1, c: '#fff', a: 'middle' });
       const y1 = y + 2 * RH, per = n - 2;
       r(X_R, y1, RW, per * RH, { s: LINE, sw: 0.2 });
-      l(X_R + RW / 2, y1, X_R + RW / 2, y1 + per * RH, THIN, 0.1);
-      for (let i = 1; i < per; i++) l(X_R, y1 + i * RH, X_R + RW, y1 + i * RH, THIN, 0.12);
+      l(X_R + RW / 2, y1, X_R + RW / 2, y1 + per * RH, THIN, 0.15);
+      for (let i = 1; i < per; i++) l(X_R, y1 + i * RH, X_R + RW, y1 + i * RH, THIN, 0.15);
       items.slice(0, per * 2).forEach((s, i) => t(X_R + 0.6 + (i >= per ? RW / 2 : 0), y1 + (i % per) * RH + RH - 0.6, s, { fs: 1.45 }));
     };
 
@@ -153,7 +153,7 @@
     box(row0(yD), nD, 'NOTE');
     if (cfg.societa) t(W - 1, H - 2, String(cfg.societa).toUpperCase(), { fs: 2.6, b: 1, a: 'end', c: GREEN });
 
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet" font-family="Arial, Helvetica, sans-serif" shape-rendering="crispEdges" text-rendering="geometricPrecision">${out.join('')}</svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMin meet" font-family="Arial, Helvetica, sans-serif" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">${out.join('')}</svg>`;
   }
 
   // stile: invisibile a schermo, in stampa su un foglio A4 verticale dopo il nostro lineare
