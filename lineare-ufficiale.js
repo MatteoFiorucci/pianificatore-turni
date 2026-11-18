@@ -63,6 +63,7 @@
       t(X_POS + 1, y0 + 4, 'Postazione', { fs: 1.4, c: '#444' }); t(X_NAME + 1, y0 + 4, 'NOME', { fs: 2 }); t(X_T1 + 0.5, y0 + 4, 'ORARIO', { fs: 1.9 });
       hourBar(y0 + 2.4, title);
       const y = y0 + 5;
+      const gridAt = out.length; // le barre vanno sotto la griglia: le linee restano visibili sopra il colore
       // griglia
       r(X_POS, y, X_T2 + 6.5 - X_POS, n * RH, { s: LINE, sw: 0.2 });
       r(X_G, y, 96 * QW, n * RH, { s: LINE, sw: 0.2 });
@@ -80,7 +81,8 @@
         t(X_NAME + 0.6, ty, who, { fs: 1.6 });
         t(X_T1 + 3.25, ty, fmt(s.start), { fs: 1.55, a: 'middle' }); t(X_T2 + 3.25, ty, fmt(s.end), { fs: 1.55, a: 'middle' });
         const a = Math.max(0, (s.start - 300) / 15), b = Math.min(96, (s.end - 300) / 15);
-        r(X_G + a * QW, yy + 0.3, (b - a) * QW, RH - 0.6, { f: col });
+        // come sul foglio di carta: la barra riempie tutte le caselle, da linea a linea
+        out.splice(gridAt, 0, `<rect x="${X_G + a * QW}" y="${yy}" width="${(b - a) * QW}" height="${RH}" fill="${col}"/>`);
       });
       return y + n * RH;
     };
