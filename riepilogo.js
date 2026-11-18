@@ -104,8 +104,7 @@
       <div class="rp-bar"><div class="seg">${btn('TUTTE', 'Tutte')}${tt.map((t) => btn(t.key, t.key[0] + t.key.slice(1).toLowerCase())).join('')}</div>
         <div class="spacer" style="flex:1"></div>
         <button class="btn" onclick="Riepilogo.stampa(${ws})" title="Dalla finestra di stampa puoi anche scegliere &quot;Salva come PDF&quot;">🖨 Stampa / PDF</button>
-        <button class="btn primary" onclick="Riepilogo.excel(${ws})">⬇ Excel</button>
-        ${navigator.canShare ? `<button class="btn" onclick="Riepilogo.condividi(${ws})">📤 Condividi</button>` : ''}</div>
+        <button class="btn primary" onclick="Riepilogo.excel(${ws})">⬇ Excel</button></div>
       <div class="small muted" style="margin-bottom:8px">${scelta === 'TUTTE' ? 'In stampa ogni tabella va su un foglio A4.' : 'Si stampa e si esporta la tabella scelta.'} Per il PDF: 🖨 Stampa, poi "Salva come PDF".</div>
       <div class="rp-preview" style="overflow:auto;max-height:65vh;background:#f3f4f6;padding:10px">${vis.map((t) => htmlTabella(t, h)).join('')}</div>`);
     const m = document.querySelector('#modal .modal'); if (m) m.classList.add('rp-modal');
@@ -211,11 +210,5 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  async function condividi(ws) {
-    const f = new File([xlsx(ws)], nomeFile(ws), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    if (navigator.canShare && navigator.canShare({ files: [f] })) { try { await navigator.share({ files: [f], title: f.name }); } catch (e) { /* annullato */ } }
-    else excel(ws);
-  }
-
-  window.Riepilogo = { tabelle, apri, stampa, excel, condividi, xlsx, scegli: (k, ws) => { scelta = k; apri(ws); } };
+  window.Riepilogo = { tabelle, apri, stampa, excel, xlsx, scegli: (k, ws) => { scelta = k; apri(ws); } };
 })();
