@@ -356,6 +356,15 @@
   .grid tr.cov .name { white-space: normal; max-width: 230px; line-height: 1.25; }
   .grid .name { min-width: 160px; }
   td.cell { min-width: 88px; }
+  /* la settimana entra sempre nello schermo: colonne dei giorni uguali, divise nello spazio che c'è */
+  .layout > .gridwrap > table.grid { table-layout: fixed; }
+  .layout > .gridwrap > table.grid thead th.name { width: 170px; }
+  .layout > .gridwrap > table.grid thead th:last-child { width: 86px; }
+  .layout > .gridwrap > table.grid td.cell, .layout > .gridwrap > table.grid td.tot { min-width: 0; overflow-wrap: anywhere; }
+  .layout > .gridwrap > table.grid .name { min-width: 0; max-width: none; white-space: normal; overflow-wrap: anywhere; }
+  .layout > .gridwrap > table.grid thead th { overflow: hidden; }
+  .layout > .gridwrap > table.grid thead .evtag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+  @media (max-width: 760px) { .layout > .gridwrap > table.grid { table-layout: auto; } .layout > .gridwrap > table.grid td.cell { min-width: 76px; } }
   .help-modal ul { margin: 0; padding-left: 20px; } .help-modal li { margin: 5px 0; line-height: 1.45; } .help-modal .legend { margin-top: 12px; }
   body.side header { position: fixed; top: 0; left: 0; bottom: 0; width: 220px; height: auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; padding: 18px 12px; overflow-y: auto; }
   body.side header .brand { font-size: 17px; padding: 0 10px 6px; white-space: normal; line-height: 1.3; display: block; }
@@ -383,18 +392,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192135"></script>
-<script src="turni-core.js?v=202611192135"></script>
-<script src="turni-manager.js?v=202611192135"></script>
-<script src="turni-vlh.js?v=202611192135"></script>
+<script src="turni-storico.js?v=202611192143"></script>
+<script src="turni-core.js?v=202611192143"></script>
+<script src="turni-manager.js?v=202611192143"></script>
+<script src="turni-vlh.js?v=202611192143"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192135"></script>
-<script src="turni-cloud-config.js?v=202611192135"></script>
-<script src="turni-cloud.js?v=202611192135"></script>
-<script src="turni-cripto.js?v=202611192135"></script>
-<script src="riepilogo.js?v=202611192135"></script>
-<script src="lineare-ufficiale.js?v=202611192135"></script>
+<script src="turni-data.js?v=202611192143"></script>
+<script src="turni-cloud-config.js?v=202611192143"></script>
+<script src="turni-cloud.js?v=202611192143"></script>
+<script src="turni-cripto.js?v=202611192143"></script>
+<script src="riepilogo.js?v=202611192143"></script>
+<script src="lineare-ufficiale.js?v=202611192143"></script>
 <script>
 'use strict';
 const T = window.Turni;
