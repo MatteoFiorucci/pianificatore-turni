@@ -344,7 +344,7 @@
   details.more.left .menu { right: auto; left: 0; }
   details.more > summary::-webkit-details-marker { display: none; }
   details.more .menu { position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(16,24,40,.12); padding: 6px; min-width: 230px; z-index: 20; }
-  details.more .menu button { display: block; width: 100%; text-align: left; background: none; border: 0; font: inherit; padding: 9px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+  details.more .menu button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; font: inherit; padding: 9px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); }
   details.more .menu button:hover { background: var(--bg); }
   details.more .menu button.red { color: var(--err-ink); }
   .ptabs { margin-bottom: 14px; }
@@ -459,18 +459,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192246"></script>
-<script src="turni-core.js?v=202611192246"></script>
-<script src="turni-manager.js?v=202611192246"></script>
-<script src="turni-vlh.js?v=202611192246"></script>
+<script src="turni-storico.js?v=202611192254"></script>
+<script src="turni-core.js?v=202611192254"></script>
+<script src="turni-manager.js?v=202611192254"></script>
+<script src="turni-vlh.js?v=202611192254"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192246"></script>
-<script src="turni-cloud-config.js?v=202611192246"></script>
-<script src="turni-cloud.js?v=202611192246"></script>
-<script src="turni-cripto.js?v=202611192246"></script>
-<script src="riepilogo.js?v=202611192246"></script>
-<script src="lineare-ufficiale.js?v=202611192246"></script>
+<script src="turni-data.js?v=202611192254"></script>
+<script src="turni-cloud-config.js?v=202611192254"></script>
+<script src="turni-cloud.js?v=202611192254"></script>
+<script src="turni-cripto.js?v=202611192254"></script>
+<script src="riepilogo.js?v=202611192254"></script>
+<script src="lineare-ufficiale.js?v=202611192254"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -485,6 +485,11 @@ const ICON = {
   richieste: '<path d="M20.5 15a2 2 0 0 1-2 2H8l-4.5 4V5.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 12.5h5"/>',
   personale: '<circle cx="9" cy="8" r="3.6"/><path d="M2.5 20.5v-.5a6.5 6.5 0 0 1 13 0v.5"/><path d="M15.5 4.6a3.6 3.6 0 0 1 0 6.8M21.5 20.5v-.5a6.4 6.4 0 0 0-3.8-5.8"/>',
   regole: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
   home: '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
   genera: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/>',
   risolvi: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.5 17.3a1.8 1.8 0 0 0 2.6 2.6l5.8-5.8a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.4-.4-.4-2.4z"/>',
@@ -608,7 +613,10 @@ function renderBrand() {
 function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', (document.body.classList.contains('side') ? 0 : document.querySelector('header').offsetHeight) + 'px'); }
 window.addEventListener('resize', () => { if (document.body.classList.contains('side') !== sideOn()) render(); else setHeaderHeight(); });
 /** Menu "⋯ Altro": voci [testo, azione, rossa?]. Si chiude da solo quando scegli una voce o clicchi fuori. */
-const moreMenu = (items) => `<details class="more" ontoggle="if(this.open)this.classList.toggle('left',this.getBoundingClientRect().left<window.innerWidth/2)"><summary>${icon('altro', 16)} Altro</summary><div class="menu">${items.map(([t, js, red]) => `<button class="${red ? 'red' : ''}" onclick="this.closest('details').open=false;${js}">${t}</button>`).join('')}</div></details>`;
+const MORE_IC = [['📄', 'file'], ['ⓘ', 'info'], ['🗑', 'trash'], ['🔔', 'bell'], ['📱', 'phone']];
+const moreMenu = (items) => `<details class="more" ontoggle="if(this.open)this.classList.toggle('left',this.getBoundingClientRect().left<window.innerWidth/2)"><summary>${icon('altro', 16)} Altro</summary><div class="menu">${items.map(([t, js, red]) => {
+  const m = MORE_IC.find(([e]) => t.startsWith(e)); const txt = m ? t.slice(m[0].length).trim() : t;
+  return `<button class="${red ? 'red' : ''}" onclick="this.closest('details').open=false;${js}">${m ? icon(m[1], 17) : '<span style="width:17px"></span>'}<span>${txt}</span></button>`; }).join('')}</div></details>`;
 document.addEventListener('click', (e) => { for (const d of document.querySelectorAll('details.more[open]')) if (!d.contains(e.target)) d.open = false; });
 /** Impostazioni dello store: postazioni (nomi e colori) applicate a tutto lo schermo. */
 function applyStoreUi() {
@@ -1398,10 +1406,11 @@ function renderGiornaliero() {
   ui.dragGeo = { H0, span };
   // manager (calendario a parte): sempre in cima
   const mDay = (state.mgrShifts || []).filter((x) => x.day === day && mgrById(x.managerId)).sort((a, b) => a.start - b.start || a.end - b.end);
-  const mRow = (x) => { const m = mgrById(x.managerId); return `<div class="lrow click" onclick="openMgrDay(${m.id},${day})" title="${esc(T.fullName(m))} · ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}">
+  if (editing) mDay.forEach((x) => { if (x.id == null) x.id = newId(); });
+  const mRow = (x) => { const m = mgrById(x.managerId); return `<div class="lrow ${editing ? '' : 'click'}" ${editing ? `data-rmsid="${x.id}"` : `onclick="openMgrDay(${m.id},${day})"`} title="${esc(T.fullName(m))} · ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}">
       <div class="lpos">${MROLE[mRoleOf(x)]}</div><div class="lname">${esc(T.fullName(m))}</div>
-      <div class="ltime">${T.fmtTime(x.start)}</div><div class="ltime">${T.fmtTime(x.end)}</div>
-      <div class="ltrack" style="${grid}"><div class="lbar st-MANAGER" style="left:${pct(x.start)};width:${(((x.end - x.start) / span) * 100).toFixed(3)}%"><span class="lbl">${MROLE[mRoleOf(x)]}</span></div></div></div>`; };
+      <div class="ltime" data-t="a">${T.fmtTime(x.start)}</div><div class="ltime" data-t="b">${T.fmtTime(x.end)}</div>
+      <div class="ltrack" style="${grid}"><div class="lbar st-MANAGER${editing ? ' drag' : ''}" ${editing ? `data-msid="${x.id}" onpointerdown="mDragStart(event)"` : ''} style="left:${pct(x.start)};width:${(((x.end - x.start) / span) * 100).toFixed(3)}%"><span class="lbl">${MROLE[mRoleOf(x)]}</span>${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div></div>`; };
   const mgrSec = mDay.length ? `<div class="lsec"><h4>Manager (${mDay.length})</h4>${head}${mDay.map(mRow).join('')}</div>` : '';
   const body = mgrSec + shown.map(([title, list, st]) => `<div class="lsec" ${st ? `data-st="${st}"` : ''}><h4>${title} (${list.length})</h4>${head}${
     list.sort((a, b) => a.start - b.start || a.end - b.end).map(row).join('') || '<div class="lrow"><div></div><div class="lname muted">nessuno</div></div>'}</div>`).join('');
@@ -2811,6 +2820,85 @@ function dragEnd() {
   s.start = d.a; s.end = d.b; s.station = st;
   save(); render();
   shiftToast(s, before);
+}
+
+// ---- manager: stessa modifica trascinando (sposta, allunga/accorcia dai bordi, in verticale scambia con un altro manager) ----
+let mdrag = null;
+function mDragStart(ev) {
+  const bar = ev.currentTarget, x = (state.mgrShifts || []).find((y) => y.id === +bar.dataset.msid);
+  if (!x) return;
+  ev.preventDefault(); bar.setPointerCapture(ev.pointerId);
+  const track = bar.parentElement, row = track.parentElement;
+  const mode = ev.target.classList.contains('hl') ? 'left' : ev.target.classList.contains('hr') ? 'right' : 'move';
+  mdrag = { x, bar, row, mode, x0: ev.clientX, y0: ev.clientY, a: x.start, b: x.end, moved: false, swap: null,
+    pxPerMin: track.getBoundingClientRect().width / ui.dragGeo.span, tip: document.createElement('div') };
+  mdrag.tip.className = 'dragtip'; document.body.appendChild(mdrag.tip);
+  bar.classList.add('dragging');
+  bar.addEventListener('pointermove', mDragMove); bar.addEventListener('pointerup', mDragEnd); bar.addEventListener('pointercancel', mDragEnd);
+  mDragMove(ev);
+}
+function mDragMove(ev) {
+  if (!mdrag) return;
+  const d = mdrag, x = d.x, { open: OPEN, close: CLOSE } = T.dayHours(state.config, x.day);
+  const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) d.moved = true;
+  const vertical = d.mode === 'move' && Math.abs(dy) > 18;
+  const dm = Math.round(dx / d.pxPerMin / SNAP) * SNAP, len = x.end - x.start;
+  let a = x.start, b = x.end;
+  if (!vertical) {
+    if (d.mode === 'move') { a = Math.min(Math.max(OPEN, x.start + dm), CLOSE - len); b = a + len; }
+    if (d.mode === 'left') a = Math.min(Math.max(OPEN, x.start + dm), x.end - 60);
+    if (d.mode === 'right') b = Math.max(Math.min(CLOSE, x.end + dm), x.start + 60);
+  }
+  d.a = a; d.b = b;
+  const { H0, span } = ui.dragGeo;
+  d.bar.style.left = (((a - H0 * 60) / span) * 100).toFixed(3) + '%';
+  d.bar.style.width = (((b - a) / span) * 100).toFixed(3) + '%';
+  const ta = d.row.querySelector('[data-t="a"]'), tb = d.row.querySelector('[data-t="b"]');
+  if (ta) ta.textContent = T.fmtTime(a); if (tb) tb.textContent = T.fmtTime(b);
+  document.querySelectorAll('.lrow.swaptarget').forEach((r) => r.classList.remove('swaptarget'));
+  d.swap = null;
+  if (vertical) {
+    const el = document.elementFromPoint(ev.clientX, ev.clientY), row = el && el.closest('.lrow[data-rmsid]');
+    const o = row && (state.mgrShifts || []).find((y) => y.id === +row.dataset.rmsid);
+    if (o && o.id !== x.id && o.managerId !== x.managerId) { row.classList.add('swaptarget'); d.swap = o; }
+  }
+  const len2 = b - a, w = MGR() ? MGR().workOf(len2, state) : len2;
+  d.tip.textContent = d.swap ? `↔ scambia con ${T.fullName(mgrById(d.swap.managerId))}` : `${T.fmtTime(a)}–${T.fmtTime(b)} · ${hrsTxt(len2 / 60)}${w !== len2 ? ` (lavorate ${hrsTxt(w / 60)})` : ''}`;
+  d.tip.style.left = ev.clientX + 'px'; d.tip.style.top = ev.clientY + 'px';
+}
+function mDragEnd() {
+  if (!mdrag) return;
+  const d = mdrag; mdrag = null;
+  d.tip.remove(); d.bar.classList.remove('dragging');
+  document.querySelectorAll('.lrow.swaptarget').forEach((r) => r.classList.remove('swaptarget'));
+  const x = d.x;
+  if (!d.moved) return openMgrDay(x.managerId, x.day);
+  if (d.swap) {
+    const o = d.swap, ma = x.managerId; x.managerId = o.managerId; o.managerId = ma; save(); render();
+    return mgrToast(`↔ Scambiati: <b>${esc(T.fullName(mgrById(o.managerId)))}</b> ${T.fmtTime(o.start)}–${T.fmtTime(o.end)} · <b>${esc(T.fullName(mgrById(x.managerId)))}</b> ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`,
+      () => { const y = x.managerId; x.managerId = o.managerId; o.managerId = y; }, [x, o]);
+  }
+  if (d.a === x.start && d.b === x.end) return render();
+  const before = { start: x.start, end: x.end };
+  x.start = d.a; x.end = d.b; save(); render();
+  mgrToast(`${esc(T.fullName(mgrById(x.managerId)))}: ${T.fmtTime(before.start)}–${T.fmtTime(before.end)} → <b>${T.fmtTime(x.start)}–${T.fmtTime(x.end)}</b>`, () => Object.assign(x, before), [x]);
+}
+/** Barra in basso dopo una modifica di un manager: annulla e, se la settimana è pubblicata, aggiorna la sua app. */
+function mgrToast(txt, undo, list) {
+  const ws = T.mondayOf(list[0].day), ids = [...new Set(list.map((y) => y.managerId))];
+  const published = pubOf(ws) && TurniCloud.loggedIn() && ids.some((id) => state.reqCreds && state.reqCreds[id]);
+  ui.toastUndo = () => { undo(); save(); render(); hideToast(); };
+  ui.toastNotify = async () => {
+    const w = pubOf(ws); if (!w) return;
+    const snap = weekSnapshot(ws); ids.forEach((id) => { w.emp[id] = snap[id]; });
+    w.marks = w.marks || {}; list.forEach((y) => { w.marks[y.managerId + '|' + y.day] = new Date().toISOString(); });
+    save(); render();
+    const r = await pushOrari(ids);
+    document.getElementById('toast').innerHTML = `<div class="bar"><span>${r.ok ? '✅ Aggiornato nell\'app (scheda I miei turni).' : '⚠️ Invio non riuscito (connessione?): riprova.'}</span><button onclick="hideToast()">OK</button></div>`;
+  };
+  document.getElementById('toast').innerHTML = `<div class="bar"><span>${txt}</span><button onclick="ui.toastUndo()">↩︎ Annulla</button>${published ? `<button class="go" onclick="ui.toastNotify()">📲 Aggiorna l'app</button>` : ''}<button onclick="hideToast()" aria-label="chiudi">✕</button></div>`;
+  clearTimeout(ui.toastTimer); ui.toastTimer = setTimeout(hideToast, 20000);
 }
 /** Barra in basso dopo una modifica: annulla, e (se la settimana è pubblicata) aggiorna subito l'app del dipendente. */
 function shiftToast(s, before) {
