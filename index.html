@@ -442,12 +442,9 @@
   .hero b { font-size: 24px; letter-spacing: -.3px; color: var(--ink); }
   .hero span { color: var(--muted); font-size: 13px; }
   .vlegend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
-  .vlegend i, .dleg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .vlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
   .vlegend i.tick { height: 3px; width: 14px; background: var(--ink); border-radius: 2px; vertical-align: 3px; }
   .vlegend i.dash { height: 0; width: 14px; border-top: 2px dashed var(--muted); border-radius: 0; vertical-align: 3px; }
-  .donut { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-  .dleg { border-collapse: collapse; font-size: 13px; flex: 1; min-width: 180px; }
-  .dleg td { padding: 4px 6px; } .dleg td:nth-child(2) { font-weight: 600; text-align: right; } .dleg td:nth-child(3) { text-align: right; }
   #vtip { position: fixed; z-index: 40; background: #1d1d1f; color: #fff; font-size: 12px; padding: 6px 9px; border-radius: 8px; pointer-events: none; display: none; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
   [data-tip] { cursor: default; }
 </style>
@@ -462,18 +459,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192230"></script>
-<script src="turni-core.js?v=202611192230"></script>
-<script src="turni-manager.js?v=202611192230"></script>
-<script src="turni-vlh.js?v=202611192230"></script>
+<script src="turni-storico.js?v=202611192244"></script>
+<script src="turni-core.js?v=202611192244"></script>
+<script src="turni-manager.js?v=202611192244"></script>
+<script src="turni-vlh.js?v=202611192244"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192230"></script>
-<script src="turni-cloud-config.js?v=202611192230"></script>
-<script src="turni-cloud.js?v=202611192230"></script>
-<script src="turni-cripto.js?v=202611192230"></script>
-<script src="riepilogo.js?v=202611192230"></script>
-<script src="lineare-ufficiale.js?v=202611192230"></script>
+<script src="turni-data.js?v=202611192244"></script>
+<script src="turni-cloud-config.js?v=202611192244"></script>
+<script src="turni-cloud.js?v=202611192244"></script>
+<script src="turni-cripto.js?v=202611192244"></script>
+<script src="riepilogo.js?v=202611192244"></script>
+<script src="lineare-ufficiale.js?v=202611192244"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -678,13 +675,13 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal
 
 
 
-// ---- dashboard della Home: 4 grafici della settimana (SVG semplici, valori al passaggio del mouse) ----
+// ---- dashboard della Home: 3 grafici della settimana (SVG semplici, valori al passaggio del mouse) ----
 const VZ = { up: '#2a78d6', down: '#e34948', bar: '#2a78d6', ink: '#1d1d1f', muted: '#6b6b70', grid: '#e7e8e4', surface: '#ffffff',
   cat: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'] };
 const eur = (v) => Math.round(v).toLocaleString('it-IT') + ' €';
 const pct = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')}%`;
 const DSHORT = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-/** Dati della settimana per i grafici: vendite (vere o previste), anno scorso, ore pianificate e previste, ore per area. */
+/** Dati della settimana per i grafici: vendite (vere o previste), anno scorso, ore pianificate e previste. */
 function dashData(ws) {
   const af = state.autoForecast || {}, reali = af.reali || {}, today = T.todayDay(), fc = (state.forecasts || {})[ws];
   const days = DAYS7.map((k) => {
@@ -694,16 +691,7 @@ function dashData(ws) {
     const planned = state.shifts.filter((x) => x.day === d).reduce((t, x) => t + (x.end - x.start) / 60, 0);
     return { k, d, sales, real: real != null, ly: ly ? ly[0] : null, planned, target: f.crewHours || null };
   });
-  const area = new Map();
-  const add = (label, h) => area.set(label, (area.get(label) || 0) + h);
-  for (const x of state.shifts.filter((x) => x.day >= ws && x.day <= ws + 6)) {
-    const e = empById(x.employeeId);
-    const st = T.STATIONS[x.station] || {};
-    add(e && e.type === 'HOSPITALITY' ? 'Hospitality' : (st.label && st.label.length <= 10 ? st.label : st.short === 'SALA' ? 'Sala' : st.short || st.label || 'Altro'), (x.end - x.start) / 60);
-  }
-  const M = MGR();
-  for (const x of (state.mgrShifts || []).filter((x) => x.day >= ws && x.day <= ws + 6)) add('Manager', (M ? M.workOf(x.end - x.start, state) : x.end - x.start) / 60);
-  return { days, area: [...area.entries()].filter(([, h]) => h > 0) };
+  return { days };
 }
 /** Vendite rispetto all'anno scorso: barre +/−% giorno per giorno; i giorni non ancora passati sono previsioni (più chiari). */
 function chartSales(dd) {
@@ -747,25 +735,6 @@ function chartHours(dd) {
     <line x1="20" x2="${W - 10}" y1="${H - bot}" y2="${H - bot}" stroke="${VZ.grid}"/>${marks}</svg>
     <div class="vlegend"><span><i style="background:${VZ.bar}"></i>ore pianificate (senza manager)</span><span><i class="tick"></i>Ore totali previste</span></div>`;
 }
-/** Ore della settimana per area: ciambella con nome, ore e percentuale accanto. */
-function chartAreas(dd) {
-  const order = ['MFY', 'OA (front)', 'McCafé', 'Sala', 'Hospitality', 'Manager'];
-  const colorOf = (l) => { const i = order.indexOf(l); return VZ.cat[i >= 0 ? i : 6]; };
-  const list = dd.area.sort((a, b) => b[1] - a[1]), tot = list.reduce((t, [, h]) => t + h, 0);
-  if (!tot) return '<p class="muted small">Nessun turno in questa settimana.</p>';
-  const R = 70, r = 44, c = 80; let a0 = -Math.PI / 2;
-  const pt = (a, rad) => `${(c + rad * Math.cos(a)).toFixed(2)} ${(c + rad * Math.sin(a)).toFixed(2)}`;
-  const arcs = list.map(([l, h], i) => {
-    const a1 = a0 + h / tot * Math.PI * 2, big = a1 - a0 > Math.PI ? 1 : 0, col = colorOf(l);
-    const d = list.length === 1 ? `M${pt(0, R)}A${R} ${R} 0 1 1 ${pt(Math.PI, R)}A${R} ${R} 0 1 1 ${pt(0, R)}M${pt(0, r)}A${r} ${r} 0 1 0 ${pt(Math.PI, r)}A${r} ${r} 0 1 0 ${pt(0, r)}Z`
-      : `M${pt(a0, R)}A${R} ${R} 0 ${big} 1 ${pt(a1, R)}L${pt(a1, r)}A${r} ${r} 0 ${big} 0 ${pt(a0, r)}Z`;
-    a0 = a1;
-    return `<path d="${d}" fill="${col}" stroke="${VZ.surface}" stroke-width="2" data-tip="${esc(`${l}: ${hrsTxt(h)} (${Math.round(h / tot * 100)}%)`)}"/>`;
-  }).join('');
-  return `<div class="donut"><svg viewBox="0 0 160 160" class="viz" style="max-width:170px" role="img" aria-label="Ore per area">${arcs}
-      <text x="80" y="78" text-anchor="middle" font-size="17" font-weight="700" fill="${VZ.ink}">${Math.round(tot)}h</text><text x="80" y="95" text-anchor="middle" font-size="10" fill="${VZ.muted}">in tutto</text></svg>
-    <table class="dleg">${list.map(([l, h], i) => `<tr><td><i style="background:${colorOf(l)}"></i>${esc(l)}</td><td>${hrsTxt(h)}</td><td class="muted">${Math.round(h / tot * 100)}%</td></tr>`).join('')}</table></div>`;
-}
 /** Vendite per ora di lavoro (vendite / ore pianificate senza manager), giorno per giorno. */
 function chartProd(dd) {
   const ok = dd.days.filter((x) => x.sales && x.planned);
@@ -793,7 +762,6 @@ function dashboardHtml() {
   <div class="dashgrid">
     ${card('Vendite rispetto all\'anno scorso', 'Stesso giorno della settimana, 52 settimane fa', chartSales(dd))}
     ${card('Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours(dd))}
-    ${card('Ore per area', 'Tutti i turni della settimana, manager compresi', chartAreas(dd))}
     ${card('Vendite per ora di lavoro', 'Vendite divise per le ore pianificate (senza manager)', chartProd(dd))}
   </div>`;
 }
