@@ -63,9 +63,9 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="icone.js?v=202611192315"></script>
-<script src="turni-cloud-config.js?v=202611192315"></script>
-<script src="turni-cripto.js?v=202611192315"></script>
+<script src="icone.js?v=202611192322"></script>
+<script src="turni-cloud-config.js?v=202611192322"></script>
+<script src="turni-cripto.js?v=202611192322"></script>
 <script>
 'use strict';
 /*
@@ -188,6 +188,15 @@ async function login() {
     try { localStorage.setItem(SESS, JSON.stringify(session)); } catch (e) { /* niente */ }
     msg = ''; tab = 'turni'; render(); loadOrario(); if (mine().length) refresh();
   } catch (e) { show(e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Accesso non riuscito.'); }
+}
+/** Link incollato a mano: si prende il codice del locale (?s=…) e l'app lo ricorda. */
+function setStore() {
+  const v = (document.getElementById('ls').value || '').trim();
+  let code = '';
+  try { code = new URL(v).searchParams.get('s') || Object.fromEntries(new URLSearchParams(new URL(v).hash.slice(1))).s || ''; } catch (e) { code = /^[A-Za-z0-9]{20,40}$/.test(v) ? v : ''; }
+  if (!code) { document.getElementById('lsmsg').innerHTML = '<div class="notice err" style="margin-top:10px">Questo non sembra il link dell\'app: copialo di nuovo dal messaggio del manager.</div>'; return; }
+  try { localStorage.setItem('turni-locale', code); } catch (e) { /* niente */ }
+  location.search = '?s=' + encodeURIComponent(code);
 }
 function logout() { if (!confirm('Uscire? Per rientrare servono nome utente e password.')) return; session = null; role = ''; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } msg = ''; render(); }
 
@@ -320,7 +329,9 @@ const tabsBar = () => isMgr() ? '' : `<div class="tabs"><button class="${tab ===
 function render() {
   const app = document.getElementById('app');
   document.getElementById('hdrbtn').style.display = session ? 'flex' : 'none';
-  if (!STORE) { app.innerHTML = '<div class="card"><div class="notice err">Manca il codice del locale.</div><p>Apri il link che ti ha mandato il tuo manager.</p></div>'; return; }
+  if (!STORE) { app.innerHTML = `<div class="card"><h2>Collega l'app al tuo locale</h2><p class="muted" style="margin-top:-6px">Apri il link che ti ha mandato il tuo manager, oppure incollalo qui sotto.</p>
+    <label class="f">Link dell'app<input id="ls" autocapitalize="none" spellcheck="false" placeholder="https://…/richieste.html?s=…" onkeydown="if(event.key==='Enter')setStore()"></label>
+    <button class="primary" onclick="setStore()">Continua</button><div id="lsmsg"></div></div>`; return; }
   if (!session) { document.getElementById('hello').textContent = role === 'dipendente' ? 'Richieste per i turni al tuo manager.' : 'App dei turni del locale.'; app.innerHTML = role === 'dipendente' ? loginView() : chooseView(); return; }
   document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}!` : 'I tuoi turni e le tue richieste.';
   if (isMgr() && tab === 'richieste') tab = 'turni';
