@@ -444,18 +444,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192217"></script>
-<script src="turni-core.js?v=202611192217"></script>
-<script src="turni-manager.js?v=202611192217"></script>
-<script src="turni-vlh.js?v=202611192217"></script>
+<script src="turni-storico.js?v=202611192220"></script>
+<script src="turni-core.js?v=202611192220"></script>
+<script src="turni-manager.js?v=202611192220"></script>
+<script src="turni-vlh.js?v=202611192220"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192217"></script>
-<script src="turni-cloud-config.js?v=202611192217"></script>
-<script src="turni-cloud.js?v=202611192217"></script>
-<script src="turni-cripto.js?v=202611192217"></script>
-<script src="riepilogo.js?v=202611192217"></script>
-<script src="lineare-ufficiale.js?v=202611192217"></script>
+<script src="turni-data.js?v=202611192220"></script>
+<script src="turni-cloud-config.js?v=202611192220"></script>
+<script src="turni-cloud.js?v=202611192220"></script>
+<script src="turni-cripto.js?v=202611192220"></script>
+<script src="riepilogo.js?v=202611192220"></script>
+<script src="lineare-ufficiale.js?v=202611192220"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -3066,7 +3066,15 @@ function renderRichieste() {
       <td style="text-align:right;white-space:nowrap"><button class="link" onclick="reopenRequest(${q.id})" title="Rimetti in attesa">↺</button> <button class="link" style="color:var(--err-ink);margin-left:10px" title="Elimina" onclick="deleteRequests([${q.id}])">🗑</button></td></tr>`; };
   let body;
   if (tab === 'done') body = done.length ? `<div class="card"><table class="list"><thead><tr><th>Nome</th><th>Quando</th><th>Richiesta</th><th>Esito</th><th></th></tr></thead><tbody>${done.map(doneRow).join('')}</tbody></table></div>${nDone > done.length ? `<p class="small muted">Sono mostrate le ultime ${done.length}.</p>` : ''}` : '<p class="muted">Nessuna richiesta decisa.</p>';
-  else if (tab === 'app') body = ready ? `${ntfyBox()}<h3 style="margin:18px 0 8px">App del personale e accessi</h3>` + BODY_PLACEHOLDER : '<p class="muted">L\'app del personale si attiva con il salvataggio online.</p>';
+  else if (tab === 'app') body = ready ? `${ntfyBox()}<h3 style="margin:18px 0 8px">App del personale e accessi</h3>` + `
+  <div class="card section"><p style="margin-top:0"><b>1. Un solo link per tutti</b> (es. nel gruppo WhatsApp): da lì scaricano l'app sul telefono.</p>
+    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
+    <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
+  <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
+  <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
+    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? (c.changed ? '<span class="muted small">cambiata dal dipendente</span>' : `<code>${esc(c.pw)}</code>`) : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${c ? `${c.changed ? '' : `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> `}<button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
+  </tbody></table></div>` : '<p class="muted">L\'app del personale si attiva con il salvataggio online.</p>';
   else body = pend.map(card).join('') || '<div class="card section empty">✅ Nessuna richiesta da decidere.</div>';
   return `${bar}${setup}${body}`;
 }
