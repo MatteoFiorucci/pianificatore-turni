@@ -459,46 +459,24 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192303"></script>
-<script src="turni-core.js?v=202611192303"></script>
-<script src="turni-manager.js?v=202611192303"></script>
-<script src="turni-vlh.js?v=202611192303"></script>
+<script src="icone.js?v=202611192309"></script>
+<script src="turni-storico.js?v=202611192309"></script>
+<script src="turni-core.js?v=202611192309"></script>
+<script src="turni-manager.js?v=202611192309"></script>
+<script src="turni-vlh.js?v=202611192309"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192303"></script>
-<script src="turni-cloud-config.js?v=202611192303"></script>
-<script src="turni-cloud.js?v=202611192303"></script>
-<script src="turni-cripto.js?v=202611192303"></script>
-<script src="riepilogo.js?v=202611192303"></script>
-<script src="lineare-ufficiale.js?v=202611192303"></script>
+<script src="turni-data.js?v=202611192309"></script>
+<script src="turni-cloud-config.js?v=202611192309"></script>
+<script src="turni-cloud.js?v=202611192309"></script>
+<script src="turni-cripto.js?v=202611192309"></script>
+<script src="riepilogo.js?v=202611192309"></script>
+<script src="lineare-ufficiale.js?v=202611192309"></script>
 <script>
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
 // menu: gruppi di voci [vista, icona, nome]; "Persone" raccoglie in una pagina (con le schede) personale, formazione, aperture, doppi e ferie
-// icone del menu: disegni a linea (stesso aspetto su ogni computer e telefono)
-const ICON = {
-  turni: '<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18M8 14h3M13 14h3M8 17.5h3"/>',
-  giornaliero: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>',
-  vlh: '<rect x="5" y="4" width="14" height="17.5" rx="2.5"/><path d="M9 2.5h6v3H9zM8.5 11h7M8.5 14.5h7M8.5 18h4"/>',
-  previsioni: '<path d="M3.5 17.5l5.5-5.5 4 4 7.5-7.5"/><path d="M15 8.5h5.5V14"/>',
-  richieste: '<path d="M20.5 15a2 2 0 0 1-2 2H8l-4.5 4V5.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 12.5h5"/>',
-  personale: '<circle cx="9" cy="8" r="3.6"/><path d="M2.5 20.5v-.5a6.5 6.5 0 0 1 13 0v.5"/><path d="M15.5 4.6a3.6 3.6 0 0 1 0 6.8M21.5 20.5v-.5a6.4 6.4 0 0 0-3.8-5.8"/>',
-  regole: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
-  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
-  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/>',
-  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12.5A1.5 1.5 0 0 0 8.5 21h7a1.5 1.5 0 0 0 1.5-1.5L18 7M9 7V4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V7"/>',
-  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
-  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',
-  home: '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
-  genera: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/>',
-  risolvi: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.5 17.3a1.8 1.8 0 0 0 2.6 2.6l5.8-5.8a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.4-.4-.4-2.4z"/>',
-  altro: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
-  avviso: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.1"/>',
-  ok: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16 10"/>',
-  store: '<path d="M3.5 9.5 5.5 4h13l2 5.5"/><path d="M4.5 9.5V20h15V9.5"/><path d="M3.5 9.5h17"/><path d="M10 20v-5.5h4V20"/>',
-};
-const icon = (k, size = 19) => `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ''}</svg>`;
 const NAV = [[null, [['home', 'Home'], ['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['richieste', 'Richieste']]],
   ['Gestione', [['personale', 'Persone'], ['regole', 'Regole'], ['store', 'Store']]]];
 // intestazione di ogni pagina: titolo e una riga di spiegazione
@@ -3168,7 +3146,7 @@ async function makeAccess(id, quiet) {
   } catch (err) { if (!quiet) alert('Non riuscito: ' + err.message); return false; }
 }
 async function makeAllAccess() {
-  const todo = state.employees.filter((e) => e.active && !state.reqCreds[e.id]);
+  const todo = [...(state.managers || []).filter((m) => m.active !== false), ...state.employees.filter((e) => e.active)].filter((e) => !state.reqCreds[e.id]);
   let ok = 0; for (const e of todo) if (await makeAccess(e.id, true)) ok++;
   render();
   if (ok < todo.length) alert(`Creati ${ok} accessi su ${todo.length}: riprova per gli altri (connessione?).`);
@@ -3253,7 +3231,7 @@ function renderRichieste() {
         : `<div style="margin-top:8px;display:flex;gap:16px"><button class="link" onclick="reopenRequest(${q.id})">Rimetti in attesa</button><button class="link" style="color:var(--err-ink)" onclick="deleteRequests([${q.id}])">🗑 Elimina</button></div>`}
     </div>`;
   };
-  const people = sortByName(state.employees.filter((e) => e.active));
+  const people = [...sortByName((state.managers || []).filter((m) => m.active !== false)), ...sortByName(state.employees.filter((e) => e.active))];
   const tab = ui.reqTab || 'pend', nDone = reqs.length - pend.length;
   const tabs = `<div class="seg ptabs">${[['pend', `Da decidere${pend.length ? ` (${pend.length})` : ''}`], ['done', `Già decise${nDone ? ` (${nDone})` : ''}`], ['app', 'App e accessi']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" onclick="ui.reqTab='${k}';render()">${l}</button>`).join('')}</div>`;
   const ready = logged && state.reqKeys;
@@ -3277,7 +3255,7 @@ function renderRichieste() {
     <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
   <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
   <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
-    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? (c.changed ? '<span class="muted small">cambiata dal dipendente</span>' : `<code>${esc(c.pw)}</code>`) : ''}</td>
+    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b>${mgrById(e.id) ? ' <span class="autotag">manager</span>' : ''}</td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? (c.changed ? '<span class="muted small">cambiata dal dipendente</span>' : `<code>${esc(c.pw)}</code>`) : ''}</td>
       <td style="text-align:right;white-space:nowrap">${c ? `${c.changed ? '' : `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> `}<button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
   </tbody></table></div>` : '<p class="muted">L\'app del personale si attiva con il salvataggio online.</p>';
   else body = pend.map(card).join('') || '<div class="card section empty">✅ Nessuna richiesta da decidere.</div>';
