@@ -346,6 +346,15 @@
   details.more .menu button:hover { background: var(--bg); }
   details.more .menu button.red { color: var(--err-ink); }
   .ptabs { margin-bottom: 14px; }
+  .covtab th { white-space: normal; font-size: 11px; vertical-align: bottom; }
+  .covtab th, .covtab td { padding-left: 6px; padding-right: 6px; }
+  .covtab td:first-child input { width: 100%; min-width: 140px; }
+  .covtab td:nth-child(n+6):nth-child(-n+7) { width: 64px; }
+  .covtab select { max-width: 150px; }
+  .card:has(> table.list.covtab) { overflow-x: auto !important; }
+  .form .inl { display: flex; align-items: center; gap: 6px; }
+  .form div.f { display: grid; gap: 4px; }
+  .form div.f .lbl { font-size: 12px; font-weight: 600; color: var(--muted); }
   /* settimana a tutta larghezza: i controlli si aprono dal contatore errori, in un pannello a destra */
   .layout.nochecks, .layout.drawer { grid-template-columns: minmax(0, 1fr); }
   .layout.nochecks > aside.problems { display: none; }
@@ -392,18 +401,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192143"></script>
-<script src="turni-core.js?v=202611192143"></script>
-<script src="turni-manager.js?v=202611192143"></script>
-<script src="turni-vlh.js?v=202611192143"></script>
+<script src="turni-storico.js?v=202611192154"></script>
+<script src="turni-core.js?v=202611192154"></script>
+<script src="turni-manager.js?v=202611192154"></script>
+<script src="turni-vlh.js?v=202611192154"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192143"></script>
-<script src="turni-cloud-config.js?v=202611192143"></script>
-<script src="turni-cloud.js?v=202611192143"></script>
-<script src="turni-cripto.js?v=202611192143"></script>
-<script src="riepilogo.js?v=202611192143"></script>
-<script src="lineare-ufficiale.js?v=202611192143"></script>
+<script src="turni-data.js?v=202611192154"></script>
+<script src="turni-cloud-config.js?v=202611192154"></script>
+<script src="turni-cloud.js?v=202611192154"></script>
+<script src="turni-cripto.js?v=202611192154"></script>
+<script src="riepilogo.js?v=202611192154"></script>
+<script src="lineare-ufficiale.js?v=202611192154"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -2100,18 +2109,18 @@ function renderRegole() {
     </div>
   </div>
   <h2>Fasce di copertura ${ib('fasce')}</h2>
-  <div class="card"><table class="list"><thead><tr><th>Nome ${ib('col-nome')}</th><th>Dalle</th><th>Alle</th><th>Minimo crew per giorno (Lun → Dom) ${ib('col-min')}</th><th>Postazione ${ib('col-post')}</th><th>Solo formati apertura ${ib('col-ap')}</th><th>Solo formati chiusura ${ib('col-ch')}</th><th>Squadra esatta ${ib('col-esatta')}</th><th></th></tr></thead><tbody>
+  <div class="card"><table class="list covtab"><thead><tr><th>Nome ${ib('col-nome')}</th><th>Dalle</th><th>Alle</th><th>Minimo crew per giorno (Lun → Dom) ${ib('col-min')}</th><th>Postazione ${ib('col-post')}</th><th>Solo formati apertura ${ib('col-ap')}</th><th>Solo formati chiusura ${ib('col-ch')}</th><th>Squadra esatta ${ib('col-esatta')}</th><th></th></tr></thead><tbody>
     ${state.coverage.map((r, i) => `<tr>
       <td><input type="text" value="${esc(r.name)}" onchange="state.coverage[${i}].name=this.value;save()"></td>
       <td>${timeSelect(r.start, `state.coverage[${i}].start=+this.value;save()`)}</td>
       <td>${timeSelect(r.end, `state.coverage[${i}].end=+this.value;save()`)}</td>
-      <td style="white-space:nowrap">${[0, 1, 2, 3, 4, 5, 6].map((k) => `<input type="number" min="0" title="${T.DOW_SHORT[k + 1]}" value="${r.min ? r.min[k] : r.minStaff}" style="width:46px;padding:5px" onchange="setCovMin(${i},${k},this.value)">`).join('')}</td>
+      <td style="white-space:nowrap">${[0, 1, 2, 3, 4, 5, 6].map((k) => `<input type="number" min="0" title="${T.DOW_SHORT[k + 1]}" value="${r.min ? r.min[k] : r.minStaff}" style="width:31px;padding:5px 1px;text-align:center" onchange="setCovMin(${i},${k},this.value)">`).join('')}</td>
       <td><select onchange="state.coverage[${i}].station=this.value||null;if(!this.value)state.coverage[${i}].opening=false;save();render()"><option value="">Qualsiasi crew</option>${[...T.CREW_STATIONS, 'HOSPITALITY'].map((st) => `<option value="${st}" ${r.station === st ? 'selected' : ''}>${T.STATIONS[st].label}</option>`).join('')}</select></td>
       <td style="text-align:center"><input type="checkbox" ${r.opening ? 'checked' : ''} ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].opening=this.checked;save()"></td>
       <td style="text-align:center"><input type="checkbox" ${r.closing ? 'checked' : ''} ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].closing=this.checked;save()"></td>
       <td style="text-align:center"><select ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].exact=this.value==='start'?'start':this.value==='end';save()">
         <option value="" ${!r.exact ? 'selected' : ''}>no</option><option value="start" ${r.exact === 'start' ? 'selected' : ''}>all'inizio</option><option value="end" ${r.exact === true ? 'selected' : ''}>alla fine</option></select></td>
-      <td style="text-align:right"><button class="link" style="color:var(--err-ink)" onclick="state.coverage.splice(${i},1);save();render()">Elimina</button></td></tr>`).join('')}
+      <td style="text-align:right"><button class="link" style="color:var(--err-ink)" title="Elimina questa fascia" onclick="if(confirm('Eliminare la fascia «' + state.coverage[${i}].name + '»?')){state.coverage.splice(${i},1);save();render()}">🗑</button></td></tr>`).join('')}
   </tbody></table>
   <div style="padding:12px"><button class="btn" onclick="state.coverage.push({id:'c'+newId(),name:'Nuova fascia',start:720,end:840,min:[1,1,1,1,1,1,1],station:null});save();render()">+ Aggiungi fascia</button></div></div>
   <h2 style="margin-top:20px">Dati</h2>
@@ -2228,8 +2237,8 @@ function renderStore() {
   <h3>👔 Regole dei manager</h3>
   <div class="card section"><div class="form">
     <div class="row">
-      <label class="f">Turni corti: da <input type="text" value="${hrs(g.short[0])}" style="width:60px" onchange="setMgrPair('short',0,this.value)"></label><label class="f">a <input type="text" value="${hrs(g.short[1])}" style="width:60px" onchange="setMgrPair('short',1,this.value)"> ore</label>
-      <label class="f">Turni lunghi: da <input type="text" value="${hrs(g.long[0])}" style="width:60px" onchange="setMgrPair('long',0,this.value)"></label><label class="f">a <input type="text" value="${hrs(g.long[1])}" style="width:60px" onchange="setMgrPair('long',1,this.value)"> ore</label>
+      <div class="f"><span class="lbl">Turni corti (ore)</span><span class="inl">da <input type="text" value="${hrs(g.short[0])}" style="width:60px" onchange="setMgrPair('short',0,this.value)"> a <input type="text" value="${hrs(g.short[1])}" style="width:60px" onchange="setMgrPair('short',1,this.value)"></span></div>
+      <div class="f"><span class="lbl">Turni lunghi (ore)</span><span class="inl">da <input type="text" value="${hrs(g.long[0])}" style="width:60px" onchange="setMgrPair('long',0,this.value)"> a <input type="text" value="${hrs(g.long[1])}" style="width:60px" onchange="setMgrPair('long',1,this.value)"></span></div>
     </div>
     <div class="row">
       <label class="f">Pausa nei turni da (ore in su)<input type="text" value="${hrs(g.breakFrom)}" style="width:70px" onchange="const v=T.parseHours(this.value);if(v)setMgrRule('breakFrom',v)"></label>
