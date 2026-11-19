@@ -325,6 +325,42 @@
     .list tr.group td:first-child { background: var(--green-soft); } .list tr.sel td:first-child { background: var(--err); }
   }
   @media print { .list thead th { position: static; } }
+
+  /* ---- menu laterale (computer) e ritocchi grafici ---- */
+  .card { box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  button.btn, label.btn { border-radius: 10px; padding: 8px 14px; transition: border-color .15s, background .15s; }
+  button.btn:hover { background: #fafafa; }
+  button.primary:hover { background: #17482a; }
+  h2 { font-size: 22px; letter-spacing: -.2px; }
+  nav .ic { display: none; }
+  nav .grp { display: none; }
+  .hint { font-size: 13px; color: var(--muted); margin: -2px 0 12px; }
+  .hint b { color: var(--ink); }
+  details.more { position: relative; display: inline-block; }
+  details.more > summary { list-style: none; display: inline-block; font-weight: 600; border-radius: 10px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: #fff; user-select: none; }
+  details.more > summary:hover { border-color: #b9b9c0; }
+  details.more.left .menu { right: auto; left: 0; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more .menu { position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(16,24,40,.12); padding: 6px; min-width: 230px; z-index: 20; }
+  details.more .menu button { display: block; width: 100%; text-align: left; background: none; border: 0; font: inherit; padding: 9px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+  details.more .menu button:hover { background: var(--bg); }
+  details.more .menu button.red { color: var(--err-ink); }
+  .ptabs { margin-bottom: 14px; }
+  .help-modal ul { margin: 0; padding-left: 20px; } .help-modal li { margin: 5px 0; line-height: 1.45; } .help-modal .legend { margin-top: 12px; }
+  body.side header { position: fixed; top: 0; left: 0; bottom: 0; width: 220px; height: auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; padding: 18px 12px; overflow-y: auto; }
+  body.side header .brand { font-size: 17px; padding: 0 10px 6px; white-space: normal; line-height: 1.3; display: block; }
+  header .brand small { font-size: inherit; font-weight: inherit; }
+  body.side header .brand .sep { display: none; }
+  body.side header .brand small { display: block; font-size: 12px; font-weight: 600; color: #a9cdb5; letter-spacing: 0; }
+  body.side nav { flex-direction: column; overflow: visible; gap: 2px; width: auto; max-width: none; }
+  body.side nav .grp { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #9cc3a9; padding: 16px 12px 4px; font-weight: 700; }
+  body.side nav button { text-align: left; padding: 9px 12px; display: flex; align-items: center; gap: 10px; width: 100%; }
+  body.side nav .ic { display: inline-block; width: 20px; text-align: center; }
+  body.side nav button .badge { margin-left: auto; }
+  body.side .sync { margin: auto 0 0; flex-direction: column; }
+  body.side .sync button { width: 100%; text-align: left; padding: 8px 12px; }
+  body.side main { margin-left: 220px; padding: 22px 28px 40px; }
+  @media print { body.side main { margin-left: 0; padding: 0; } }
 </style>
 </head>
 <body>
@@ -337,23 +373,31 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611191928"></script>
-<script src="turni-core.js?v=202611191928"></script>
-<script src="turni-manager.js?v=202611191928"></script>
-<script src="turni-vlh.js?v=202611191928"></script>
+<script src="turni-storico.js?v=202611192126"></script>
+<script src="turni-core.js?v=202611192126"></script>
+<script src="turni-manager.js?v=202611192126"></script>
+<script src="turni-vlh.js?v=202611192126"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611191928"></script>
-<script src="turni-cloud-config.js?v=202611191928"></script>
-<script src="turni-cloud.js?v=202611191928"></script>
-<script src="turni-cripto.js?v=202611191928"></script>
-<script src="riepilogo.js?v=202611191928"></script>
-<script src="lineare-ufficiale.js?v=202611191928"></script>
+<script src="turni-data.js?v=202611192126"></script>
+<script src="turni-cloud-config.js?v=202611192126"></script>
+<script src="turni-cloud.js?v=202611192126"></script>
+<script src="turni-cripto.js?v=202611192126"></script>
+<script src="riepilogo.js?v=202611192126"></script>
+<script src="lineare-ufficiale.js?v=202611192126"></script>
 <script>
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
-const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['richieste', 'Richieste'], ['regole', 'Regole'], ['store', 'Store']];
+// menu: gruppi di voci [vista, icona, nome]; "Persone" raccoglie in una pagina (con le schede) personale, formazione, aperture, doppi e ferie
+const NAV = [[null, [['turni', '📅', 'Turni'], ['giornaliero', '🕒', 'Giornaliero'], ['vlh', '📋', 'VLH'], ['previsioni', '📈', 'Previsioni'], ['richieste', '📩', 'Richieste']]],
+  ['Gestione', [['personale', '👥', 'Persone'], ['regole', '⚖️', 'Regole'], ['store', '🏪', 'Store']]]];
+const PEOPLE = [['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie']];
+const isPeople = (v) => PEOPLE.some(([k]) => k === v);
+/** Tutte le sezioni: [vista, nome]. */
+const VIEWS = [...NAV.flatMap(([, items]) => items.map(([k, , l]) => [k, l])).filter(([k]) => k !== 'personale'), ...PEOPLE];
+/** Menu laterale sul computer (finestra larga); su telefono, tablet e finestre strette resta la barra in alto. */
+const sideOn = () => !compactOn() && window.innerWidth > 900;
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
 
 // ---------- stato (salvato nel browser) ----------
@@ -415,6 +459,9 @@ const INFO = {
   'cfg-requestMargin': [`Richieste: fine turno prima di un impegno`, `Quando un dipendente chiede "ho un impegno alle…", il turno deve finire almeno queste ore prima, oppure iniziare dopo l'impegno (vedi "inizio turno dopo un impegno"). Quando accetti la richiesta puoi comunque cambiare gli orari.`],
   'cfg-aft': [`Post-rush pomeriggio`, `Fascia del pomeriggio tra i due rush. Qui il generatore non mette turni "rigidi" tutti dentro questa fascia né turni "ibridi" a cavallo: preferisce turni sfalsati che si agganciano ai rush (uno che finisce quando l'altro inizia).`],
   'cfg-pre': [`Chi fa la cena entra dalle`, `Ora più presto in cui entra chi lavora per la cena. Così i turni di cena non partono nel mezzo del pomeriggio.`],
+  'store': [`Store`, `Qui si adatta l'app a questo locale: orari, postazioni e regole. Ogni locale ha le sue impostazioni (salvate e cifrate con i suoi dati): un locale nuovo le imposta qui, senza cambiare il programma.<br><br>Le <b>squadre di apertura e chiusura</b> (quante persone per postazione) si impostano in Regole → Fasce di copertura; <b>chi può aprire o chiudere</b> in Persone → Aperture e chiusure; durate e stacchi dei crew in Regole.`],
+  'aperture-note': [`Chi apre e chi chiude`, `Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la possono chiudere sia crew sia hospitality.<br><br>Chi è 🎓 in formazione non apre e non chiude mai da solo. In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.`],
+  'vlh-help': [`Come leggere la VLH`, `Postazioni da aprire ora per ora secondo le tabelle VLH. I GC si possono correggere a mano (sfondo giallo). Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate.<br><br>I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé.<br><br>Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu. In stampa puoi correggerli a penna.`],
   'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale, giorno per giorno (anche 24 ore): sezione Store. Il generatore non mette turni fuori da quest'orario.`],
   'col-nome': [`Fascia di copertura`, `Ogni riga è una fascia oraria (es. il rush del pranzo) con il numero minimo di persone che devono essere presenti per tutta la sua durata. Puoi cambiarne nome e orari, aggiungerne o eliminarne.`],
   'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Ore totali (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality.`],
@@ -435,12 +482,15 @@ if (COMPACT) { ui.view = 'giornaliero'; try { ui.showAll = localStorage.getItem(
 function setShowAll(v) { ui.showAll = v; try { localStorage.setItem('turni-tutto', v ? '1' : '0'); } catch (e) { /* niente */ } if (!v && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero'; render(); window.scrollTo(0, 0); }
 function renderBrand() {
   const n = (state.config && state.config.storeName) || '';
-  document.getElementById('brand').textContent = n ? `🗓 Orari · ${n}` : '🗓 Orari';
+  document.getElementById('brand').innerHTML = n ? `🗓 Orari <span class="sep">·</span> <small>${esc(n)}</small>` : '🗓 Orari';
   document.title = n ? `Orari · ${n}` : 'Pianificatore turni';
 }
 // altezza reale della barra verde (su telefono è più alta): i titoli delle tabelle si fermano subito sotto
-function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', document.querySelector('header').offsetHeight + 'px'); }
-window.addEventListener('resize', setHeaderHeight);
+function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', (document.body.classList.contains('side') ? 0 : document.querySelector('header').offsetHeight) + 'px'); }
+window.addEventListener('resize', () => { if (document.body.classList.contains('side') !== sideOn()) render(); else setHeaderHeight(); });
+/** Menu "⋯ Altro": voci [testo, azione, rossa?]. Si chiude da solo quando scegli una voce o clicchi fuori. */
+const moreMenu = (items) => `<details class="more" ontoggle="if(this.open)this.classList.toggle('left',this.getBoundingClientRect().left<window.innerWidth/2)"><summary>⋯ Altro</summary><div class="menu">${items.map(([t, js, red]) => `<button class="${red ? 'red' : ''}" onclick="this.closest('details').open=false;${js}">${t}</button>`).join('')}</div></details>`;
+document.addEventListener('click', (e) => { for (const d of document.querySelectorAll('details.more[open]')) if (!d.contains(e.target)) d.open = false; });
 /** Impostazioni dello store: postazioni (nomi e colori) applicate a tutto lo schermo. */
 function applyStoreUi() {
   T.applyStore(state.config);
@@ -473,11 +523,17 @@ function render() {
   renderBrand(); renderSync();
   const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
   if (compactOn() && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero';
-  document.getElementById('nav').innerHTML = VIEWS.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k)).map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
+  document.body.classList.toggle('side', sideOn());
+  document.getElementById('nav').innerHTML = NAV.map(([g, items]) => {
+    const list = items.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k));
+    if (!list.length) return '';
+    return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, ic, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${ic}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
+  }).join('');
   const views = { turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
   document.getElementById('app').innerHTML =
     (TurniCloud.PROVA ? '<div class="notice warn" style="margin-bottom:12px">🧪 <b>Versione di prova</b> (sul computer): vedi i tuoi dati veri, ma le modifiche <b>non vengono salvate online</b> e i dipendenti non vedono niente.</div>' : '') +
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
+    (isPeople(ui.view) ? `<div class="seg ptabs">${PEOPLE.map(([k, l]) => `<button class="${ui.view === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('')}</div>` : '') +
     views[ui.view]() +
     (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
   setHeaderHeight();
@@ -545,46 +601,12 @@ function renderTurni() {
     <div class="spacer"></div>
     <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
     ${publishChip()}
-    <button class="btn" onclick="askClearWeek()">Svuota settimana</button>
     <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">🛠 Risolvi problemi</button>
-    <button class="btn" onclick="Riepilogo.apri(ui.ws)" title="Tabelle della settimana (manager, hospitality, crew, doppi): stampa, PDF ed Excel">📄 Riepilogo</button>
     <button class="btn primary" onclick="askGenerate()">⚙ Genera turni</button>
+    ${moreMenu([['📄 Riepilogo (stampa, PDF, Excel)', 'Riepilogo.apri(ui.ws)'], ['ⓘ Come funziona', 'showTurniHelp()'], ['🗑 Svuota settimana', 'askClearWeek()', true]])}
   </div>
   ${ctx.forecast ? (() => { const fd = (k) => T.forecastDay((state.forecasts || {})[ui.ws], k) || {};
-    return `<div class="notice info" style="margin-bottom:10px">📈 <b>Ore totali</b> <span class="small muted">(senza manager)</span>: ${DAYS7.map((k) => `${T.DOW_SHORT[k + 1]} ${fd(k).crewHours ? `<b>${fd(k).crewHours}h</b>` : '—'}`).join(' · ')} <button class="link" onclick="go('previsioni')">Previsioni</button></div>`; })() : ''}
-  <details class="help card">
-    <summary>Come funziona (clicca per aprire)</summary>
-    <ul>
-      <li><b>Clicca una casella</b> per inserire o modificare il turno di quel giorno; puoi aggiungere un secondo turno (doppio).</li>
-      <li>Ogni modifica viene controllata subito: le caselle diventano <b style="color:var(--err-ink)">rosse</b> (errore) o <b style="color:var(--warn-ink)">gialle</b> (avviso). Passa il mouse su una casella per leggere il motivo; l'elenco completo è a destra.</li>
-      <li>Regole attuali: ore settimanali da contratto esatte (oltre = straordinario) · massimo ${T.fmtDur(cfg.crewMax)} al giorno per i crew e ${T.fmtDur(cfg.hospMax)} per le hospitality, doppi inclusi · turno minimo ${T.fmtDur(cfg.minShift)} · stacco ${T.fmtDur(cfg.rest11)} tra giorni consecutivi · ${T.fmtDur(cfg.rest36)} se in mezzo c'è un riposo · niente turni nei riposi fissi e nelle ferie.</li>
-      <li>Le hospitality hanno le loro fasce (impostate in Regole): le vedi in cima alla scheda Hospitality.</li>
-      <li><b>Squadra di chiusura</b>: alla chiusura restano esattamente le persone indicate nelle fasce di chiusura in Regole. Nessun altro, tranne chi è in formazione e affiancato.</li>
-      <li><b>Aree</b>: le postazioni del locale, impostate nella sezione Store (più Hospitality).</li>
-      <li>In settimana il turno normale dei crew ha una durata massima più corta; i <b>turni lunghi</b> li fanno tutti <b>a rotazione</b>, al massimo il numero impostato a testa a settimana, prima chi ne ha fatti meno nelle ultime settimane. Nel fine settimana sono tutti a disposizione e i turni possono essere più lunghi. Le durate si impostano in Regole.</li>
-      <li><b>Pomeriggio post-rush</b>: niente turni lunghi tutti lì dentro né turni ibridi a cavallo; si copre con turni sfalsati, uno che arriva dal pranzo e uno che entra per la cena. I turni più lunghi servono solo a coprire un rush più preparazione o recupero. Gli orari si impostano in Regole.</li>
-      <li>Orari del locale: sezione Store. Le righe in alto (solo Crew) mostrano la copertura di ogni fascia: quanti crew ci sono nel momento più scoperto, rispetto al minimo richiesto (rush pranzo e cena compresi). Le fasce si cambiano in Regole.</li>
-      <li>Chi ha un <b>orario fisso</b> nei suoi giorni viene messo sempre e solo in quell'orario.</li>
-      <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
-      <li><b>Spostare un riposo solo per una settimana</b>: clicca la casella del giorno in cui la persona deve riposare e premi <b>↔ Metti il riposo in questo giorno</b>. Le settimane dopo resta il riposo fisso; nella casella compare <b>RIPOSO ↔</b>.</li>
-      <li><b>Pranzo e cena bilanciati</b>, per i crew e per le hospitality: il generatore aggiunge le persone a turno nella fascia più scoperta, così se le persone non bastano mancano un po' in tutte e due, non tutte nello stesso servizio. Anche le ore in più e i doppi delle hospitality vanno dove ce ne sono meno.</li>
-      <li><b>Cambi turno proposti</b> (Richieste): solo tra persone dello stesso ruolo e formate nella postazione del turno che prendono; per aperture e chiusure solo chi è formato per aprire o chiudere.</li>
-      <li><b>Aperture e chiusure sempre coperte</b>: se alla fine mancano ancora, il generatore le copre comunque, anche con ore in più per qualcuno o spostando il suo turno di quel giorno. Restano scoperte solo se nessun formato è disponibile (riposo, ferie, richiesta o stacco di 11 ore): lo trovi scritto nel riepilogo della generazione.</li>
-      <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto. Nella colonna Ore sono indicati a parte.</li>
-      <li>I minimi delle fasce possono cambiare in base al giorno: li trovi e li cambi in Regole.</li>
-      <li>Aperture e chiusure le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality). Le <b>aperture vanno a rotazione</b>: sulle ultime 4 settimane apre prima chi ha aperto meno, e nella stessa settimana nessuno ne fa molte più degli altri, sempre se le altre regole lo permettono.</li>
-      <li><b>Squadra di apertura</b>: all'apertura ci sono esattamente le persone indicate nelle fasce di apertura in Regole, nessun altro. Chi arriva dopo va bene.</li>
-      <li><b>Data di inizio</b> (Personale): prima di quel giorno la persona non ha turni e le sue ore della settimana si riducono in proporzione.</li>
-      <li>🎓 = <b>in formazione</b> o <b>in affiancamento</b> (sezione Formazione): in apertura e chiusura ha sempre accanto un formato nella stessa postazione.</li>
-      <li><b>Genera turni</b> crea una bozza che rispetta le regole: prima aperture e chiusure (chi è segnato in Aperture e chiusure), poi rush e picchi, poi completa le ore di ognuno con orari vari, come negli orari passati del locale.</li>
-      <li>I dati restano salvati in questo browser. Per portarli su un altro dispositivo o farne un backup usa <b>Esporta dati</b> / <b>Importa dati</b> in Regole.</li>
-    </ul>
-    <div class="legend">
-      <span><i class="sw" style="background:var(--err)"></i>errore</span><span><i class="sw" style="background:var(--warn)"></i>avviso / ore mancanti</span>
-      <span><i class="sw" style="background:var(--ok)"></i>ore esatte</span><span><i class="sw" style="box-shadow:inset 3px 0 0 var(--yellow)"></i>turno doppio</span>
-      <span class="rest">RIPOSO</span> = riposo fisso
-    </div>
-  </details>
+    return `<div class="hint">📈 <b>Ore totali</b> (senza manager): ${DAYS7.map((k) => `${T.DOW_SHORT[k + 1]} ${fd(k).crewHours ? `<b>${fd(k).crewHours}h</b>` : '—'}`).join(' · ')} <button class="link" onclick="go('previsioni')">Previsioni</button></div>`; })() : ''}
   <div class="layout">
     ${later.length ? `<div class="small muted" style="grid-column:1/-1;margin-bottom:-8px">Non mostrati perché entrano più avanti: ${later.map((e) => `${esc(T.fullName(e))} (dal ${T.itDate(e.startDate)})`).join(', ')}</div>` : ''}
     <div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${covBlock}${rows || `<tr><td class="name" colspan="9">Nessun dipendente: aggiungili nella sezione Personale, oppure importa un file di dati (Regole → Dati).</td></tr>`}</tbody></table></div>
@@ -847,6 +869,41 @@ function applySolution() {
   ui.solution = null; save(); closeModal(); render();
 }
 
+/** "Come funziona" della pagina Turni (dal menu ⋯ Altro). */
+function showTurniHelp() {
+  const cfg = state.config;
+  showModal(`<h3>ⓘ Come funziona la pagina Turni</h3><div class="help-modal">${`<ul>
+      <li><b>Clicca una casella</b> per inserire o modificare il turno di quel giorno; puoi aggiungere un secondo turno (doppio).</li>
+      <li>Ogni modifica viene controllata subito: le caselle diventano <b style="color:var(--err-ink)">rosse</b> (errore) o <b style="color:var(--warn-ink)">gialle</b> (avviso). Passa il mouse su una casella per leggere il motivo; l'elenco completo è a destra.</li>
+      <li>Regole attuali: ore settimanali da contratto esatte (oltre = straordinario) · massimo ${T.fmtDur(cfg.crewMax)} al giorno per i crew e ${T.fmtDur(cfg.hospMax)} per le hospitality, doppi inclusi · turno minimo ${T.fmtDur(cfg.minShift)} · stacco ${T.fmtDur(cfg.rest11)} tra giorni consecutivi · ${T.fmtDur(cfg.rest36)} se in mezzo c'è un riposo · niente turni nei riposi fissi e nelle ferie.</li>
+      <li>Le hospitality hanno le loro fasce (impostate in Regole): le vedi in cima alla scheda Hospitality.</li>
+      <li><b>Squadra di chiusura</b>: alla chiusura restano esattamente le persone indicate nelle fasce di chiusura in Regole. Nessun altro, tranne chi è in formazione e affiancato.</li>
+      <li><b>Aree</b>: le postazioni del locale, impostate nella sezione Store (più Hospitality).</li>
+      <li>In settimana il turno normale dei crew ha una durata massima più corta; i <b>turni lunghi</b> li fanno tutti <b>a rotazione</b>, al massimo il numero impostato a testa a settimana, prima chi ne ha fatti meno nelle ultime settimane. Nel fine settimana sono tutti a disposizione e i turni possono essere più lunghi. Le durate si impostano in Regole.</li>
+      <li><b>Pomeriggio post-rush</b>: niente turni lunghi tutti lì dentro né turni ibridi a cavallo; si copre con turni sfalsati, uno che arriva dal pranzo e uno che entra per la cena. I turni più lunghi servono solo a coprire un rush più preparazione o recupero. Gli orari si impostano in Regole.</li>
+      <li>Orari del locale: sezione Store. Le righe in alto (solo Crew) mostrano la copertura di ogni fascia: quanti crew ci sono nel momento più scoperto, rispetto al minimo richiesto (rush pranzo e cena compresi). Le fasce si cambiano in Regole.</li>
+      <li>Chi ha un <b>orario fisso</b> nei suoi giorni viene messo sempre e solo in quell'orario.</li>
+      <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
+      <li><b>Spostare un riposo solo per una settimana</b>: clicca la casella del giorno in cui la persona deve riposare e premi <b>↔ Metti il riposo in questo giorno</b>. Le settimane dopo resta il riposo fisso; nella casella compare <b>RIPOSO ↔</b>.</li>
+      <li><b>Pranzo e cena bilanciati</b>, per i crew e per le hospitality: il generatore aggiunge le persone a turno nella fascia più scoperta, così se le persone non bastano mancano un po' in tutte e due, non tutte nello stesso servizio. Anche le ore in più e i doppi delle hospitality vanno dove ce ne sono meno.</li>
+      <li><b>Cambi turno proposti</b> (Richieste): solo tra persone dello stesso ruolo e formate nella postazione del turno che prendono; per aperture e chiusure solo chi è formato per aprire o chiudere.</li>
+      <li><b>Aperture e chiusure sempre coperte</b>: se alla fine mancano ancora, il generatore le copre comunque, anche con ore in più per qualcuno o spostando il suo turno di quel giorno. Restano scoperte solo se nessun formato è disponibile (riposo, ferie, richiesta o stacco di 11 ore): lo trovi scritto nel riepilogo della generazione.</li>
+      <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto. Nella colonna Ore sono indicati a parte.</li>
+      <li>I minimi delle fasce possono cambiare in base al giorno: li trovi e li cambi in Regole.</li>
+      <li>Aperture e chiusure le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality). Le <b>aperture vanno a rotazione</b>: sulle ultime 4 settimane apre prima chi ha aperto meno, e nella stessa settimana nessuno ne fa molte più degli altri, sempre se le altre regole lo permettono.</li>
+      <li><b>Squadra di apertura</b>: all'apertura ci sono esattamente le persone indicate nelle fasce di apertura in Regole, nessun altro. Chi arriva dopo va bene.</li>
+      <li><b>Data di inizio</b> (Personale): prima di quel giorno la persona non ha turni e le sue ore della settimana si riducono in proporzione.</li>
+      <li>🎓 = <b>in formazione</b> o <b>in affiancamento</b> (sezione Formazione): in apertura e chiusura ha sempre accanto un formato nella stessa postazione.</li>
+      <li><b>Genera turni</b> crea una bozza che rispetta le regole: prima aperture e chiusure (chi è segnato in Aperture e chiusure), poi rush e picchi, poi completa le ore di ognuno con orari vari, come negli orari passati del locale.</li>
+      <li>I dati si salvano online, cifrati, e sono gli stessi su PC e telefono. Una copia su file si fa da <b>Esporta dati</b> / <b>Importa dati</b> in Regole.</li>
+    </ul>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--err)"></i>errore</span><span><i class="sw" style="background:var(--warn)"></i>avviso / ore mancanti</span>
+      <span><i class="sw" style="background:var(--ok)"></i>ore esatte</span><span><i class="sw" style="box-shadow:inset 3px 0 0 var(--yellow)"></i>turno doppio</span>
+      <span class="rest">RIPOSO</span> = riposo fisso
+    </div>`}</div>
+    <div class="actions"><button class="btn primary" onclick="closeModal()">Ho capito</button></div>`);
+}
 function askClearWeek() {
   showModal(`<h3>Svuotare la settimana?</h3><p>Verranno cancellati tutti i turni dal ${T.itDate(ui.ws)} al ${T.itDate(ui.ws + 6)}. Riposi e ferie restano.</p>
     <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="clearWeek()">Svuota</button></div>`);
@@ -895,10 +952,9 @@ function renderMgrTurni() {
     ${typeSeg(ctx)}
     <div class="spacer"></div>
     <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
-    <button class="btn" onclick="clearMgrWeek()">Svuota</button>
     <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveMgrWeek()">🛠 Risolvi problemi</button>
-    <button class="btn" onclick="Riepilogo.apri(ui.ws)" title="Tabelle della settimana (manager, hospitality, crew, doppi): stampa, PDF ed Excel">📄 Riepilogo</button>
     <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>⚙ Genera turni manager</button>
+    ${moreMenu([['📄 Riepilogo (stampa, PDF, Excel)', 'Riepilogo.apri(ui.ws)'], ['🗑 Svuota la settimana dei manager', 'clearMgrWeek()', true]])}
   </div>
   ${team.length && !state.config.carpiStart ? `<div class="notice warn" style="margin-bottom:10px">🍦 Per segnare la Carpigiani nei giorni giusti indica <b>un martedì di smontaggio</b> (poi ogni 2 settimane): <input type="date" onchange="if(this.value){state.config.carpiStart=this.value;save();render()}" style="margin-left:6px"></div>` : ''}
   ${team.length ? `<div class="layout"><div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${cov}${rows}</tbody></table></div>
@@ -1264,7 +1320,7 @@ function renderVLH() {
         return `<td class="next vslot ${out ? 'fuori' : ''}" data-h="${h}" data-code="${p.code}"><div class="pos">${p.n} ${esc(p.name)}</div>${x ? `<div class="who man" data-h="${h}" data-code="${p.code}" data-id="${x.id}" onpointerdown="vlhDragStart(event)">${esc(x.name)}</div>` : ''}</td>`; }).join('')}</tr>`).join('')}`;
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
-  return nav + genNote + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">torna alla proposta automatica</a>` : ''}. In stampa puoi correggerli a penna.</div>
+  return nav + genNote + `<p class="hint no-print">Tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}) ${ib('vlh-help')}${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">GC: torna alla previsione</a>` : ''}${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">nomi: torna alla proposta automatica</a>` : ''}</p>
     ${VLH_SHEETS.filter((hs, k) => vlhSheet() === 2 || vlhSheet() === k).map((hs) => `<div class="card vlhsheet"><div class="vlhscroll">${sheet(hs)}</div></div>`).join('')}`;
 }
 
@@ -1937,8 +1993,7 @@ function renderAperture() {
   }).join('');
   return `
   <h2>Aperture e chiusure ${ib('aperture')}</h2>
-  <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati.${state.config.hospSala !== false ? ' La <b>Sala</b> la possono chiudere sia crew sia hospitality: se non segni nessuno, possono chiuderla tutti i crew formati in Sala e tutte le hospitality.' : ''}<br>
-  ${state.config.traineeRule !== false ? 'Chi è 🎓 in formazione non apre e non chiude mai da solo/a. ' : ''}In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.</div>
+  <p class="hint">Chi è segnato qui apre o chiude quella postazione ${ib('aperture-note')}</p>
   <p>${pills}</p>
   <div class="card"><table class="list"><thead><tr><th>Nome</th>${OPENINGS_().map((st) => `<th style="text-align:center">Apertura<br>${T.STATIONS[st].label}</th>`).join('')}${CLOSINGS_().map((st) => `<th style="text-align:center">Chiusura<br>${st === 'SERVIZIO' ? 'Sala' : T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -2126,9 +2181,7 @@ function renderStore() {
   const toggleIn = (list, d) => JSON.stringify(list.includes(d) ? list.filter((x) => x !== d) : [...list, d].sort());
   const mcDays = c.mcEarlyDays || [5, 6, 7];
   return `
-  <h2>Store: impostazioni del locale</h2>
-  <div class="notice info" style="margin-bottom:12px">Qui si adatta l'app a questo locale: orari, postazioni e regole. Ogni locale ha le sue impostazioni (salvate e cifrate con i suoi dati): un locale nuovo le imposta qui, senza cambiare il programma.
-    Le <b>squadre di apertura e chiusura</b> (quante persone per postazione) si impostano in <a href="#" onclick="go('regole');return false">Regole → Fasce di copertura</a>; <b>chi può aprire o chiudere</b> in <a href="#" onclick="go('aperture');return false">Aperture e chiusure</a>; durate e stacchi dei crew in <a href="#" onclick="go('regole');return false">Regole</a>.</div>
+  <h2>Store: impostazioni del locale ${ib('store')}</h2>
 
   <h3>🕒 Orari del locale</h3>
   <div class="card section"><table class="list" style="max-width:560px"><tbody>${hours}</tbody></table>
@@ -2499,7 +2552,7 @@ function shiftToast(s, before) {
 function areaBar(s) {
   const e = empById(s.employeeId), list = e.type === 'HOSPITALITY' ? ['HOSPITALITY', ...(T.CREW_STATIONS.includes('SERVIZIO') && state.config.hospSala !== false ? ['SERVIZIO'] : [])] : [...T.CREW_STATIONS];
   const div = document.createElement('div'); div.className = 'dropbar no-print';
-  div.style.top = (document.querySelector('header').getBoundingClientRect().bottom + 8) + 'px';
+  div.style.top = (document.body.classList.contains('side') ? 16 : document.querySelector('header').getBoundingClientRect().bottom + 8) + 'px';
   div.innerHTML = list.map((st) => `<span data-st="${st}" class="st-${st}" style="${st === s.station ? 'opacity:.45' : ''}">${T.STATIONS[st].short}</span>`).join('');
   document.body.appendChild(div); return div;
 }
