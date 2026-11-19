@@ -63,9 +63,9 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="icone.js?v=202611192322"></script>
-<script src="turni-cloud-config.js?v=202611192322"></script>
-<script src="turni-cripto.js?v=202611192322"></script>
+<script src="icone.js?v=202611192330"></script>
+<script src="turni-cloud-config.js?v=202611192330"></script>
+<script src="turni-cripto.js?v=202611192330"></script>
 <script>
 'use strict';
 /*
@@ -324,7 +324,7 @@ async function changePassword() {
     tab = 'turni'; show('ok', '✓ Password cambiata. Da adesso entra con quella nuova.');
   } catch (e) { show('err', e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Non riuscito, riprova.'); }
 }
-const tabsBar = () => isMgr() ? '' : `<div class="tabs"><button class="${tab === 'turni' ? 'on' : ''}" onclick="tab='turni';msg='';render();loadOrario()">📅 I miei turni</button><button class="${tab === 'richieste' ? 'on' : ''}" onclick="tab='richieste';msg='';render()">✉️ Richieste</button></div>`;
+const tabsBar = () => `<div class="tabs"><button class="${tab === 'turni' ? 'on' : ''}" onclick="tab='turni';msg='';render();loadOrario()">📅 I miei turni</button><button class="${tab === 'richieste' ? 'on' : ''}" onclick="tab='richieste';msg='';render()">✉️ Richieste</button></div>`;
 
 function render() {
   const app = document.getElementById('app');
@@ -334,7 +334,6 @@ function render() {
     <button class="primary" onclick="setStore()">Continua</button><div id="lsmsg"></div></div>`; return; }
   if (!session) { document.getElementById('hello').textContent = role === 'dipendente' ? 'Richieste per i turni al tuo manager.' : 'App dei turni del locale.'; app.innerHTML = role === 'dipendente' ? loginView() : chooseView(); return; }
   document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}!` : 'I tuoi turni e le tue richieste.';
-  if (isMgr() && tab === 'richieste') tab = 'turni';
   if (tab === 'turni') { app.innerHTML = `${installBox()}${tabsBar()}${msg}${turniView()}`; return; }
   if (tab === 'password') { app.innerHTML = passwordView(); return; }
   const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);

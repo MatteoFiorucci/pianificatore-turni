@@ -2189,7 +2189,7 @@
     ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf, roundTimeOk,
     STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, dateHoursMap, cfgWithEvents, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
-    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
+    limitsFrom, fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
   };
   if (typeof module !== 'undefined') module.exports = root.Turni;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -459,19 +459,19 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611192322"></script>
-<script src="turni-storico.js?v=202611192322"></script>
-<script src="turni-core.js?v=202611192322"></script>
-<script src="turni-manager.js?v=202611192322"></script>
-<script src="turni-vlh.js?v=202611192322"></script>
+<script src="icone.js?v=202611192330"></script>
+<script src="turni-storico.js?v=202611192330"></script>
+<script src="turni-core.js?v=202611192330"></script>
+<script src="turni-manager.js?v=202611192330"></script>
+<script src="turni-vlh.js?v=202611192330"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192322"></script>
-<script src="turni-cloud-config.js?v=202611192322"></script>
-<script src="turni-cloud.js?v=202611192322"></script>
-<script src="turni-cripto.js?v=202611192322"></script>
-<script src="riepilogo.js?v=202611192322"></script>
-<script src="lineare-ufficiale.js?v=202611192322"></script>
+<script src="turni-data.js?v=202611192330"></script>
+<script src="turni-cloud-config.js?v=202611192330"></script>
+<script src="turni-cloud.js?v=202611192330"></script>
+<script src="turni-cripto.js?v=202611192330"></script>
+<script src="riepilogo.js?v=202611192330"></script>
+<script src="lineare-ufficiale.js?v=202611192330"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -785,7 +785,7 @@ function renderHome() {
   // richieste da decidere
   const pend = (state.requests || []).filter((q) => q.status === 'in attesa').sort((a, b) => a.day - b.day);
   const reqCard = `<div class="card hcard"><div class="hk">Richieste del personale</div><div class="hw">${pend.length ? `${pend.length} da decidere` : 'Nessuna da decidere'}</div>
-    ${pend.slice(0, 4).map((q) => { const e = empById(q.employeeId); return `<button class="hrow" onclick="go('richieste')"><b>${esc(e ? T.fullName(e) : '—')}</b> <span class="muted">${T.shortDate(q.day)} · ${esc(KIND_TXT(q))}</span></button>`; }).join('')}
+    ${pend.slice(0, 4).map((q) => { const e = personById(q.employeeId); return `<button class="hrow" onclick="go('richieste')"><b>${esc(e ? T.fullName(e) : '—')}</b> <span class="muted">${T.shortDate(q.day)} · ${esc(KIND_TXT(q))}</span></button>`; }).join('')}
     ${pend.length > 4 ? `<div class="small muted" style="margin-top:4px">e altre ${pend.length - 4}…</div>` : ''}
     <div class="hact"><button class="btn" onclick="go('richieste')">Apri le richieste</button></div></div>`;
   // previsioni: settimane senza Ore totali nelle prossime 6
@@ -3009,7 +3009,7 @@ async function pushOrari(ids) {
       .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
-      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: isMgr ? [] : reqs, ruolo: isMgr ? 'manager' : 'personale' }));
+      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs, ruolo: isMgr ? 'manager' : 'personale' }));
       res.ok++;
     } catch (err) { res.fail++; }
   }
@@ -3053,7 +3053,7 @@ async function checkInbox(notify) {
       if (known.has(d.rid)) continue;
       let x;
       try { x = await TurniCripto.openWith(state.reqKeys.priv, d); } catch (e) { continue; }
-      const e = empById(+d.emp);
+      const e = personById(+d.emp);
       if (!e || !x || !x.date) continue;
       const day = T.toDay(x.date), margin = state.config.requestMargin ?? 30, after = state.config.requestAfter ?? 120;
       const q = { id: newId(), rid: d.rid, employeeId: e.id, day, kind: x.kind, note: String(x.note || '').slice(0, 300), status: 'in attesa', createdAt: d.createdAt };
@@ -3076,7 +3076,7 @@ async function checkInbox(notify) {
   } catch (e) { return 0; } finally { inboxBusy = false; }
 }
 function notifyRequests(fresh) {
-  const txt = fresh.map((q) => `${T.fullName(empById(q.employeeId))} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}: ${KIND_TXT(q)}`);
+  const txt = fresh.map((q) => `${T.fullName(personById(q.employeeId))} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}: ${KIND_TXT(q)}`);
   try { if (window.Notification && Notification.permission === 'granted') new Notification('📩 Nuove richieste turni', { body: txt.join('\n') }); } catch (e) { /* niente */ }
   if (!modalOpen()) showModal(`<h3>📩 ${fresh.length === 1 ? 'Nuova richiesta' : fresh.length + ' nuove richieste'} dal personale</h3>
     <ul style="padding-left:18px">${txt.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
@@ -3208,7 +3208,15 @@ function shareAccess(id) {
   share(`Accesso di ${T.fullName(e)}`, `Ciao ${e.firstName || ''}! Ecco i tuoi dati per l'app dei turni:\nNome utente: ${c.user}\nPassword: ${c.pw}\nApp: ${appLink()}\nSono personali: non darli a nessuno.`);
 }
 function copyLink() { const t = document.getElementById('lnk'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); } closeModal(); }
+/** Manager: i turni di quel giorno e se rispettano la richiesta (niente proposte di turno o scambi: li decide il manager). */
+function mgrProposal(q) {
+  const ws = T.mondayOf(q.day), l = T.limitsFrom(state.requests.map((x) => (x === q ? { ...x, status: 'accettata' } : x)), ws).get(q.employeeId + '|' + q.day);
+  const cur = (state.mgrShifts || []).filter((x) => x.managerId === q.employeeId && x.day === q.day).map((x) => ({ ...x, station: 'MANAGER' }));
+  const fits = (x) => !l || (!l.off && (l.until == null || x.end <= l.until) && (l.from == null || x.start >= l.from) && !(l.busy || []).some(([a, b]) => x.start < b && a < x.end));
+  return { current: cur, currentOk: cur.every(fits), proposal: null, swaps: null, mgr: true };
+}
 function proposalOf(q) {
+  if (mgrById(q.employeeId)) return mgrProposal(q);
   ui.propCache = ui.propCache || new Map();
   const key = [state.shifts.length, q.until, q.from, q.kind, state.shifts.filter((x) => x.day === q.day).map((x) => x.employeeId + ':' + x.start + '-' + x.end).join(',')].join('|');
   const c = ui.propCache.get(q.id);
@@ -3219,7 +3227,7 @@ function proposalOf(q) {
   ui.propCache.set(q.id, { key, res });
   return res;
 }
-const swapTxt = (q, sw) => { const me = T.fullName(empById(q.employeeId)), other = T.fullName(empById(sw.partner));
+const swapTxt = (q, sw) => { const me = T.fullName(personById(q.employeeId)), other = T.fullName(empById(sw.partner));
   return `${esc(me)} prende <b>${shiftTxt(sw.mine)}</b> (era di ${esc(other)}); ${esc(other)} prende <b>${shiftTxt(sw.theirs)}</b>`; };
 const newsTxt = (sw) => (sw.news.length ? `<span style="color:var(--warn-ink)">⚠️ crea ${sw.news.length === 1 ? 'un problema' : sw.news.length + ' problemi'}: ${sw.news.map((v) => esc(v.msg)).join(' · ')}</span>` : '<span style="color:var(--green)">✅ nessun problema nuovo</span>');
 const shiftTxt = (x) => `${T.fmtTime(x.start)}–${T.fmtTime(x.end)} ${T.STATIONS[x.station] ? T.STATIONS[x.station].short : ''}${x.start <= state.config.open ? ' (apertura)' : ''}`;
@@ -3229,11 +3237,14 @@ function renderRichieste() {
   const pend = reqs.filter((q) => q.status === 'in attesa').sort((a, b) => a.day - b.day);
   const done = reqs.filter((q) => q.status !== 'in attesa').sort((a, b) => b.day - a.day).slice(0, 60);
   const card = (q) => {
-    const e = empById(q.employeeId), name = e ? T.fullName(e) : '?';
+    const e = personById(q.employeeId), name = e ? T.fullName(e) : '?';
     let prop = '';
     if (q.status === 'in attesa' && q.kind === 'fisso') {
       const c = fixedConflicts(q);
       prop = `<div class="prop">${c.length ? `⚠️ Turni già pianificati non compatibili (${c.length}): ${c.slice(0, 6).map((x) => `${T.shortDate(x.day)} ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`).join(', ')}${c.length > 6 ? '…' : ''}<br><span class="muted">Se accetti, li vedrai come errori: si sistemano con 🛠 Risolvi problemi o rigenerando quelle settimane.</span>` : '✅ Nessun turno già pianificato va in conflitto. Le prossime settimane, "Genera turni" ne terrà conto.'}</div>`;
+    } else if (q.status === 'in attesa' && mgrById(q.employeeId)) {
+      const p = proposalOf(q), cur = p.current;
+      prop = `<div class="prop">${cur.length ? `Turno attuale: <b>${cur.map((x) => `${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`).join(', ')}</b> ${p.currentOk ? '✅ già compatibile' : '⚠️ non compatibile: dopo l\'accettazione spostalo nel Giornaliero o rigenera i turni manager'}` : 'Settimana dei manager non ancora fatta: se la accetti, il generatore ne terrà conto.'}</div>`;
     } else if (q.status === 'in attesa' && q.kind !== 'libero') {
       const p = proposalOf(q);
       const cur = p.current.filter((x) => !x.doppio);
@@ -3243,7 +3254,7 @@ function renderRichieste() {
     }
     const st = q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : q.status === 'rifiutata' ? '<span class="chip err">Rifiutata</span>' : '<span class="chip warn">In attesa</span>';
     return `<div class="card reqcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div>
-      <div class="when">${esc(name)} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</div>
+      <div class="when">${esc(name)}${mgrById(q.employeeId) ? ' <span class="autotag">manager</span>' : ''} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</div>
       <div>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.note ? ` <span class="muted">· "${esc(q.note)}"</span>` : ''}</div>
       ${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</div>${st}</div>
       ${prop}
@@ -3262,7 +3273,7 @@ function renderRichieste() {
   if (ready) more.push(['📱 Notifiche sul telefono (ntfy)', "ui.reqTab='app';ui.ntfyOpen=true;render()"]);
   if (nDone) more.push(['🗑 Elimina tutte le richieste decise', "deleteRequests(state.requests.filter((q)=>q.status!=='in attesa').map((q)=>q.id))", true]);
   const bar = `<div class="toolbar">${tabs}<div class="spacer"></div>${ready ? '<button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert(\'Nessuna richiesta nuova.\')})" title="Scarica subito le richieste arrivate dall\'app">↻ Controlla nuove</button>' : ''}<button class="btn primary" onclick="newManualRequest()">✍️ Richiesta a mano</button>${more.length ? moreMenu(more) : ''}</div>`;
-  const doneRow = (q) => { const e = empById(q.employeeId);
+  const doneRow = (q) => { const e = personById(q.employeeId);
     return `<tr><td><b>${esc(e ? T.fullName(e) : '?')}</b>${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</td><td style="white-space:nowrap">${q.kind === 'fisso' ? PERIOD_TXT(q) : T.itDate(q.day)}</td>
       <td>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</td>
       <td>${q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : '<span class="chip err">Rifiutata</span>'}</td>
@@ -3286,7 +3297,7 @@ function askAccept(id) {
   if (q.kind === 'fisso') {
     const c = fixedConflicts(q);
     return showModal(`<h3>Accetta gli impegni fissi</h3>
-      <p><b>${esc(T.fullName(empById(q.employeeId)))}</b>: ${esc(SLOTS_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
+      <p><b>${esc(T.fullName(personById(q.employeeId)))}</b>: ${esc(SLOTS_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
       <div class="form"><div class="row"><label class="f">Valido dal<input type="date" id="acc-from" value="${T.toIso(q.day)}"></label><label class="f">Fino al (vuoto = senza fine)<input type="date" id="acc-to" value="${q.to != null ? T.toIso(q.to) : ''}"></label></div>
       ${c.length ? `<p class="notice warn" style="margin:0">${c.length} turni già pianificati vanno in conflitto: dopo l'accettazione usa 🛠 Risolvi problemi in quelle settimane.</p>` : ''}
       <label class="f">Messaggio per il dipendente (facoltativo)<input type="text" id="acc-msg" maxlength="200" placeholder="es. ok, ne tengo conto nei turni"></label></div>
@@ -3296,7 +3307,7 @@ function askAccept(id) {
   const weekHas = state.shifts.some((x) => x.day >= T.mondayOf(q.day) && x.day <= T.mondayOf(q.day) + 6);
   const timeSel = (idn, v, from, to) => `<select id="${idn}">${TIME_OPTIONS.filter((t) => t >= from && t <= to).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
   showModal(`<h3>Accetta la richiesta</h3>
-    <p><b>${esc(T.fullName(empById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
+    <p><b>${esc(T.fullName(personById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
     <div class="form">
       ${q.kind === 'impegno' ? `<div class="row"><label class="f">Turno prima: deve finire entro le${timeSel('acc-t', q.until, 360, 1380)}</label><label class="f">oppure turno dopo: può iniziare dalle${timeSel('acc-t2', q.after ?? Math.min(1380, (q.time ?? q.until) + (state.config.requestAfter ?? 120)), 360, 1380)}</label></div>` : ''}
       ${q.kind === 'turno' ? `<div class="row"><label class="f">Turno dalle${timeSel('acc-t', q.from, 360, 1380)}</label><label class="f">alle${timeSel('acc-t2', q.until, 360, 1440)}</label></div>` : ''}
@@ -3350,7 +3361,7 @@ async function doAccept(id) {
   closeModal(); save(); render();
   if (swapped) {
     const other = empById(swapped.partner);
-    showModal(`<h3>✅ Richiesta accettata e turni scambiati</h3><p>${esc(T.fullName(empById(q.employeeId)))}: <b>${shiftTxt(swapped.mine)}</b><br>${esc(T.fullName(other))}: <b>${shiftTxt(swapped.theirs)}</b></p>
+    showModal(`<h3>✅ Richiesta accettata e turni scambiati</h3><p>${esc(T.fullName(personById(q.employeeId)))}: <b>${shiftTxt(swapped.mine)}</b><br>${esc(T.fullName(other))}: <b>${shiftTxt(swapped.theirs)}</b></p>
       <p class="notice warn">Ricordati di avvisare <b>${esc(T.fullName(other))}</b> che il suo turno di ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)} è cambiato.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
   }
   pushOrari([q.employeeId]).catch(() => null);
@@ -3424,6 +3435,11 @@ function saveManualRequest(accept) {
 /** Turni già pianificati (da oggi in poi) che non rispettano gli impegni fissi della richiesta. */
 function fixedConflicts(q) {
   const from = Math.max(q.day, T.todayDay());
+  if (mgrById(q.employeeId)) {
+    return (state.mgrShifts || []).filter((s) => s.managerId === q.employeeId && s.day >= from && (q.to == null || s.day <= q.to))
+      .filter((s) => !T.limitsFrom([{ ...q, status: 'accettata' }], T.mondayOf(s.day)).get(q.employeeId + '|' + s.day) || !mgrProposal({ ...q, day: s.day }).currentOk)
+      .sort((a, b) => a.day - b.day || a.start - b.start);
+  }
   const fake = { ...state, requests: [{ ...q, status: 'accettata' }] };
   const out = [];
   for (const s of state.shifts) {
