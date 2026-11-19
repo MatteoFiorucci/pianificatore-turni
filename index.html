@@ -459,19 +459,19 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611192309"></script>
-<script src="turni-storico.js?v=202611192309"></script>
-<script src="turni-core.js?v=202611192309"></script>
-<script src="turni-manager.js?v=202611192309"></script>
-<script src="turni-vlh.js?v=202611192309"></script>
+<script src="icone.js?v=202611192315"></script>
+<script src="turni-storico.js?v=202611192315"></script>
+<script src="turni-core.js?v=202611192315"></script>
+<script src="turni-manager.js?v=202611192315"></script>
+<script src="turni-vlh.js?v=202611192315"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192309"></script>
-<script src="turni-cloud-config.js?v=202611192309"></script>
-<script src="turni-cloud.js?v=202611192309"></script>
-<script src="turni-cripto.js?v=202611192309"></script>
-<script src="riepilogo.js?v=202611192309"></script>
-<script src="lineare-ufficiale.js?v=202611192309"></script>
+<script src="turni-data.js?v=202611192315"></script>
+<script src="turni-cloud-config.js?v=202611192315"></script>
+<script src="turni-cloud.js?v=202611192315"></script>
+<script src="turni-cripto.js?v=202611192315"></script>
+<script src="riepilogo.js?v=202611192315"></script>
+<script src="lineare-ufficiale.js?v=202611192315"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -3145,6 +3145,26 @@ async function makeAccess(id, quiet) {
     return true;
   } catch (err) { if (!quiet) alert('Non riuscito: ' + err.message); return false; }
 }
+/**
+ * Chi ha finito di lavorare (data di uscita passata, quindi dal giorno dopo l'ultimo giorno) perde l'accesso all'app:
+ * si cancellano online i suoi accessi e il suo orario pubblicato, e le sue credenziali.
+ */
+async function cleanupLeavers() {
+  if (TurniCloud.PROVA || !TurniCloud.loggedIn() || !state.reqCreds) return;
+  const today = T.todayDay();
+  const gone = [...state.employees, ...(state.managers || [])].filter((e) => e.endDate != null && e.endDate < today && state.reqCreds[e.id]);
+  if (!gone.length) return;
+  try {
+    const all = await TurniCloud.listAccess();
+    for (const e of gone) {
+      const c = state.reqCreds[e.id];
+      for (const a of all) if (String(a.emp) === String(e.id)) await TurniCloud.deleteAccess(a.code);
+      await TurniCloud.deleteOrario(c.oid || c.code);
+      delete state.reqCreds[e.id];
+    }
+    save(); render();
+  } catch (err) { /* senza rete: si riprova alla prossima apertura */ }
+}
 async function makeAllAccess() {
   const todo = [...(state.managers || []).filter((m) => m.active !== false), ...state.employees.filter((e) => e.active)].filter((e) => !state.reqCreds[e.id]);
   let ok = 0; for (const e of todo) if (await makeAccess(e.id, true)) ok++;
@@ -3251,7 +3271,7 @@ function renderRichieste() {
   if (tab === 'done') body = done.length ? `<div class="card"><table class="list"><thead><tr><th>Nome</th><th>Quando</th><th>Richiesta</th><th>Esito</th><th></th></tr></thead><tbody>${done.map(doneRow).join('')}</tbody></table></div>${nDone > done.length ? `<p class="small muted">Sono mostrate le ultime ${done.length}.</p>` : ''}` : '<p class="muted">Nessuna richiesta decisa.</p>';
   else if (tab === 'app') body = ready ? `${ntfyBox()}<h3 style="margin:18px 0 8px">App del personale e accessi</h3>` + `
   <div class="card section"><p style="margin-top:0"><b>1. Un solo link per tutti</b> (es. nel gruppo WhatsApp): da lì scaricano l'app sul telefono.</p>
-    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
+    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><a href="${esc(appLink())}" target="_blank" rel="noopener" title="Apri l'app del personale"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code></a><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
     <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
   <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
   <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
@@ -3483,7 +3503,7 @@ function saveConfig() {
 
 saveLocal();
 render();
-if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
+if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true)).then(() => cleanupLeavers());
 else if (ui.locked) { if (storeCode()) loadGateLogin(storeCode()); else { ui.gateLogin = ''; render(); } }
 else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
 // installabile come app (schermata Home del telefono o del computer)
