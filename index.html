@@ -417,6 +417,19 @@
   :focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
   * { scrollbar-width: thin; scrollbar-color: #c9ccc5 transparent; }
   @media (max-width: 760px) { .pagehead { display: none; } }
+
+  /* ---- Home ---- */
+  .homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+  .hcard { padding: 18px; }
+  .hcard .hk { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .hcard .hw { font-size: 19px; font-weight: 700; margin: 2px 0 12px; }
+  .hcard .hrow { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid #eef0ec; padding: 9px 0; font: inherit; cursor: pointer; color: var(--ink); }
+  .hcard .hrow:hover { color: var(--green); }
+  .hcard .hrow .muted:last-child { margin-left: auto; }
+  .hcard .hs { display: flex; align-items: center; gap: 8px; padding: 9px 0 0; font-size: 13.5px; }
+  .hcard .hs.warn { color: var(--warn-ink); } .hcard .hs.ok { color: var(--green); }
+  .hcard .hact { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button.btn, details.more > summary { display: inline-flex; align-items: center; gap: 7px; }
 </style>
 </head>
 <body>
@@ -429,18 +442,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192203"></script>
-<script src="turni-core.js?v=202611192203"></script>
-<script src="turni-manager.js?v=202611192203"></script>
-<script src="turni-vlh.js?v=202611192203"></script>
+<script src="turni-storico.js?v=202611192209"></script>
+<script src="turni-core.js?v=202611192209"></script>
+<script src="turni-manager.js?v=202611192209"></script>
+<script src="turni-vlh.js?v=202611192209"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192203"></script>
-<script src="turni-cloud-config.js?v=202611192203"></script>
-<script src="turni-cloud.js?v=202611192203"></script>
-<script src="turni-cripto.js?v=202611192203"></script>
-<script src="riepilogo.js?v=202611192203"></script>
-<script src="lineare-ufficiale.js?v=202611192203"></script>
+<script src="turni-data.js?v=202611192209"></script>
+<script src="turni-cloud-config.js?v=202611192209"></script>
+<script src="turni-cloud.js?v=202611192209"></script>
+<script src="turni-cripto.js?v=202611192209"></script>
+<script src="riepilogo.js?v=202611192209"></script>
+<script src="lineare-ufficiale.js?v=202611192209"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -455,13 +468,20 @@ const ICON = {
   richieste: '<path d="M20.5 15a2 2 0 0 1-2 2H8l-4.5 4V5.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 12.5h5"/>',
   personale: '<circle cx="9" cy="8" r="3.6"/><path d="M2.5 20.5v-.5a6.5 6.5 0 0 1 13 0v.5"/><path d="M15.5 4.6a3.6 3.6 0 0 1 0 6.8M21.5 20.5v-.5a6.4 6.4 0 0 0-3.8-5.8"/>',
   regole: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  home: '<path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
+  genera: '<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3"/>',
+  risolvi: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.2L3.5 17.3a1.8 1.8 0 0 0 2.6 2.6l5.8-5.8a4 4 0 0 0 5.2-5.4l-2.4 2.4-2.4-.4-.4-2.4z"/>',
+  altro: '<circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/>',
+  avviso: '<path d="M12 3.5 2.5 20h19z"/><path d="M12 10v4.5M12 17.5v.1"/>',
+  ok: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.7 2.7L16 10"/>',
   store: '<path d="M3.5 9.5 5.5 4h13l2 5.5"/><path d="M4.5 9.5V20h15V9.5"/><path d="M3.5 9.5h17"/><path d="M10 20v-5.5h4V20"/>',
 };
 const icon = (k, size = 19) => `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ''}</svg>`;
-const NAV = [[null, [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['richieste', 'Richieste']]],
+const NAV = [[null, [['home', 'Home'], ['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['richieste', 'Richieste']]],
   ['Gestione', [['personale', 'Persone'], ['regole', 'Regole'], ['store', 'Store']]]];
 // intestazione di ogni pagina: titolo e una riga di spiegazione
 const PAGE = {
+  home: ['Home', 'Il riassunto: settimane, richieste e previsioni'],
   turni: ['Turni', 'La settimana di crew, hospitality e manager'],
   giornaliero: ['Giornaliero', 'Il lineare del giorno, con previsione e coperture'],
   vlh: ['VLH', 'Le posizioni da aprire ora per ora'],
@@ -482,7 +502,7 @@ const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTION
 // ---------- stato (salvato nel browser) ----------
 let storageOk = true;
 let state = loadState();
-const ui = { view: 'turni', ws: T.mondayOf(T.todayDay()), day: T.todayDay(), type: 'CREW', deleteMode: false, selected: new Set(), draft: null };
+const ui = { view: 'home', ws: T.mondayOf(T.todayDay()), day: T.todayDay(), type: 'CREW', deleteMode: false, selected: new Set(), draft: null };
 // Aperta dall'app "Turni" (sezione Manager, ?s = locale) o installata: finché non si entra con la password
 // dei manager non si vede niente (né menu né dati), solo la schermata di accesso, che non si può chiudere.
 const APP_STORE = new URLSearchParams(location.search).get('s');
@@ -568,7 +588,7 @@ function renderBrand() {
 function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', (document.body.classList.contains('side') ? 0 : document.querySelector('header').offsetHeight) + 'px'); }
 window.addEventListener('resize', () => { if (document.body.classList.contains('side') !== sideOn()) render(); else setHeaderHeight(); });
 /** Menu "⋯ Altro": voci [testo, azione, rossa?]. Si chiude da solo quando scegli una voce o clicchi fuori. */
-const moreMenu = (items) => `<details class="more" ontoggle="if(this.open)this.classList.toggle('left',this.getBoundingClientRect().left<window.innerWidth/2)"><summary>⋯ Altro</summary><div class="menu">${items.map(([t, js, red]) => `<button class="${red ? 'red' : ''}" onclick="this.closest('details').open=false;${js}">${t}</button>`).join('')}</div></details>`;
+const moreMenu = (items) => `<details class="more" ontoggle="if(this.open)this.classList.toggle('left',this.getBoundingClientRect().left<window.innerWidth/2)"><summary>${icon('altro', 16)} Altro</summary><div class="menu">${items.map(([t, js, red]) => `<button class="${red ? 'red' : ''}" onclick="this.closest('details').open=false;${js}">${t}</button>`).join('')}</div></details>`;
 document.addEventListener('click', (e) => { for (const d of document.querySelectorAll('details.more[open]')) if (!d.contains(e.target)) d.open = false; });
 /** Impostazioni dello store: postazioni (nomi e colori) applicate a tutto lo schermo. */
 function applyStoreUi() {
@@ -608,7 +628,7 @@ function render() {
     if (!list.length) return '';
     return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${icon(k)}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
   }).join('');
-  const views = { turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
+  const views = { home: renderHome, turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
   const viewHtml = { html: views[ui.view]() };
   document.getElementById('app').innerHTML =
     (TurniCloud.PROVA ? '<div class="notice warn" style="margin-bottom:12px">🧪 <b>Versione di prova</b> (sul computer): vedi i tuoi dati veri, ma le modifiche <b>non vengono salvate online</b> e i dipendenti non vedono niente.</div>' : '') +
@@ -635,6 +655,47 @@ function showModal(html) { document.getElementById('modal').innerHTML = `<div cl
 function closeModal() { document.getElementById('modal').innerHTML = ''; ui.draft = null; if (sync.pendingRender) { sync.pendingRender = false; render(); } }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
+
+// ================= HOME =================
+/** Pagina iniziale: com'è messa questa settimana e la prossima, richieste da decidere, previsioni. */
+function renderHome() {
+  const today = T.todayDay(), ws0 = T.mondayOf(today);
+  const inW = (ws) => (x) => x.day >= ws && x.day <= ws + 6;
+  const goWeek = (ws, type) => `ui.ws=${ws};ui.type='${type || 'CREW'}';go('turni')`;
+  const weekCard = (ws, label) => {
+    const crew = state.shifts.filter(inW(ws)).length, mgr = (state.mgrShifts || []).filter(inW(ws)).length;
+    const head = `<div class="hk">${label}</div><div class="hw">${T.weekLabel(ws)}</div>`;
+    if (!crew && !mgr) return `<div class="card hcard">${head}<div class="hs warn">${icon('avviso', 18)} Turni non ancora fatti</div>
+      <div class="hact"><button class="btn primary" onclick="${goWeek(ws)};askGenerate()">${icon('genera', 16)} Genera turni</button></div></div>`;
+    const vs = T.validate(T.makeCtx(state, ws)).filter((v) => v.rule !== 'VLH');
+    const ce = vs.filter((v) => v.sev === 'ERROR').length, cw = vs.length - ce;
+    const mp = MGR() && (state.managers || []).length ? MGR().check(state, ws) : [];
+    const me = mp.filter((x) => x.sev === 'ERROR').length;
+    const line = (n, w, txt, type) => `<button class="hrow" onclick="${goWeek(ws, type)}"><span class="chip ${n ? 'err' : w ? 'warn' : 'ok'}">${n ? `${n} errori` : w ? `${w} avvisi` : 'ok'}</span> ${txt} <span class="muted">›</span></button>`;
+    const pub = !TurniCloud.loggedIn() ? '' : !pubOf(ws) ? '<div class="hs warn">📢 Non ancora pubblicata</div>' : changedSincePublish(ws) ? '<div class="hs warn">📢 Modificata dopo la pubblicazione: da ripubblicare</div>' : '<div class="hs ok">📢 Pubblicata: il personale la vede nell\'app</div>';
+    return `<div class="card hcard">${head}${line(ce, cw, `Crew e hospitality · ${crew} turni`, 'CREW')}${line(me, mp.length - me, `Manager · ${mgr} turni`, 'MANAGER')}${pub}
+      ${ce || me ? `<div class="hact"><button class="btn" style="border-color:var(--err-ink);color:var(--err-ink)" onclick="${goWeek(ws, ce ? 'CREW' : 'MANAGER')};${ce ? 'solveWeek()' : 'solveMgrWeek()'}">${icon('risolvi', 16)} Risolvi problemi</button></div>` : ''}</div>`;
+  };
+  // richieste da decidere
+  const pend = (state.requests || []).filter((q) => q.status === 'in attesa').sort((a, b) => a.day - b.day);
+  const reqCard = `<div class="card hcard"><div class="hk">Richieste del personale</div><div class="hw">${pend.length ? `${pend.length} da decidere` : 'Nessuna da decidere'}</div>
+    ${pend.slice(0, 4).map((q) => { const e = empById(q.employeeId); return `<button class="hrow" onclick="go('richieste')"><b>${esc(e ? T.fullName(e) : '—')}</b> <span class="muted">${T.shortDate(q.day)} · ${esc(KIND_TXT(q))}</span></button>`; }).join('')}
+    ${pend.length > 4 ? `<div class="small muted" style="margin-top:4px">e altre ${pend.length - 4}…</div>` : ''}
+    <div class="hact"><button class="btn" onclick="go('richieste')">Apri le richieste</button></div></div>`;
+  // previsioni: settimane senza Ore totali nelle prossime 6
+  const af = state.autoForecast;
+  const noFc = [0, 1, 2, 3, 4, 5].map((k) => ws0 + 7 * k).filter((ws) => !DAYS7.some((k) => (T.forecastDay((state.forecasts || {})[ws], k) || {}).crewHours));
+  const fcCard = `<div class="card hcard"><div class="hk">Previsioni</div><div class="hw">${af && af.at ? `Aggiornate ${esc(fmtWhen(af.at))}` : 'Mai caricate in automatico'}</div>
+    ${noFc.length ? `<div class="hs warn">${icon('avviso', 18)} Senza ore totali: ${noFc.map((ws) => T.shortDate(ws)).join(', ')}</div>` : `<div class="hs ok">${icon('ok', 18)} Ore totali presenti per le prossime 6 settimane</div>`}
+    <div class="hact"><button class="btn" onclick="go('previsioni')">Apri le previsioni</button></div></div>`;
+  // oggi
+  const todayShifts = state.shifts.filter((x) => x.day === today), todayMgr = (state.mgrShifts || []).filter((x) => x.day === today);
+  const people = new Set(todayShifts.map((x) => x.employeeId)).size;
+  const todayCard = `<div class="card hcard"><div class="hk">Oggi</div><div class="hw">${T.DOW_LONG[T.dow(today)]} ${T.itDate(today)}</div>
+    <div class="hs">${people} tra crew e hospitality · ${new Set(todayMgr.map((x) => x.managerId)).size} manager</div>
+    <div class="hact"><button class="btn" onclick="ui.day=${today};go('giornaliero')">Apri il lineare di oggi</button></div></div>`;
+  return `<div class="homegrid">${weekCard(ws0, 'Questa settimana')}${weekCard(ws0 + 7, 'Prossima settimana')}${reqCard}${fcCard}${todayCard}</div>`;
+}
 // ================= TURNI =================
 function renderTurni() {
   if (ui.type === 'MANAGER') return renderMgrTurni();
@@ -694,8 +755,8 @@ function renderTurni() {
     <div class="spacer"></div>
     <button class="chip chipbtn ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}" title="Mostra o nascondi l'elenco dei controlli" onclick="ui.checks=!ui.checks;render()">${ui.checks ? '✕ ' : ''}${nErr} errori · ${nWarn} avvisi ${ui.checks ? '' : '›'}</button>
     ${publishChip()}
-    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">🛠 Risolvi problemi</button>
-    <button class="btn primary" onclick="askGenerate()">⚙ Genera turni</button>
+    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">${icon('risolvi', 16)} Risolvi problemi</button>
+    <button class="btn primary" onclick="askGenerate()">${icon('genera', 16)} Genera turni</button>
     ${moreMenu([['📄 Riepilogo (stampa, PDF, Excel)', 'Riepilogo.apri(ui.ws)'], ['ⓘ Come funziona', 'showTurniHelp()'], ['🗑 Svuota settimana', 'askClearWeek()', true]])}
   </div>
   ${ctx.forecast ? (() => { const fd = (k) => T.forecastDay((state.forecasts || {})[ui.ws], k) || {};
@@ -703,7 +764,7 @@ function renderTurni() {
   <div class="layout ${ui.checks ? 'drawer' : 'nochecks'}">
     ${later.length ? `<div class="small muted" style="grid-column:1/-1;margin-bottom:-8px">Non mostrati perché entrano più avanti: ${later.map((e) => `${esc(T.fullName(e))} (dal ${T.itDate(e.startDate)})`).join(', ')}</div>` : ''}
     <div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${covBlock}${rows || `<tr><td class="name" colspan="9">Nessun dipendente: aggiungili nella sezione Personale, oppure importa un file di dati (Regole → Dati).</td></tr>`}</tbody></table></div>
-    <aside class="card problems"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Controlli della settimana <span>${nErr ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="solveWeek()">🛠 Risolvi</button>' : ''}<button class="btn xclose" title="Chiudi i controlli" onclick="ui.checks=false;render()">✕</button></span></h3>${probs}</aside>
+    <aside class="card problems"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Controlli della settimana <span>${nErr ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="solveWeek()">' + icon('risolvi', 14) + ' Risolvi</button>' : ''}<button class="btn xclose" title="Chiudi i controlli" onclick="ui.checks=false;render()">✕</button></span></h3>${probs}</aside>
   </div>`;
 }
 
@@ -1045,8 +1106,8 @@ function renderMgrTurni() {
     ${typeSeg(ctx)}
     <div class="spacer"></div>
     <button class="chip chipbtn ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}" title="Mostra o nascondi l'elenco dei controlli" onclick="ui.checks=!ui.checks;render()">${ui.checks ? '✕ ' : ''}${nErr} errori · ${nWarn} avvisi ${ui.checks ? '' : '›'}</button>
-    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveMgrWeek()">🛠 Risolvi problemi</button>
-    <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>⚙ Genera turni manager</button>
+    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveMgrWeek()">${icon('risolvi', 16)} Risolvi problemi</button>
+    <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>${icon('genera', 16)} Genera turni manager</button>
     ${moreMenu([['📄 Riepilogo (stampa, PDF, Excel)', 'Riepilogo.apri(ui.ws)'], ['🗑 Svuota la settimana dei manager', 'clearMgrWeek()', true]])}
   </div>
   ${team.length && !state.config.carpiStart ? `<div class="notice warn" style="margin-bottom:10px">🍦 Per segnare la Carpigiani nei giorni giusti indica <b>un martedì di smontaggio</b> (poi ogni 2 settimane): <input type="date" onchange="if(this.value){state.config.carpiStart=this.value;save();render()}" style="margin-left:6px"></div>` : ''}
