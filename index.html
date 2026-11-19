@@ -459,18 +459,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192244"></script>
-<script src="turni-core.js?v=202611192244"></script>
-<script src="turni-manager.js?v=202611192244"></script>
-<script src="turni-vlh.js?v=202611192244"></script>
+<script src="turni-storico.js?v=202611192246"></script>
+<script src="turni-core.js?v=202611192246"></script>
+<script src="turni-manager.js?v=202611192246"></script>
+<script src="turni-vlh.js?v=202611192246"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192244"></script>
-<script src="turni-cloud-config.js?v=202611192244"></script>
-<script src="turni-cloud.js?v=202611192244"></script>
-<script src="turni-cripto.js?v=202611192244"></script>
-<script src="riepilogo.js?v=202611192244"></script>
-<script src="lineare-ufficiale.js?v=202611192244"></script>
+<script src="turni-data.js?v=202611192246"></script>
+<script src="turni-cloud-config.js?v=202611192246"></script>
+<script src="turni-cloud.js?v=202611192246"></script>
+<script src="turni-cripto.js?v=202611192246"></script>
+<script src="riepilogo.js?v=202611192246"></script>
+<script src="lineare-ufficiale.js?v=202611192246"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -578,6 +578,9 @@ const INFO = {
   'store': [`Store`, `Qui si adatta l'app a questo locale: orari, postazioni e regole. Ogni locale ha le sue impostazioni (salvate e cifrate con i suoi dati): un locale nuovo le imposta qui, senza cambiare il programma.<br><br>Le <b>squadre di apertura e chiusura</b> (quante persone per postazione) si impostano in Regole → Fasce di copertura; <b>chi può aprire o chiudere</b> in Persone → Aperture e chiusure; durate e stacchi dei crew in Regole.`],
   'aperture-note': [`Chi apre e chi chiude`, `Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la possono chiudere sia crew sia hospitality.<br><br>Chi è 🎓 in formazione non apre e non chiude mai da solo. In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.`],
   'vlh-help': [`Come leggere la VLH`, `Postazioni da aprire ora per ora secondo le tabelle VLH. I GC si possono correggere a mano (sfondo giallo). Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate.<br><br>I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé.<br><br>Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu. In stampa puoi correggerli a penna.`],
+  'dash-vendite': [`Vendite rispetto all'anno scorso`, `<b>Cosa mostra</b>: per ogni giorno, quanto ha venduto il locale rispetto allo <b>stesso giorno della settimana dell'anno scorso</b> (52 settimane prima: lunedì con lunedì). Il numero grande è la variazione della settimana intera.<br><br><b>Come si legge</b>: barra <b style="color:#2a78d6">blu</b> verso l'alto = sopra l'anno scorso; barra <b style="color:#e34948">rossa</b> verso il basso = sotto. I giorni già passati usano le <b>vendite vere</b>; quelli futuri le <b>previsioni</b> (barre chiare tratteggiate). Passa il mouse su una barra per vedere gli euro.<br><br><b>A cosa serve</b>: capire se il locale cresce o cala e in quali giorni; è il numero da portare in riunione. Se un giorno previsto è molto diverso dall'anno scorso, controlla gli eventi in Previsioni (un evento sbagliato sposta anche le ore dei turni).<br><br>Le vendite vere arrivano con le previsioni automatiche (aggiornate ogni giorno da SmartBusiness).`],
+  'dash-ore': [`Ore pianificate e ore previste`, `<b>Cosa mostra</b>: per ogni giorno, le <b>ore messe in turno</b> (barre blu: crew, hospitality e doppi, senza manager) e le <b>Ore totali previste</b> (lineetta nera), cioè le ore che servono secondo la previsione delle vendite. Il numero grande è quante ore sei sopra (+) o sotto (−) la previsione nella settimana.<br><br><b>Come si legge</b>: barra più alta della lineetta = più ore del necessario; barra più bassa = meno ore del previsto.<br><br><b>A cosa serve</b>: controllare il costo del lavoro prima di pubblicare i turni. Troppe ore in un giorno tranquillo = soldi spesi; troppo poche in un giorno forte = rischio di restare scoperti nei rush.`],
+  'dash-prod': [`Vendite per ora di lavoro`, `<b>Cosa mostra</b>: quanti euro di vendite fa il locale per ogni ora di lavoro pianificata (vendite del giorno divise per le ore di crew, hospitality e doppi, senza manager). La linea tratteggiata è la media della settimana; il numero è scritto sul giorno migliore e su quello peggiore.<br><br><b>Come si legge</b>: barra alta = poche persone per tante vendite; barra bassa = tante persone per poche vendite.<br><br><b>A cosa serve</b>: è l'indice della produttività. Un giorno molto <b>sotto</b> la media ha probabilmente troppe ore (si possono togliere); un giorno molto <b>sopra</b> rischia di essere scoperto. Confrontando le settimane vedi se la produttività migliora.`],
   'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale, giorno per giorno (anche 24 ore): sezione Store. Il generatore non mette turni fuori da quest'orario.`],
   'col-nome': [`Fascia di copertura`, `Ogni riga è una fascia oraria (es. il rush del pranzo) con il numero minimo di persone che devono essere presenti per tutta la sua durata. Puoi cambiarne nome e orari, aggiungerne o eliminarne.`],
   'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Ore totali (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality.`],
@@ -757,12 +760,12 @@ const hrsTxt = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 6
 function dashboardHtml() {
   const ws0 = T.mondayOf(T.todayDay()), ws = ui.dashWs ?? ws0, dd = dashData(ws);
   const sel = `<div class="seg">${[[ws0 - 7, 'Scorsa'], [ws0, 'Questa'], [ws0 + 7, 'Prossima']].map(([w, l]) => `<button class="${ws === w ? 'on' : ''}" onclick="ui.dashWs=${w};render()">${l}</button>`).join('')}</div>`;
-  const card = (t, sub, html) => `<div class="card hcard"><div class="hk">${t}</div><div class="small muted" style="margin:2px 0 8px">${sub}</div>${html}</div>`;
+  const card = (t, sub, html, info) => `<div class="card hcard"><div class="hk" style="display:flex;align-items:center;gap:6px">${t} ${ib(info)}</div><div class="small muted" style="margin:2px 0 8px">${sub}</div>${html}</div>`;
   return `<div class="dashhead"><h3>Andamento · ${T.weekLabel(ws)}</h3>${sel}</div>
   <div class="dashgrid">
-    ${card('Vendite rispetto all\'anno scorso', 'Stesso giorno della settimana, 52 settimane fa', chartSales(dd))}
-    ${card('Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours(dd))}
-    ${card('Vendite per ora di lavoro', 'Vendite divise per le ore pianificate (senza manager)', chartProd(dd))}
+    ${card('Vendite rispetto all\'anno scorso', 'Stesso giorno della settimana, 52 settimane fa', chartSales(dd), 'dash-vendite')}
+    ${card('Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours(dd), 'dash-ore')}
+    ${card('Vendite per ora di lavoro', 'Vendite divise per le ore pianificate (senza manager)', chartProd(dd), 'dash-prod')}
   </div>`;
 }
 // suggerimento al passaggio del mouse sui grafici
