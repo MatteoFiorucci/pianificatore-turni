@@ -389,6 +389,34 @@
   body.side .sync button { width: 100%; text-align: left; padding: 8px 12px; }
   body.side main { margin-left: 220px; padding: 22px 28px 40px; }
   @media print { body.side main { margin-left: 0; padding: 0; } }
+
+  /* ---- icone, logo, intestazioni delle pagine e rifiniture ---- */
+  body { background: #f4f5f2; }
+  .ico { display: block; }
+  nav .ic { display: inline-flex; align-items: center; opacity: .9; }
+  nav button { display: inline-flex; align-items: center; gap: 7px; }
+  header .brand { gap: 10px; }
+  header .brand .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--yellow); color: var(--green); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  header .brand .bt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+  header .brand .bt b { font-size: 17px; letter-spacing: .2px; }
+  header .brand .bt small { font-size: 12px; font-weight: 600; color: #a9cdb5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.side header .brand { display: flex !important; align-items: center; padding: 2px 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 4px; }
+  body.side nav button { color: #dcebe1; border-radius: 10px; }
+  body.side nav button:hover { background: rgba(255,255,255,.09); }
+  body.side nav button.active { background: var(--yellow); color: var(--green); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  body:not(.side) header .brand .bt small { display: none; }
+  .pagehead { display: flex; align-items: center; gap: 14px; margin: 2px 0 18px; }
+  .pagehead .pi { width: 44px; height: 44px; border-radius: 12px; background: var(--green-soft); color: var(--green); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .pagehead h1 { margin: 0; font-size: 24px; letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; }
+  .pagehead p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+  .card { border-color: #e4e5e1; }
+  .list th { background: #f7f8f6; }
+  .list tbody tr:hover td { background: #fafbf9; }
+  .seg { border-radius: 10px; }
+  .chip { letter-spacing: .1px; }
+  :focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+  * { scrollbar-width: thin; scrollbar-color: #c9ccc5 transparent; }
+  @media (max-width: 760px) { .pagehead { display: none; } }
 </style>
 </head>
 <body>
@@ -401,29 +429,52 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192154"></script>
-<script src="turni-core.js?v=202611192154"></script>
-<script src="turni-manager.js?v=202611192154"></script>
-<script src="turni-vlh.js?v=202611192154"></script>
+<script src="turni-storico.js?v=202611192203"></script>
+<script src="turni-core.js?v=202611192203"></script>
+<script src="turni-manager.js?v=202611192203"></script>
+<script src="turni-vlh.js?v=202611192203"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192154"></script>
-<script src="turni-cloud-config.js?v=202611192154"></script>
-<script src="turni-cloud.js?v=202611192154"></script>
-<script src="turni-cripto.js?v=202611192154"></script>
-<script src="riepilogo.js?v=202611192154"></script>
-<script src="lineare-ufficiale.js?v=202611192154"></script>
+<script src="turni-data.js?v=202611192203"></script>
+<script src="turni-cloud-config.js?v=202611192203"></script>
+<script src="turni-cloud.js?v=202611192203"></script>
+<script src="turni-cripto.js?v=202611192203"></script>
+<script src="riepilogo.js?v=202611192203"></script>
+<script src="lineare-ufficiale.js?v=202611192203"></script>
 <script>
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
 // menu: gruppi di voci [vista, icona, nome]; "Persone" raccoglie in una pagina (con le schede) personale, formazione, aperture, doppi e ferie
-const NAV = [[null, [['turni', '📅', 'Turni'], ['giornaliero', '🕒', 'Giornaliero'], ['vlh', '📋', 'VLH'], ['previsioni', '📈', 'Previsioni'], ['richieste', '📩', 'Richieste']]],
-  ['Gestione', [['personale', '👥', 'Persone'], ['regole', '⚖️', 'Regole'], ['store', '🏪', 'Store']]]];
+// icone del menu: disegni a linea (stesso aspetto su ogni computer e telefono)
+const ICON = {
+  turni: '<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M16 2.5v4M8 2.5v4M3 10h18M8 14h3M13 14h3M8 17.5h3"/>',
+  giornaliero: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>',
+  vlh: '<rect x="5" y="4" width="14" height="17.5" rx="2.5"/><path d="M9 2.5h6v3H9zM8.5 11h7M8.5 14.5h7M8.5 18h4"/>',
+  previsioni: '<path d="M3.5 17.5l5.5-5.5 4 4 7.5-7.5"/><path d="M15 8.5h5.5V14"/>',
+  richieste: '<path d="M20.5 15a2 2 0 0 1-2 2H8l-4.5 4V5.5a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 12.5h5"/>',
+  personale: '<circle cx="9" cy="8" r="3.6"/><path d="M2.5 20.5v-.5a6.5 6.5 0 0 1 13 0v.5"/><path d="M15.5 4.6a3.6 3.6 0 0 1 0 6.8M21.5 20.5v-.5a6.4 6.4 0 0 0-3.8-5.8"/>',
+  regole: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
+  store: '<path d="M3.5 9.5 5.5 4h13l2 5.5"/><path d="M4.5 9.5V20h15V9.5"/><path d="M3.5 9.5h17"/><path d="M10 20v-5.5h4V20"/>',
+};
+const icon = (k, size = 19) => `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ''}</svg>`;
+const NAV = [[null, [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['richieste', 'Richieste']]],
+  ['Gestione', [['personale', 'Persone'], ['regole', 'Regole'], ['store', 'Store']]]];
+// intestazione di ogni pagina: titolo e una riga di spiegazione
+const PAGE = {
+  turni: ['Turni', 'La settimana di crew, hospitality e manager'],
+  giornaliero: ['Giornaliero', 'Il lineare del giorno, con previsione e coperture'],
+  vlh: ['VLH', 'Le posizioni da aprire ora per ora'],
+  previsioni: ['Previsioni', 'Vendite, clienti e ore di lavoro previste · eventi e chiusure'],
+  richieste: ['Richieste', 'Le richieste del personale dall\'app Turni'],
+  personale: ['Persone', 'Chi lavora nel locale: ore, formazione, aperture, doppi e assenze'],
+  regole: ['Regole', 'Durate, stacchi e fasce di copertura di crew e hospitality'],
+  store: ['Store', 'Orari, postazioni e regole del locale e dei manager'],
+};
 const PEOPLE = [['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie']];
 const isPeople = (v) => PEOPLE.some(([k]) => k === v);
 /** Tutte le sezioni: [vista, nome]. */
-const VIEWS = [...NAV.flatMap(([, items]) => items.map(([k, , l]) => [k, l])).filter(([k]) => k !== 'personale'), ...PEOPLE];
+const VIEWS = [...NAV.flatMap(([, items]) => items).filter(([k]) => k !== 'personale'), ...PEOPLE];
 /** Menu laterale sul computer (finestra larga); su telefono, tablet e finestre strette resta la barra in alto. */
 const sideOn = () => !compactOn() && window.innerWidth > 900;
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
@@ -510,7 +561,7 @@ if (COMPACT) { ui.view = 'giornaliero'; try { ui.showAll = localStorage.getItem(
 function setShowAll(v) { ui.showAll = v; try { localStorage.setItem('turni-tutto', v ? '1' : '0'); } catch (e) { /* niente */ } if (!v && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero'; render(); window.scrollTo(0, 0); }
 function renderBrand() {
   const n = (state.config && state.config.storeName) || '';
-  document.getElementById('brand').innerHTML = n ? `🗓 Orari <span class="sep">·</span> <small>${esc(n)}</small>` : '🗓 Orari';
+  document.getElementById('brand').innerHTML = `<span class="logo">${icon('turni', 20)}</span><span class="bt"><b>Orari</b>${n ? `<small>${esc(n)}</small>` : ''}</span>`;
   document.title = n ? `Orari · ${n}` : 'Pianificatore turni';
 }
 // altezza reale della barra verde (su telefono è più alta): i titoli delle tabelle si fermano subito sotto
@@ -555,16 +606,30 @@ function render() {
   document.getElementById('nav').innerHTML = NAV.map(([g, items]) => {
     const list = items.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k));
     if (!list.length) return '';
-    return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, ic, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${ic}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
+    return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${icon(k)}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
   }).join('');
   const views = { turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
+  const viewHtml = { html: views[ui.view]() };
   document.getElementById('app').innerHTML =
     (TurniCloud.PROVA ? '<div class="notice warn" style="margin-bottom:12px">🧪 <b>Versione di prova</b> (sul computer): vedi i tuoi dati veri, ma le modifiche <b>non vengono salvate online</b> e i dipendenti non vedono niente.</div>' : '') +
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
+    pageHead(viewHtml) +
     (isPeople(ui.view) ? `<div class="seg ptabs">${PEOPLE.map(([k, l]) => `<button class="${ui.view === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('')}</div>` : '') +
-    views[ui.view]() +
+    viewHtml.html +
     (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
   setHeaderHeight();
+}
+/** Intestazione della pagina (icona, titolo, spiegazione). Toglie il primo titolo della sezione se è lo stesso. */
+function pageHead(v) {
+  const key = isPeople(ui.view) ? 'personale' : ui.view, p = PAGE[key];
+  if (!p || compactOn()) return '';
+  let extra = '';
+  const m = v.html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
+  if (m && !isPeople(ui.view) && m[1].replace(/<[^>]+>/g, '').trim().toLowerCase().startsWith(p[0].toLowerCase())) {
+    extra = (m[1].match(/<button type="button" class="ib"[\s\S]*?<\/button>/) || [''])[0];
+    v.html = v.html.replace(m[0], '');
+  }
+  return `<div class="pagehead"><span class="pi">${icon(key, 22)}</span><div><h1>${p[0]} ${extra}</h1><p>${p[1]}</p></div></div>`;
 }
 function showModal(html) { document.getElementById('modal').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
 function closeModal() { document.getElementById('modal').innerHTML = ''; ui.draft = null; if (sync.pendingRender) { sync.pendingRender = false; render(); } }
