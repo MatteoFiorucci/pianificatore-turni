@@ -459,19 +459,19 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611192330"></script>
-<script src="turni-storico.js?v=202611192330"></script>
-<script src="turni-core.js?v=202611192330"></script>
-<script src="turni-manager.js?v=202611192330"></script>
-<script src="turni-vlh.js?v=202611192330"></script>
+<script src="icone.js?v=202611200040"></script>
+<script src="turni-storico.js?v=202611200040"></script>
+<script src="turni-core.js?v=202611200040"></script>
+<script src="turni-manager.js?v=202611200040"></script>
+<script src="turni-vlh.js?v=202611200040"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192330"></script>
-<script src="turni-cloud-config.js?v=202611192330"></script>
-<script src="turni-cloud.js?v=202611192330"></script>
-<script src="turni-cripto.js?v=202611192330"></script>
-<script src="riepilogo.js?v=202611192330"></script>
-<script src="lineare-ufficiale.js?v=202611192330"></script>
+<script src="turni-data.js?v=202611200040"></script>
+<script src="turni-cloud-config.js?v=202611200040"></script>
+<script src="turni-cloud.js?v=202611200040"></script>
+<script src="turni-cripto.js?v=202611200040"></script>
+<script src="riepilogo.js?v=202611200040"></script>
+<script src="lineare-ufficiale.js?v=202611200040"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -3006,7 +3006,7 @@ async function pushOrari(ids) {
       days: w.emp[e.id].days.map((x) => ((w.marks || {})[e.id + '|' + x.d] ? { ...x, mod: w.marks[e.id + '|' + x.d] } : x)) }));
     // le sue richieste con lo stato: così le vede da qualunque telefono o browser entri
     const reqs = (state.requests || []).filter((q) => q.employeeId === e.id).sort((a, b) => b.day - a.day).slice(0, 30)
-      .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
+      .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' || q.kind === 'fino' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
       await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs, ruolo: isMgr ? 'manager' : 'personale' }));
@@ -3022,7 +3022,7 @@ async function pushOrari(ids) {
 const DAYS_IT = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
 const SLOTS_TXT = (q) => (q.slots || []).map((x) => `${DAYS_IT[x.d]} ${T.fmtTime(x.a)}–${T.fmtTime(x.b)}`).join(', ');
 const PERIOD_TXT = (q) => `dal ${T.itDate(q.day)}${q.to != null ? ` al ${T.itDate(q.to)}` : ' (senza data di fine)'}`;
-const KIND_TXT = (q) => q.kind === 'turno' ? `vuole fare solo ${q.label ? q.label.toLowerCase() : 'questa fascia'}${q.to != null && q.to !== q.day ? ` fino al ${T.itDate(q.to)}` : ''}` : q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
+const KIND_TXT = (q) => q.kind === 'turno' ? `vuole fare solo ${q.label ? q.label.toLowerCase() : 'questa fascia'}${q.to != null && q.to !== q.day ? ` fino al ${T.itDate(q.to)}` : ''}` : q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : q.kind === 'fino' ? `può lavorare solo fino alle ${T.fmtTime(q.until)}` : 'non può lavorare quel giorno';
 const LIMIT_TXT = (q) => q.kind === 'turno' ? `turno tra le ${T.fmtTime(q.from)} e le ${T.fmtTime(q.until)}` : q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.kind === 'impegno' && q.after != null ? `finire entro le ${T.fmtTime(q.until)} o iniziare dalle ${T.fmtTime(q.after)}` : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
 // link unico dell'app per il personale (uguale per tutti): ?s = codice del locale (resta anche nell'app installata)
 const appLink = () => `${location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/')}richieste.html?s=${TurniCloud.uid()}`;
@@ -3059,6 +3059,8 @@ async function checkInbox(notify) {
       const q = { id: newId(), rid: d.rid, employeeId: e.id, day, kind: x.kind, note: String(x.note || '').slice(0, 300), status: 'in attesa', createdAt: d.createdAt };
       if (x.kind === 'impegno') { q.time = +x.time; q.until = Math.max(0, q.time - margin); q.after = Math.min(1440, q.time + after); }
       if (x.kind === 'dalle') q.from = +x.from;
+      if (x.kind === 'fino') q.until = +x.until;
+      if (x.kind === 'turno') { q.from = +x.from; q.until = +x.until; q.label = String(x.label || '').slice(0, 40); q.to = x.to ? T.toDay(x.to) : q.day; if (!(q.until > q.from)) continue; }
       if (x.kind === 'fisso') {
         q.slots = (Array.isArray(x.slots) ? x.slots : []).map((y) => ({ d: +y.d, a: +y.a, b: +y.b })).filter((y) => y.d >= 1 && y.d <= 7 && y.b > y.a).slice(0, 14);
         q.to = x.to ? T.toDay(x.to) : null;
