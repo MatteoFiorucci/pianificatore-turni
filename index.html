@@ -337,18 +337,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611181725"></script>
-<script src="turni-core.js?v=202611181725"></script>
-<script src="turni-manager.js?v=202611181725"></script>
-<script src="turni-vlh.js?v=202611181725"></script>
+<script src="turni-storico.js?v=202611191928"></script>
+<script src="turni-core.js?v=202611191928"></script>
+<script src="turni-manager.js?v=202611191928"></script>
+<script src="turni-vlh.js?v=202611191928"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611181725"></script>
-<script src="turni-cloud-config.js?v=202611181725"></script>
-<script src="turni-cloud.js?v=202611181725"></script>
-<script src="turni-cripto.js?v=202611181725"></script>
-<script src="riepilogo.js?v=202611181725"></script>
-<script src="lineare-ufficiale.js?v=202611181725"></script>
+<script src="turni-data.js?v=202611191928"></script>
+<script src="turni-cloud-config.js?v=202611191928"></script>
+<script src="turni-cloud.js?v=202611191928"></script>
+<script src="turni-cripto.js?v=202611191928"></script>
+<script src="riepilogo.js?v=202611191928"></script>
+<script src="lineare-ufficiale.js?v=202611191928"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -868,7 +868,6 @@ function renderMgrTurni() {
   const list = (state.mgrShifts || []).filter((x) => x.day >= ws && x.day <= ws + 6);
   const probs = MGR().check(state, ws);
   const nErr = probs.filter((p) => p.sev === 'ERROR').length, nWarn = probs.length - nErr;
-  const cellP = (id, d) => probs.filter((p) => p.managerId === id && (p.day === d || p.day == null));
   const carpi = MGR().carpiWeek(state, ws), deliv = state.config.mgrDelivery || [2, 5];
   const head = `<tr><th class="name">Manager</th>${days.map((d) => `<th><button class="link" onclick="openDaily(${d})">${T.shortDate(d)} ↗</button>${dayTags(d)}</th>`).join('')}<th>Ore</th></tr>`;
   const rows = team.map((m) => {
@@ -1948,7 +1947,6 @@ function toggleQual(id, key, st) {
   e[key] = o.includes(st) ? o.filter((x) => x !== st) : [...o, st];
   save(); render();
 }
-function toggleOpening(id, st) { toggleQual(id, 'openings', st); }
 
 // ================= DOPPI =================
 function renderDoppi() {
@@ -2056,18 +2054,9 @@ function renderRegole() {
         <label class="btn" style="cursor:pointer">⬆ Importa dati (file)<input type="file" accept=".json,application/json" style="display:none" onchange="importData(this.files[0]);this.value=''"></label>
       </div>
       <p class="small muted" style="margin:0">Il file contiene nomi e orari del personale: tienilo per te e non condividerlo.</p>
-      <hr style="border:0;border-top:1px solid var(--line);width:100%">
-      <p style="margin:0"><b>Dati sul sito, protetti da password.</b> Il sito pubblico può contenere i vostri dati solo cifrati: chi apre il sito senza password vede l'app vuota.</p>
-      <div class="row">
-        <button class="btn" onclick="askEncryptedExport()">🔒 Crea file cifrato per il sito</button>
-        ${location.protocol.startsWith('http') ? '<button class="btn" onclick="loadFromSite(true)">🔓 Ricarica i dati dal sito</button>' : ''}
-      </div>
-      <p class="small muted" style="margin:0">"Crea file cifrato" scarica <b>dati-cifrati.json</b> con tutti i dati di questo browser: va pubblicato sul sito (chiedi a chi lo gestisce). "Ricarica i dati dal sito" sostituisce i dati di questo browser con quelli pubblicati.</p>
-      <hr style="border:0;border-top:1px solid var(--line);width:100%">
-      ${window.TurniPrivato
-        ? `<p style="margin:0">Ripristina i dati iniziali dal file privato di questo computer. <b>Cancella tutte le modifiche fatte.</b></p>
-           <div><button class="btn danger" onclick="if(confirm('Ripristinare i dati iniziali? Tutte le modifiche andranno perse.')){state=TurniData.sampleState();save();ui.ws=T.toDay('2026-10-26');go('turni')}">Ripristina dati iniziali</button></div>`
-        : `<div><button class="btn danger" onclick="if(confirm('Cancellare tutti i dati di questo browser? Fai prima Esporta dati se vuoi tenerli.')){state=TurniData.emptyState();save();go('personale')}">Cancella tutti i dati</button></div>`}
+      <!-- con il salvataggio online "Cancella" svuoterebbe anche i dati online: compare solo senza -->
+      ${TurniCloud.loggedIn() ? '' : `<hr style="border:0;border-top:1px solid var(--line);width:100%">
+      <div><button class="btn danger" onclick="if(confirm('Cancellare tutti i dati di questo browser? Fai prima Esporta dati se vuoi tenerli.')){state=TurniData.emptyState();save();go('personale')}">Cancella tutti i dati</button></div>`}
     </div>
   </div>`;
 }
@@ -2184,50 +2173,6 @@ function renderStore() {
     <p class="small muted" style="margin:0">Le durate sono di presenza. Durate fuori da questi blocchi sono segnalate come errore. La pausa dei turni lunghi è timbrata (uscita e rientro) e non conta nelle ore lavorate: le ore di contratto si raggiungono con le ore di presenza meno le pause. Squadra, giorni dell'ordine, orari flessibili, delivery e Carpigiani: Turni → Manager.</p>
   </div></div>`;
 }
-// --- dati cifrati sul sito ---
-function askEncryptedExport() {
-  if (!TurniCripto.supported()) return alert('Questo browser non supporta la cifratura: usa Safari o Chrome aggiornati.');
-  showModal(`<h3>🔒 Crea file cifrato per il sito</h3>
-    <p class="muted">Scegli una password: servirà per aprire i dati sul sito. Non viene salvata da nessuna parte: se la perdi, va creato un nuovo file.</p>
-    <div class="form"><label class="f">Password<input type="password" id="pw1" autocomplete="new-password"></label>
-    <label class="f">Ripeti la password<input type="password" id="pw2" autocomplete="new-password"></label>
-    <div id="pw-err" class="notice err" style="display:none"></div></div>
-    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" onclick="doEncryptedExport()">Crea file</button></div>`);
-}
-async function doEncryptedExport() {
-  const a = document.getElementById('pw1').value, b = document.getElementById('pw2').value, err = document.getElementById('pw-err');
-  if (a.length < 8) { err.style.display = 'block'; err.textContent = 'Usa almeno 8 caratteri.'; return; }
-  if (a !== b) { err.style.display = 'block'; err.textContent = 'Le due password non coincidono.'; return; }
-  const box = await TurniCripto.encrypt({ state, exportedAt: new Date().toISOString() }, a);
-  const blob = new Blob([JSON.stringify(box)], { type: 'application/json' });
-  const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'dati-cifrati.json';
-  document.body.appendChild(link); link.click(); link.remove();
-  showModal(`<h3>✅ File creato</h3><p>È stato scaricato <b>dati-cifrati.json</b> con ${state.employees.length} dipendenti e ${state.shifts.length} turni, cifrato con la tua password.</p>
-    <p class="muted">Ora va pubblicato sul sito. Ricordati la password: senza, i dati non si possono aprire.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
-}
-/** Sul sito: se esiste dati-cifrati.json chiede la password e carica i dati. force = anche se ci sono già dati. */
-async function loadFromSite(force) {
-  if (!location.protocol.startsWith('http')) return;
-  if (!force && state.employees.length) return;
-  let box;
-  try { const r = await fetch('dati-cifrati.json', { cache: 'no-store' }); if (!r.ok) { if (force) alert('Sul sito non ci sono dati pubblicati.'); return; } box = await r.json(); } catch (e) { return; }
-  ui.siteBox = box;
-  showModal(`<h3>🔒 Dati del locale</h3>
-    <p>Sul sito ci sono i dati del locale (aggiornati al ${box.createdAt ? new Date(box.createdAt).toLocaleDateString('it-IT') : '—'}), protetti da password.</p>
-    ${force && state.employees.length ? '<div class="notice warn">I dati di questo browser verranno sostituiti.</div>' : ''}
-    <div class="form"><label class="f">Password<input type="password" id="pw-open" autocomplete="current-password" onkeydown="if(event.key==='Enter')openSiteData()"></label>
-    <div id="pw-err" class="notice err" style="display:none"></div></div>
-    <div class="actions"><button class="btn" onclick="closeModal()">Non ora</button><button class="btn primary" onclick="openSiteData()">Apri</button></div>`);
-  setTimeout(() => { const i = document.getElementById('pw-open'); if (i) i.focus(); }, 50);
-}
-async function openSiteData() {
-  const pw = document.getElementById('pw-open').value, err = document.getElementById('pw-err');
-  try {
-    const data = await TurniCripto.decrypt(ui.siteBox, pw);
-    state = TurniData.migrate(data.state || data); save(); closeModal(); go('turni');
-  } catch (e) { err.style.display = 'block'; err.textContent = e.message === 'Password sbagliata' ? 'Password sbagliata, riprova.' : e.message; }
-}
-
 // ================= SALVATAGGIO ONLINE =================
 const sync = { status: 'off', msg: '', timer: null, busy: false, seq: 0, pendingRender: false };
 const modalOpen = () => !!document.getElementById('modal').innerHTML;
@@ -2346,22 +2291,6 @@ async function loadGateLogin(s) {
     const j = await r.json(); login = (j.fields && j.fields.login && j.fields.login.stringValue) || '';
   } catch (e) { /* senza rete o locale non attivo: si chiede anche il nome utente */ }
   ui.gateLogin = login; render();
-}
-/** Dall'app "Turni" (sezione Manager): basta la password comune dei manager, il nome di accesso lo prende dal locale. */
-async function askManagerLogin(s) {
-  let login = null;
-  try {
-    const c = window.TURNI_CLOUD_CONFIG;
-    const r = await fetch(`https://firestore.googleapis.com/v1/projects/${c.projectId}/databases/(default)/documents/negozi/${encodeURIComponent(s)}?key=${c.apiKey}`, { cache: 'no-store' });
-    const j = await r.json(); login = j.fields && j.fields.login && j.fields.login.stringValue;
-  } catch (e) { /* senza rete o locale non attivo */ }
-  if (!login) return askCloudLogin();
-  showModal(`<h3>🔑 Area manager</h3><p class="muted">Inserisci la password dei manager del locale.</p>
-    <input type="hidden" id="cl-email" value="${esc(login)}">
-    <div class="form"><label class="f">Password manager<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')cloudLogin()"></label>
-    <div><button class="btn primary" id="cl-btn" onclick="cloudLogin()">Entra</button></div><div id="cl-err" class="notice err" style="display:none"></div></div>
-    <div class="actions"><a class="btn" style="text-decoration:none;display:inline-flex;align-items:center" href="richieste.html?s=${encodeURIComponent(s)}">← Sono un dipendente</a></div>`);
-  setTimeout(() => { const i = document.getElementById('cl-pw'); if (i) i.focus(); }, 50);
 }
 function askCloudLogin(msg) {
   showModal(`<h3>☁️ Accedi ai dati del locale</h3>
@@ -3157,7 +3086,6 @@ render();
 if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
 else if (ui.locked) { if (storeCode()) loadGateLogin(storeCode()); else { ui.gateLogin = ''; render(); } }
 else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
-else loadFromSite(false);
 // installabile come app (schermata Home del telefono o del computer)
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => null);
 </script>

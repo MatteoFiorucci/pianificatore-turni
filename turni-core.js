@@ -453,7 +453,7 @@
    * il fabbisogno viene ridotto in proporzione e segnalato. I giorni senza previsione usano i minimi di Regole.
    */
   function forecastFor(state, ws, ctx) {
-    const f = state.forecasts && state.forecasts[ws], t = state.targets || {};
+    const f = state.forecasts && state.forecasts[ws];
     const prof = (ctx.hist || {}).profile;
     if (!f || !prof) return null;
     // il fabbisogno viene solo dalle Crew Hours dell'azienda; vendite e clienti sono solo informativi
@@ -955,7 +955,6 @@
    */
   // limite di persone al McCafé (impostazioni dello store): di base 1, 2 nei giorni indicati prima di pranzo; si può spegnere
   const mcCafeMax = (cfg, d, m) => (cfg.mcCapOn === false ? 99 : (cfg.mcEarlyDays || [5, 6, 7]).includes(dow(d)) && m < (cfg.mcMaxFino ?? 720) ? (cfg.mcMaxEarly ?? 2) : (cfg.mcMax ?? 1));
-  const mcCafeAt = (list, d, m, except = null) => list.filter((x) => x !== except && x.day === d && x.station === 'MCCAFE' && x.start <= m && x.end > m).length;
   /** Persone al McCafé che contano per il limite: al cambio turno (chi esce entro 30 minuti e chi è appena entrato) si conta una persona sola. */
   function mcCafeLoad(list, d, m, extra = null, except = null) {
     const xs = list.filter((x) => x !== except && x.day === d && x.station === 'MCCAFE' && x.start <= m && x.end > m);
@@ -1328,7 +1327,6 @@
     const doublesLeft = (e) => (e.doubleDays || 0) - shifts.filter((s) => s.employeeId === e.id && isDouble(s)).length;
     const dayMain = (id, d) => shifts.filter((s) => s.employeeId === id && s.day === d && !isDouble(s));
     const freeDayList = (e, exceptDay) => ctx.days.filter((d) => d !== exceptDay && isAvail(ctx, e, d) && !dayMain(e.id, d).length);
-    const cmpName = (a, b) => { const x = fullName(a), y = fullName(b); return x < y ? -1 : x > y ? 1 : 0; };
     const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
     const ceilDiv = (a, b) => Math.floor((a + b - 1) / b);
     const roundUp30 = (x) => Math.floor((x + 29) / 30) * 30;
@@ -1604,7 +1602,6 @@
       (a.station === null) - (b.station === null) || !!a.vlh - !!b.vlh || !a.opening - !b.opening || isH(a) - isH(b) ||
       (isH(a) && isH(b) ? (b.end - b.start) - (a.end - a.start) : (a.end - a.start) - (b.end - b.start)) || b.start - a.start);
     const generic = ctx.coverage.filter((r) => !r.station);
-    const byNeed = (a, b) => remaining(b) - remaining(a) || cmpName(a, b);
     const hospReqs = ctx.coverage.filter((r) => r.station === 'HOSPITALITY');
     const hospitality = flexible.filter((e) => e.type === 'HOSPITALITY');
     function benefit(d, start, end, list = generic) {
