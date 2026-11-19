@@ -118,6 +118,8 @@
   .autotag { display: inline-block; padding: 0 6px; border-radius: 999px; background: #e6f0ff; color: #2456b3; font-size: 11px; line-height: 18px; margin-left: 4px; }
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
+  .card.empty { color: var(--muted); }
+  .toolbar .ptabs { margin: 0; }
   .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
   /* iPhone ingrandisce da solo la pagina quando si tocca un campo con testo sotto i 16px: su telefono/tablet si usano 16px */
   @media (pointer: coarse), (max-width: 760px) { input, select, textarea { font-size: 16px !important; } }
@@ -442,18 +444,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611192209"></script>
-<script src="turni-core.js?v=202611192209"></script>
-<script src="turni-manager.js?v=202611192209"></script>
-<script src="turni-vlh.js?v=202611192209"></script>
+<script src="turni-storico.js?v=202611192217"></script>
+<script src="turni-core.js?v=202611192217"></script>
+<script src="turni-manager.js?v=202611192217"></script>
+<script src="turni-vlh.js?v=202611192217"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611192209"></script>
-<script src="turni-cloud-config.js?v=202611192209"></script>
-<script src="turni-cloud.js?v=202611192209"></script>
-<script src="turni-cripto.js?v=202611192209"></script>
-<script src="riepilogo.js?v=202611192209"></script>
-<script src="lineare-ufficiale.js?v=202611192209"></script>
+<script src="turni-data.js?v=202611192217"></script>
+<script src="turni-cloud-config.js?v=202611192217"></script>
+<script src="turni-cloud.js?v=202611192217"></script>
+<script src="turni-cripto.js?v=202611192217"></script>
+<script src="riepilogo.js?v=202611192217"></script>
+<script src="lineare-ufficiale.js?v=202611192217"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -649,6 +651,7 @@ function pageHead(v) {
     extra = (m[1].match(/<button type="button" class="ib"[\s\S]*?<\/button>/) || [''])[0];
     v.html = v.html.replace(m[0], '');
   }
+  else if (!m && INFO[key]) extra = ib(key);
   return `<div class="pagehead"><span class="pi">${icon(key, 22)}</span><div><h1>${p[0]} ${extra}</h1><p>${p[1]}</p></div></div>`;
 }
 function showModal(html) { document.getElementById('modal').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
@@ -3046,27 +3049,26 @@ function renderRichieste() {
     </div>`;
   };
   const people = sortByName(state.employees.filter((e) => e.active));
-  return `
-  <h2>Richieste del personale ${ib('richieste')}</h2>
-  ${!logged ? '<div class="notice warn">Per ricevere le richieste serve il salvataggio online: accedi in Regole → Dati.</div>'
-    : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>`
-    : `${ntfyBox()}<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
-        ${window.Notification && Notification.permission !== 'granted' ? '<button class="btn" onclick="Notification.requestPermission().then(()=>render())">🔔 Avvisami anche con le notifiche del browser</button>' : ''}</div>`}
-  <div class="card section" style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:220px"><b>✍️ Richiesta a mano</b><div class="small muted">Per le richieste arrivate a voce, per messaggio o da chi non usa l'app.</div></div><button class="btn primary" onclick="newManualRequest()">+ Aggiungi richiesta</button></div>
-  <h3 style="margin:18px 0 8px">Da decidere (${pend.length})</h3>
-  ${pend.map(card).join('') || '<p class="muted">Nessuna richiesta in attesa.</p>'}
-  ${done.length ? `<details style="margin-top:18px" ${ui.showDone ? 'open' : ''} ontoggle="ui.showDone=this.open"><summary style="cursor:pointer;font-weight:700;font-size:15px;margin-bottom:8px">Già decise (${reqs.length - pend.length})</summary>
-    <div style="margin:4px 0 10px"><button class="btn" style="color:var(--err-ink)" onclick="deleteRequests(state.requests.filter((q)=>q.status!=='in attesa').map((q)=>q.id))">🗑 Elimina tutte le decise</button></div>
-    ${done.map(card).join('')}</details>` : ''}
-  ${logged && state.reqKeys ? `<h3 style="margin:22px 0 8px">App del personale e accessi</h3>
-  <div class="card section"><p style="margin-top:0"><b>1. Un solo link per tutti</b> (es. nel gruppo WhatsApp): da lì scaricano l'app sul telefono.</p>
-    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
-    <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
-  <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
-  <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
-    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? (c.changed ? '<span class="muted small">cambiata dal dipendente</span>' : `<code>${esc(c.pw)}</code>`) : ''}</td>
-      <td style="text-align:right;white-space:nowrap">${c ? `${c.changed ? '' : `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> `}<button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
-  </tbody></table></div>` : ''}`;
+  const tab = ui.reqTab || 'pend', nDone = reqs.length - pend.length;
+  const tabs = `<div class="seg ptabs">${[['pend', `Da decidere${pend.length ? ` (${pend.length})` : ''}`], ['done', `Già decise${nDone ? ` (${nDone})` : ''}`], ['app', 'App e accessi']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" onclick="ui.reqTab='${k}';render()">${l}</button>`).join('')}</div>`;
+  const ready = logged && state.reqKeys;
+  const setup = !logged ? '<div class="notice warn" style="margin-bottom:12px">Per ricevere le richieste dall\'app serve il salvataggio online: accedi in Regole → Dati. Quelle a mano si possono inserire comunque.</div>'
+    : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>` : '';
+  const more = [];
+  if (ready && window.Notification && Notification.permission !== 'granted') more.push(['🔔 Avvisami con le notifiche del browser', 'Notification.requestPermission().then(()=>render())']);
+  if (ready) more.push(['📱 Notifiche sul telefono (ntfy)', "ui.reqTab='app';ui.ntfyOpen=true;render()"]);
+  if (nDone) more.push(['🗑 Elimina tutte le richieste decise', "deleteRequests(state.requests.filter((q)=>q.status!=='in attesa').map((q)=>q.id))", true]);
+  const bar = `<div class="toolbar">${tabs}<div class="spacer"></div>${ready ? '<button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert(\'Nessuna richiesta nuova.\')})" title="Scarica subito le richieste arrivate dall\'app">↻ Controlla nuove</button>' : ''}<button class="btn primary" onclick="newManualRequest()">✍️ Richiesta a mano</button>${more.length ? moreMenu(more) : ''}</div>`;
+  const doneRow = (q) => { const e = empById(q.employeeId);
+    return `<tr><td><b>${esc(e ? T.fullName(e) : '?')}</b>${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</td><td style="white-space:nowrap">${q.kind === 'fisso' ? PERIOD_TXT(q) : T.itDate(q.day)}</td>
+      <td>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</td>
+      <td>${q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : '<span class="chip err">Rifiutata</span>'}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="link" onclick="reopenRequest(${q.id})" title="Rimetti in attesa">↺</button> <button class="link" style="color:var(--err-ink);margin-left:10px" title="Elimina" onclick="deleteRequests([${q.id}])">🗑</button></td></tr>`; };
+  let body;
+  if (tab === 'done') body = done.length ? `<div class="card"><table class="list"><thead><tr><th>Nome</th><th>Quando</th><th>Richiesta</th><th>Esito</th><th></th></tr></thead><tbody>${done.map(doneRow).join('')}</tbody></table></div>${nDone > done.length ? `<p class="small muted">Sono mostrate le ultime ${done.length}.</p>` : ''}` : '<p class="muted">Nessuna richiesta decisa.</p>';
+  else if (tab === 'app') body = ready ? `${ntfyBox()}<h3 style="margin:18px 0 8px">App del personale e accessi</h3>` + BODY_PLACEHOLDER : '<p class="muted">L\'app del personale si attiva con il salvataggio online.</p>';
+  else body = pend.map(card).join('') || '<div class="card section empty">✅ Nessuna richiesta da decidere.</div>';
+  return `${bar}${setup}${body}`;
 }
 function askAccept(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
