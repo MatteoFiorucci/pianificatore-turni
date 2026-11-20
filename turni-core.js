@@ -367,6 +367,23 @@
           bands.get(key).min[k] = n;
         }
       }
+      // anticipo sul picco: se in un'ora servono più persone dell'ora prima, quelle in più devono essere già dentro
+      // qualche minuto prima (Regole → "Anticipo prima dei picchi"), per prepararsi invece di arrivare a picco iniziato
+      const prep = ctx.cfg.peakPrep ?? 30;
+      if (prep > 0) for (const k of vlhDays) {
+        const hrs = ctx.vlh[k].hours;
+        for (const [h, x] of Object.entries(hrs)) {
+          const prev = hrs[+h - 1];
+          if (!prev) continue;
+          for (const [st, label] of [...VLH_STATIONS, [null, 'crew']]) {
+            const n = st ? x.need[st] : x.crew, n0 = prev ? (st ? prev.need[st] : prev.crew) || 0 : 0;
+            if (!n || n <= n0) continue;
+            const key = `prep|${st}|${h}`, a0 = Math.max(prev.from, x.from - prep);
+            if (!bands.has(key)) bands.set(key, { id: `vlh-prep-${st || 'tot'}-${h}`, name: `VLH ${label} (preparazione)`, start: a0, end: x.from, min: [0, 0, 0, 0, 0, 0, 0], station: st, soft: true, vlh: true, prep: true });
+            bands.get(key).min[k] = n;
+          }
+        }
+      }
       ctx.coverage = ctx.coverage.concat([...bands.values()]);
     }
     // locale chiuso: nessun minimo quel giorno; chiusura parziale: nessun minimo nelle fasce che la toccano
@@ -988,7 +1005,10 @@
     if (cfg.roundTimes === false) return true;
     const h = dayHours(cfg, s.day), opens = s.start <= h.open, closes = s.end >= h.close;
     const ok = (t, half) => t % 60 === 0 || (half && t % 30 === 0);
-    return (opens || ok(s.start, closes)) && (closes || ok(s.end, opens));
+    // anticipo sul picco: si può entrare alle 12:30 e alle 18:30 (es. 12:30–15:00, 18:30–21:00),
+    // così si arriva prima del picco invece che a picco iniziato
+    const prepHalf = (cfg.peakPrep ?? 30) > 0 && (cfg.prepStarts || [750, 1110]).includes(s.start); // 12:30 e 18:30
+    return (opens || ok(s.start, closes || prepHalf)) && (closes || ok(s.end, opens));
   }
   function shortOffPeak(cfg, s) {
     if (cfg.shortRule === false || s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= dayHours(cfg, s.day).open) return false;
@@ -1774,6 +1794,7 @@
     };
     // con gli orari interi si provano anche tutte le altre ore piene (es. 19–21 per le ultime 2 ore del contratto)
     if (cfg.roundTimes !== false) for (const k of Object.keys(fillStarts)) for (let h = 420; h <= 1260; h += 60) if (!fillStarts[k].includes(h)) fillStarts[k].push(h);
+    if (cfg.roundTimes !== false && (cfg.peakPrep ?? 30) > 0) for (const k of Object.keys(fillStarts)) for (const h of cfg.prepStarts || [750, 1110]) if (!fillStarts[k].includes(h)) fillStarts[k].push(h); // 12:30 e 18:30: prima dei picchi
     const fillHours = () => {
       for (const e of [...flexible].sort((a, b) => remaining(b) - remaining(a))) {
         let guard = 0;
