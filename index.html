@@ -459,26 +459,29 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611200040"></script>
-<script src="turni-storico.js?v=202611200040"></script>
-<script src="turni-core.js?v=202611200040"></script>
-<script src="turni-manager.js?v=202611200040"></script>
-<script src="turni-vlh.js?v=202611200040"></script>
+<script src="icone.js?v=202611201713"></script>
+<script src="turni-storico.js?v=202611201713"></script>
+<script src="turni-core.js?v=202611201713"></script>
+<script src="turni-manager.js?v=202611201713"></script>
+<script src="turni-vlh.js?v=202611201713"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611200040"></script>
-<script src="turni-cloud-config.js?v=202611200040"></script>
-<script src="turni-cloud.js?v=202611200040"></script>
-<script src="turni-cripto.js?v=202611200040"></script>
-<script src="riepilogo.js?v=202611200040"></script>
-<script src="lineare-ufficiale.js?v=202611200040"></script>
+<script src="turni-data.js?v=202611201713"></script>
+<script src="turni-cloud-config.js?v=202611201713"></script>
+<script src="turni-cloud.js?v=202611201713"></script>
+<script src="turni-cripto.js?v=202611201713"></script>
+<script src="riepilogo.js?v=202611201713"></script>
+<script src="lineare-ufficiale.js?v=202611201713"></script>
 <script>
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
 // menu: gruppi di voci [vista, icona, nome]; "Persone" raccoglie in una pagina (con le schede) personale, formazione, aperture, doppi e ferie
-const NAV = [[null, [['home', 'Home'], ['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['richieste', 'Richieste']]],
-  ['Gestione', [['personale', 'Persone'], ['regole', 'Regole'], ['store', 'Store']]]];
+const NAV = [[null, [['home', 'Home'], ['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['richieste', 'Richieste']]],
+  ['Gestione', [['personale', 'Persone'], ['regole', 'Impostazioni']]]];
+// pagine raccolte sotto una voce del menu, con le schede in alto: [voce del menu, schede]
+const GROUPS = { giornaliero: [['giornaliero', 'Lineare'], ['vlh', 'VLH']], regole: [['regole', 'Regole'], ['store', 'Store']] };
+const groupOf = (v) => Object.keys(GROUPS).find((g) => GROUPS[g].some(([k]) => k === v)) || null;
 // intestazione di ogni pagina: titolo e una riga di spiegazione
 const PAGE = {
   home: ['Home', 'Il riassunto: settimane, richieste e previsioni'],
@@ -488,13 +491,12 @@ const PAGE = {
   previsioni: ['Previsioni', 'Vendite, clienti e ore di lavoro previste · eventi e chiusure'],
   richieste: ['Richieste', 'Le richieste del personale dall\'app Turni'],
   personale: ['Persone', 'Chi lavora nel locale: ore, formazione, aperture, doppi e assenze'],
-  regole: ['Regole', 'Durate, stacchi e fasce di copertura di crew e hospitality'],
-  store: ['Store', 'Orari, postazioni e regole del locale e dei manager'],
+  regole: ['Impostazioni', 'Regole di crew e hospitality, orari e postazioni del locale, regole dei manager'],
 };
 const PEOPLE = [['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie']];
 const isPeople = (v) => PEOPLE.some(([k]) => k === v);
 /** Tutte le sezioni: [vista, nome]. */
-const VIEWS = [...NAV.flatMap(([, items]) => items).filter(([k]) => k !== 'personale'), ...PEOPLE];
+const VIEWS = [...NAV.flatMap(([, items]) => items).filter(([k]) => k !== 'personale' && !GROUPS[k]), ...Object.values(GROUPS).flat(), ...PEOPLE];
 /** Menu laterale sul computer (finestra larga); su telefono, tablet e finestre strette resta la barra in alto. */
 const sideOn = () => !compactOn() && window.innerWidth > 900;
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
@@ -632,7 +634,7 @@ function render() {
   document.getElementById('nav').innerHTML = NAV.map(([g, items]) => {
     const list = items.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k));
     if (!list.length) return '';
-    return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${icon(k)}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
+    return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) || groupOf(ui.view) === k ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${icon(k)}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
   }).join('');
   const views = { home: renderHome, turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
   const viewHtml = { html: views[ui.view]() };
@@ -640,6 +642,7 @@ function render() {
     (TurniCloud.PROVA ? '<div class="notice warn" style="margin-bottom:12px">🧪 <b>Versione di prova</b> (sul computer): vedi i tuoi dati veri, ma le modifiche <b>non vengono salvate online</b> e i dipendenti non vedono niente.</div>' : '') +
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
     pageHead(viewHtml) +
+    (groupOf(ui.view) ? `<div class="seg ptabs">${GROUPS[groupOf(ui.view)].map(([k, l]) => `<button class="${ui.view === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('')}</div>` : '') +
     (isPeople(ui.view) ? `<div class="seg ptabs">${PEOPLE.map(([k, l]) => `<button class="${ui.view === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('')}</div>` : '') +
     viewHtml.html +
     (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
@@ -647,11 +650,11 @@ function render() {
 }
 /** Intestazione della pagina (icona, titolo, spiegazione). Toglie il primo titolo della sezione se è lo stesso. */
 function pageHead(v) {
-  const key = isPeople(ui.view) ? 'personale' : ui.view, p = PAGE[key];
+  const key = isPeople(ui.view) ? 'personale' : groupOf(ui.view) || ui.view, p = PAGE[key];
   if (!p || compactOn()) return '';
   let extra = '';
   const m = v.html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
-  if (m && !isPeople(ui.view) && m[1].replace(/<[^>]+>/g, '').trim().toLowerCase().startsWith(p[0].toLowerCase())) {
+  if (m && !isPeople(ui.view) && ui.view !== 'store' && m[1].replace(/<[^>]+>/g, '').trim().toLowerCase().startsWith(p[0].toLowerCase())) {
     extra = (m[1].match(/<button type="button" class="ib"[\s\S]*?<\/button>/) || [''])[0];
     v.html = v.html.replace(m[0], '');
   }
@@ -1433,7 +1436,6 @@ function renderGiornaliero() {
     <button class="btn" onclick="ui.day=T.todayDay();render()">Oggi</button>
     <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
     <div class="seg"><button class="${byArea ? '' : 'on'}" onclick="ui.groupBy='ruolo';render()">Per ruolo</button><button class="${byArea ? 'on' : ''}" onclick="ui.groupBy='area';render()">Per area</button></div>
-    <button class="btn" onclick="go('vlh')" title="Postazioni da aprire ora per ora (VLH)">📋 VLH</button>
     <button class="btn ${editing ? 'primary' : ''}" onclick="ui.dragEdit=!ui.dragEdit;render()" title="Sposta e allunga i turni trascinandoli (anche con il dito sul tablet)">${editing ? '✓ Fine modifica' : '✋ Modifica trascinando'}</button>
     <div class="spacer"></div>
     ${compactOn() ? '' : `<button class="btn" onclick="ui.ws=T.mondayOf(ui.day);go('turni')">Vai alla settimana</button>
@@ -1521,7 +1523,7 @@ function renderVLH() {
     <div class="seg">${[['Pranzo 8–15', 0], ['Cena 15–22', 1], ['Tutte e due', 2]].map(([t, k]) => `<button class="${vlhSheet() === k ? 'on' : ''}" onclick="ui.vlhSheet=${k};render()">${t}</button>`).join('')}</div>
     <label class="small"><input type="checkbox" ${ui.vlhNomi !== false ? 'checked' : ''} onchange="ui.vlhNomi=this.checked;render()"> Proponi i nomi</label>
     <div class="spacer"></div>
-    <button class="btn" onclick="go('giornaliero')">Lineare</button>
+
     <button class="btn primary" onclick="window.print()">🖨 Stampa</button>
   </div>`;
   if (!state.vlh || !state.vlh.giorni) {
