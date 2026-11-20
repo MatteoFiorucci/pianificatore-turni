@@ -63,9 +63,9 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="icone.js?v=202611201946"></script>
-<script src="turni-cloud-config.js?v=202611201946"></script>
-<script src="turni-cripto.js?v=202611201946"></script>
+<script src="icone.js?v=202611202144"></script>
+<script src="turni-cloud-config.js?v=202611202144"></script>
+<script src="turni-cripto.js?v=202611202144"></script>
 <script>
 'use strict';
 /*
@@ -375,11 +375,13 @@ function render() {
 let draft = {};
 // richieste in più solo per i manager: giorno libero, finire entro un orario, fascia preferita (apertura/centrale/chiusura)
 const MGR_KINDS = [['libero', 'Non posso lavorare quel giorno', 'il manager decide: le ore si spostano sugli altri giorni'], ['turno', 'Preferisco una fascia', 'solo apertura, centrale o chiusura, anche per più giorni']];
-const TURNO_KIND = ['turno', 'Preferisco una fascia', 'apertura, pranzo/pomeriggio, pomeriggio/cena o chiusura, anche per più giorni'];
+const TURNO_KIND = ['turno', 'Preferisco una fascia', 'apertura, pranzo/pomeriggio, cena o chiusura, anche per più giorni'];
 // fasce: [nome, dalle, alle] (minuti); il manager può cambiare gli orari quando accetta
 const FASCE_MGR = { apertura: ['Apertura', 0, 960], centrale: ['Centrale', 540, 1140], chiusura: ['Chiusura', 810, 1440] };
-const FASCE_CREW = { apertura: ['Apertura', 0, 900], pranzo: ['Pranzo/pomeriggio', 600, 1080], cena: ['Pomeriggio/cena', 960, 1440], chiusura: ['Chiusura', 1050, 1440] };
-const FASCE_OF = () => (isMgr() ? FASCE_MGR : FASCE_CREW);
+// la cena parte dall'ora impostata dal locale (Impostazioni → Regole: "Chi fa la cena entra dalle"), mandata con l'orario
+const FASCE_CREW = () => { const c = (orario && orario.cenaDalle) || 1020;
+  return { apertura: ['Apertura', 0, 900], pranzo: ['Pranzo/pomeriggio', 600, 1080], cena: [`Cena (dalle ${fmt(c)})`, c, 1440], chiusura: ['Chiusura', 1050, 1440] }; };
+const FASCE_OF = () => (isMgr() ? FASCE_MGR : FASCE_CREW());
 function keep() { for (const id of ['date', 'note', 'time', 'from', 'to', 'until', 'fascia']) { const el = document.getElementById(id); if (el) draft[id] = el.value; } }
 function restore() { for (const [id, v] of Object.entries(draft)) { const el = document.getElementById(id); if (el && v) el.value = v; } }
 

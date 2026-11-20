@@ -459,19 +459,19 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611201946"></script>
-<script src="turni-storico.js?v=202611201946"></script>
-<script src="turni-core.js?v=202611201946"></script>
-<script src="turni-manager.js?v=202611201946"></script>
-<script src="turni-vlh.js?v=202611201946"></script>
+<script src="icone.js?v=202611202144"></script>
+<script src="turni-storico.js?v=202611202144"></script>
+<script src="turni-core.js?v=202611202144"></script>
+<script src="turni-manager.js?v=202611202144"></script>
+<script src="turni-vlh.js?v=202611202144"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611201946"></script>
-<script src="turni-cloud-config.js?v=202611201946"></script>
-<script src="turni-cloud.js?v=202611201946"></script>
-<script src="turni-cripto.js?v=202611201946"></script>
-<script src="riepilogo.js?v=202611201946"></script>
-<script src="lineare-ufficiale.js?v=202611201946"></script>
+<script src="turni-data.js?v=202611202144"></script>
+<script src="turni-cloud-config.js?v=202611202144"></script>
+<script src="turni-cloud.js?v=202611202144"></script>
+<script src="turni-cripto.js?v=202611202144"></script>
+<script src="riepilogo.js?v=202611202144"></script>
+<script src="lineare-ufficiale.js?v=202611202144"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -3011,7 +3011,7 @@ async function pushOrari(ids) {
       .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' || q.kind === 'fino' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
-      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs, ruolo: isMgr ? 'manager' : 'personale' }));
+      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs, cenaDalle: state.config.dinnerPreStart ?? 990, ruolo: isMgr ? 'manager' : 'personale' }));
       res.ok++;
     } catch (err) { res.fail++; }
   }
