@@ -671,7 +671,7 @@
     OVERLAP: 'Turni sovrapposti', DAILY_MAX: 'Ore giornaliere', SHIFT_LENGTH: 'Durata turno', REST_11H: 'Stacco 11h',
     SHORT_OFFPEAK: 'Turno breve fuori dai rush', TRAINEE: 'In formazione', START_DATE: 'Data di inizio', AFTERNOON: 'Pomeriggio', LONG_SHIFTS: 'Turni lunghi', WEEKEND_REST: 'Riposo nel weekend', CLOSING_TEAM: 'Squadra apertura/chiusura', REST_36H: 'Stacco 36h', WEEKLY_HOURS: 'Ore settimanali', TRAINING: 'Formazione', FIXED_SHIFT: 'Orario fisso',
     DOUBLES: 'Doppi', WORK_DAYS: 'Giorni lavorati', RUSH_SPLIT: 'Pranzo e cena', REQUEST: 'Richiesta del personale',
-    CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé', VLH: 'Posizioni VLH', AFF: 'Affiancamento', LUNCH_RUSH: 'Rush del pranzo',
+    CLOSED: 'Locale chiuso', MCCAFE_MAX: 'Persone al McCafé', VLH: 'Posizioni VLH', AFF: 'Affiancamento', LUNCH_RUSH: 'Rush del pranzo', SAME_TIME: 'Tutti insieme',
   };
   const V = (rule, sev, msg, emp = null, day = null) => ({ rule, sev, msg, emp, day });
 
@@ -991,18 +991,20 @@
    */
   /**
    * Turno del pranzo che esce prima della fine del rush: entra tra le 10:00 e le 13:00 ed esce prima delle 15:00
-   * (es. 12:00–14:00). Il rush del pranzo va coperto fino alla fine: chi fa il pranzo resta almeno fino alle 14:30.
+   * (es. 12:00–14:00). Il rush del pranzo va coperto fino alla fine: chi fa il pranzo resta almeno fino alle 14:15.
    * Non riguarda chi apre né i turni della mattina. Orari modificabili (lunchShiftFrom, lunchShiftTo, lunchRushEnd).
    */
   const leavesLunchRush = (cfg, s) => cfg.lunchRushRule !== false && s.start >= (cfg.lunchShiftFrom ?? 600) &&
-    s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 870);
+    s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 855);
   /**
    * Orari "puliti" dei turni messi dal generatore: inizio e fine all'ora intera (es. 13–16, 19–21).
    * La mezz'ora va bene solo legata all'orario del locale: chi apre può finire alla mezz'ora (7:30–12:30),
    * chi chiude può iniziare alla mezz'ora (17:30–21:30). Mai i quarti d'ora (18:45). Si spegne con roundTimes = false.
    */
-  function roundTimeOk(cfg, s) {
+  function roundTimeOk(cfg, s, quarter = false) {
     if (cfg.roundTimes === false) return true;
+    // giro "non tutti insieme": durante i rush (pranzo 11:30–15:30, cena dalle 17:30) vanno bene anche i quarti d'ora
+    if (quarter) { const q = (t) => t % 15 === 0 && ((t >= 690 && t <= 930) || t >= 1050); if (q(s.start) && q(s.end)) return true; }
     const h = dayHours(cfg, s.day), opens = s.start <= h.open, closes = s.end >= h.close;
     const ok = (t, half) => t % 60 === 0 || (half && t % 30 === 0);
     // anticipo sul picco: si può entrare alle 12:30 e alle 18:30 (es. 12:30–15:00, 18:30–21:00),
@@ -1011,6 +1013,13 @@
     const halfEnd = (cfg.halfEnds || [870]).includes(s.end); // a pranzo si può uscire alle 14:30 (a cena no)
     return (opens || ok(s.start, closes || prepHalf)) && (closes || ok(s.end, opens || halfEnd));
   }
+  /**
+   * Doppi: solo pranzo + cena. Chi fa il doppio entra per il rush del pranzo e rientra per il rush della cena:
+   * un turno copre il picco del pranzo (12:30–14:00, entrando dalle 10:30) e l'altro il picco della cena (19:00–20:30, dalle 16:30).
+   */
+  const lunchShift = (cfg, s) => s.start >= (cfg.dblLunchFrom ?? 630) && s.start <= (cfg.lunchPeak || [750, 840])[0] && s.end >= (cfg.lunchPeak || [750, 840])[1] && s.end <= (cfg.dblLunchTo ?? 960);
+  const dinnerShift = (cfg, s) => s.start >= (cfg.dblDinnerFrom ?? cfg.dinnerPreStart ?? 990) && s.start <= (cfg.dinnerPeak || [1140, 1230])[0] && s.end >= (cfg.dinnerPeak || [1140, 1230])[1];
+  const doublePairOk = (cfg, a, b) => cfg.doubleRushRule === false || (lunchShift(cfg, a) && dinnerShift(cfg, b)) || (dinnerShift(cfg, a) && lunchShift(cfg, b));
   function shortOffPeak(cfg, s) {
     if (cfg.shortRule === false || s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= dayHours(cfg, s.day).open) return false;
     const [l0, l1] = cfg.shortLunch || [690, 900], [d0, d1] = cfg.shortDinner || [1110, dayHours(cfg, s.day).close];
@@ -1023,7 +1032,7 @@
       const e = ctx.byId.get(s.employeeId);
       if (!e || e.fixedShift) continue;
       const p = parts(s.day);
-      out.push(V('LUNCH_RUSH', 'WARNING', `${fullName(e)} · ${DOW_LONG[dow(s.day)]} ${p.d}/${p.m}: ${fmtTime(s.start)}–${fmtTime(s.end)} esce prima della fine del rush del pranzo (${fmtTime(ctx.cfg.lunchRushEnd ?? 870)})`, e.id, s.day));
+      out.push(V('LUNCH_RUSH', 'WARNING', `${fullName(e)} · ${DOW_LONG[dow(s.day)]} ${p.d}/${p.m}: ${fmtTime(s.start)}–${fmtTime(s.end)} esce prima della fine del rush del pranzo (${fmtTime(ctx.cfg.lunchRushEnd ?? 855)})`, e.id, s.day));
     }
     return out;
   }
@@ -1228,6 +1237,10 @@
       } else if (days.length < planned) {
         out.push(V('DOUBLES', 'WARNING', `${fullName(e)}: previsti ${planned} doppi, ne fa ${days.length}`, e.id));
       }
+      for (const d of days) {
+        const l = shiftsOf(ctx, e.id, d), dbl = l.find(isDouble), main = l.find((s) => !isDouble(s));
+        if (dbl && main && !doublePairOk(ctx.cfg, main, dbl)) out.push(V('DOUBLES', 'WARNING', `${fullName(e)} · ${shortDate(d)}: il doppio va fatto pranzo + cena (${fmtTime(main.start)}–${fmtTime(main.end)} e ${fmtTime(dbl.start)}–${fmtTime(dbl.end)})`, e.id, d));
+      }
     }
     return out;
   }
@@ -1246,8 +1259,23 @@
     return n;
   }
 
+  /** Troppe persone che entrano o escono allo stesso orario (apertura e chiusura escluse): il cambio turno diventa un buco. */
+  function ruleSameTime(ctx) {
+    const out = [], max = ctx.cfg.sameTimeMax ?? 2;
+    if (!(max > 0)) return out;
+    for (const d of ctx.days) {
+      const { open, close } = dayHours(ctx.cfg, d);
+      const dl = ctx.shifts.filter((s) => s.day === d && !isDouble(s));
+      for (const [k, verb] of [['start', 'entrano'], ['end', 'escono']]) {
+        const by = new Map();
+        for (const s of dl) if (s[k] > open && s[k] < close) by.set(s[k], (by.get(s[k]) || 0) + 1);
+        for (const [t, n] of by) if (n > max + 1) out.push(V('SAME_TIME', 'WARNING', `${DOW_LONG[dow(d)]} ${shortDate(d).split(' ')[1]}: ${n} persone ${verb} insieme alle ${fmtTime(t)}`, null, d));
+      }
+    }
+    return out;
+  }
   function validate(ctx) {
-    const all = [ruleCoverage, ruleVlh, ruleLunchRush, ruleAffiancamenti, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
+    const all = [ruleSameTime, ruleCoverage, ruleVlh, ruleLunchRush, ruleAffiancamenti, ruleRestAndAbsence, ruleDaily, ruleRest, ruleWeekly, ruleTraining, ruleFixedShift, ruleDoubles, ruleWorkDays, ruleTrainee, ruleClosingTeam, ruleWeekendRest, ruleLongShifts, ruleAfternoon, ruleStartDate, ruleRushSplit, ruleMcCafeMax, ruleShortOffPeak, ruleRequests, ruleClosedHours].flatMap((r) => r(ctx));
     const sevOrder = { ERROR: 0, WARNING: 1 };
     return all.sort((a, b) => sevOrder[a.sev] - sevOrder[b.sev] || (a.day ?? -1e9) - (b.day ?? -1e9));
   }
@@ -1406,6 +1434,7 @@
       if (!e.fixedShift && !cand.doppio && e.type === 'CREW' && (isHybridAfternoon(cfg, cand) || isLongWithoutRush(cfg, cand))) return false; // niente ibridi, turni lunghi solo sul rush
       if (dur(cand) <= 0 || cand.start < 0 || cand.end > 1440) return false;
       if (!cand.doppio && cand.start <= OP(cand.day) && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false; // chi apre non fa il doppio
+      if (!cand.doppio && !e.fixedShift) { const dd = shifts.find((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing); if (dd && !doublePairOk(cfg, cand, dd)) return false; } // doppio: pranzo + cena
       const others = dayMain(e.id, cand.day).filter((s) => s !== replacing);
       if (!replacing && others.length) return false;
       if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
@@ -1437,6 +1466,7 @@
       const main = dayMain(e.id, cand.day);
       if (main.length !== 1 || shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s))) return false;
       if (cand.start <= OP(cand.day) || main[0].start <= OP(cand.day)) return false; // chi apre non fa il doppio
+      if (!doublePairOk(cfg, main[0], cand)) return false; // doppio solo pranzo + cena
       if (Math.max(cand.start - main[0].end, main[0].start - cand.end) < D_GAP) return false;
       if (unaccompanied(ctx, cand, shifts)) return false;
       const cf = closingFit(ctx, cand, shifts);
@@ -1834,7 +1864,7 @@
     fillHours();
 
     // 3. doppi rimasti: rush di pranzo o cena, prima nel weekend
-    const RUSH = [[720, 900], [1080, 1260]];
+    const RUSH = [[660, 900], [1080, 1260]]; // pranzo anche 11:00/11:30–14:30, così la cena può partire alle 16:30 (stacco di 2 ore)
     const dayPref = [...ctx.days].sort((a, b) => [5, 6, 4, 0, 1, 2, 3].indexOf(dow(a) - 1) - [5, 6, 4, 0, 1, 2, 3].indexOf(dow(b) - 1));
     for (const e of flexible.filter((x) => doublesLeft(x) > 0)) {
       for (const d of dayPref) {
@@ -2128,15 +2158,17 @@
     // 10. ore di contratto obbligatorie: a chi non le ha ancora tutte si allungano i turni che ha, poi si aggiunge un turno
     //     nei giorni liberi. Restano le regole vere (disponibilità, massimo al giorno, stacchi, squadre esatte, orari interi,
     //     rush del pranzo, McCafé); non contano le preferenze (es. turni lunghi in settimana a rotazione).
+    let staggering = false; // giro finale "non tutti insieme": anche i quarti d'ora durante i rush
     function canPlaceHours(e, cand, rep = null) {
       if (rep && (rep.aff || rep.tut || isDouble(rep))) return false;
       if (cand.start < OP(cand.day) || cand.end > CL(cand.day) || lateEnd(cand.end, cand.day)) return false;
-      if (avoided(cand.start, cand.end) || leavesLunchRush(cfg, cand) || !roundTimeOk(cfg, cand) || mcOver(cand, rep)) return false;
+      if (avoided(cand.start, cand.end) || leavesLunchRush(cfg, cand) || !roundTimeOk(cfg, cand, staggering) || mcOver(cand, rep)) return false;
       if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand) || shortOffPeak(cfg, cand)) return false;
       if (isTrainee(e, cand.day) && (cand.start <= OP(cand.day) || cand.end >= CL(cand.day))) return false;
       if (unaccompanied(ctx, cand, shifts.filter((x) => x !== rep))) return false;
       if (dur(cand) - (rep ? dur(rep) : 0) > remaining(e)) return false;
       if (cand.start <= OP(cand.day) && shifts.some((x) => x.employeeId === e.id && x.day === cand.day && isDouble(x))) return false;
+      { const dbl0 = shifts.find((x) => x.employeeId === e.id && x.day === cand.day && isDouble(x) && x !== rep); if (dbl0 && !doublePairOk(cfg, cand, dbl0)) return false; }
       const others = dayMain(e.id, cand.day).filter((x) => x !== rep);
       if (!rep && others.length) return false;
       if (sumDur(others) + dur(cand) > maxFor(cfg, e, cand.day)) return false;
@@ -2197,6 +2229,51 @@
         }
         if (!ok) break;
       }
+    }
+
+    // 11. non tutti insieme: se troppe persone entrano o escono allo stesso orario (es. 6 alle 14:30), alcuni turni si spostano
+    //     di 15 o 30 minuti avanti o indietro, con la stessa durata (le ore non cambiano). Apertura e chiusura escluse.
+    //     Si sposta solo se restano rispettate le regole vere e se le coperture obbligatorie non peggiorano.
+    const maxSame = cfg.sameTimeMax ?? 2;
+    if (maxSame > 0 && cfg.roundTimes !== false) {
+      staggering = true;
+      const hardCtx = { ...ctx, coverage: ctx.coverage.filter((r) => !r.vlh) }; // coperture e postazioni (non le posizioni VLH ora per ora)
+      const movable = (x) => !isDouble(x) && !x.aff && !x.tut && !ctx.byId.get(x.employeeId).fixedShift && !shifts.some((y) => y.employeeId === x.employeeId && y.day === x.day && isDouble(y));
+      for (const d of ctx.days) {
+        // quante persone "in più" entrano o escono insieme (oltre il massimo), apertura e chiusura escluse
+        const excess = () => {
+          let n = 0;
+          for (const k of ['start', 'end']) {
+            const m = new Map();
+            for (const x of shifts) if (x.day === d && !isDouble(x) && x[k] > OP(d) && x[k] < CL(d)) m.set(x[k], (m.get(x[k]) || 0) + 1);
+            for (const c of m.values()) n += Math.max(0, c - maxSame);
+          }
+          return n;
+        };
+        for (let guard = 0; guard < 80; guard++) {
+          const ex0 = excess();
+          if (!ex0) break;
+          const dl = shifts.filter((x) => x.day === d && !isDouble(x));
+          const crowded = (x) => ['start', 'end'].some((k) => x[k] > OP(d) && x[k] < CL(d) && dl.filter((y) => y[k] === x[k]).length > maxSame);
+          let moved = false;
+          for (const x of added.filter((y) => y.day === d && movable(y) && crowded(y))) {
+            const e = ctx.byId.get(x.employeeId), before = deficitOf(hardCtx, shifts, d);
+            for (const dm of [15, -15, 30, -30, 45, -45]) {
+              const c = { ...x, start: x.start + dm, end: x.end + dm };
+              if (!canPlaceHours(e, c, x)) continue;
+              // niente turni "tutti nel pomeriggio" o a cavallo creati dallo spostamento
+              const aft = (y) => isRigidAfternoon(cfg, y) || (e.type === 'CREW' && (isHybridAfternoon(cfg, y) || isLongWithoutRush(cfg, y)));
+              if (aft(c) && !aft(x)) continue;
+              replace(x, c);
+              if (excess() < ex0 && deficitOf(hardCtx, shifts, d) <= before) { moved = true; break; }
+              replace(c, x);
+            }
+            if (moved) break;
+          }
+          if (!moved) break;
+        }
+      }
+      staggering = false;
     }
 
     for (const e of emps) {
