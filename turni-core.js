@@ -991,11 +991,11 @@
    */
   /**
    * Turno del pranzo che esce prima della fine del rush: entra tra le 10:00 e le 13:00 ed esce prima delle 15:00
-   * (es. 12:30–14:30 o 10:30–14:30). Il rush del pranzo va coperto fino alla fine: chi fa il pranzo resta almeno fino alle 15:00.
+   * (es. 12:00–14:00). Il rush del pranzo va coperto fino alla fine: chi fa il pranzo resta almeno fino alle 14:30.
    * Non riguarda chi apre né i turni della mattina. Orari modificabili (lunchShiftFrom, lunchShiftTo, lunchRushEnd).
    */
   const leavesLunchRush = (cfg, s) => cfg.lunchRushRule !== false && s.start >= (cfg.lunchShiftFrom ?? 600) &&
-    s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 900);
+    s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 870);
   /**
    * Orari "puliti" dei turni messi dal generatore: inizio e fine all'ora intera (es. 13–16, 19–21).
    * La mezz'ora va bene solo legata all'orario del locale: chi apre può finire alla mezz'ora (7:30–12:30),
@@ -1008,7 +1008,8 @@
     // anticipo sul picco: si può entrare alle 12:30 e alle 18:30 (es. 12:30–15:00, 18:30–21:00),
     // così si arriva prima del picco invece che a picco iniziato
     const prepHalf = (cfg.peakPrep ?? 30) > 0 && (cfg.prepStarts || [750, 1110]).includes(s.start); // 12:30 e 18:30
-    return (opens || ok(s.start, closes || prepHalf)) && (closes || ok(s.end, opens));
+    const halfEnd = (cfg.halfEnds || [870]).includes(s.end); // a pranzo si può uscire alle 14:30 (a cena no)
+    return (opens || ok(s.start, closes || prepHalf)) && (closes || ok(s.end, opens || halfEnd));
   }
   function shortOffPeak(cfg, s) {
     if (cfg.shortRule === false || s.end - s.start >= (cfg.shortMin ?? 180) || s.start <= dayHours(cfg, s.day).open) return false;
@@ -1022,7 +1023,7 @@
       const e = ctx.byId.get(s.employeeId);
       if (!e || e.fixedShift) continue;
       const p = parts(s.day);
-      out.push(V('LUNCH_RUSH', 'WARNING', `${fullName(e)} · ${DOW_LONG[dow(s.day)]} ${p.d}/${p.m}: ${fmtTime(s.start)}–${fmtTime(s.end)} esce prima della fine del rush del pranzo (${fmtTime(ctx.cfg.lunchRushEnd ?? 900)})`, e.id, s.day));
+      out.push(V('LUNCH_RUSH', 'WARNING', `${fullName(e)} · ${DOW_LONG[dow(s.day)]} ${p.d}/${p.m}: ${fmtTime(s.start)}–${fmtTime(s.end)} esce prima della fine del rush del pranzo (${fmtTime(ctx.cfg.lunchRushEnd ?? 870)})`, e.id, s.day));
     }
     return out;
   }
