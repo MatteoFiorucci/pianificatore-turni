@@ -995,11 +995,11 @@
    * Non riguarda chi apre né i turni della mattina. Orari modificabili (lunchShiftFrom, lunchShiftTo, lunchRushEnd).
    */
   /**
-   * Turno della cena che esce prima della fine del rush: entra dall'ora della cena (es. 17:00) ed esce prima delle 21:00
-   * (es. 17:00–20:00, 18:45–20:45). A cena si resta fino alla fine del rush. Orari modificabili (dinnerRushEnd).
+   * Turno che esce durante il rush della cena (dopo l'inizio del picco, 19:00, e prima delle 21:00): es. 16–20, 17–20,
+   * 18:45–20:45. A cena si resta fino alla fine del rush. Orari modificabili (dinnerRushEnd).
    */
-  const leavesDinnerRush = (cfg, s) => cfg.dinnerRushRule !== false && s.start >= (cfg.dinnerPreStart ?? 990) &&
-    s.end > (cfg.dinnerPeak || [1140, 1230])[0] && s.end < (cfg.dinnerRushEnd ?? 1260);
+  const leavesDinnerRush = (cfg, s) => cfg.dinnerRushRule !== false && s.start > dayHours(cfg, s.day).open &&
+    s.end > (cfg.dinnerPeak || [1140, 1230])[0] && s.end < (cfg.dinnerRushEnd ?? 1260); // nessuno esce tra le 19 e le 21 (es. 16–20, 17–20)
   const leavesLunchRush = (cfg, s) => cfg.lunchRushRule !== false && s.start >= (cfg.lunchShiftFrom ?? 600) &&
     s.start < (cfg.lunchShiftTo ?? 780) && s.end < (cfg.lunchRushEnd ?? 855);
   /**
@@ -1015,7 +1015,7 @@
     const ok = (t, half) => t % 60 === 0 || (half && t % 30 === 0);
     // anticipo sul picco: si può entrare alle 12:30 e alle 18:30 (es. 12:30–15:00, 18:30–21:00),
     // così si arriva prima del picco invece che a picco iniziato
-    const prepHalf = (cfg.peakPrep ?? 30) > 0 && (cfg.prepStarts || [750, 1110]).includes(s.start); // 12:30 e 18:30
+    const prepHalf = (cfg.peakPrep ?? 30) > 0 && (cfg.prepStarts || [750, 1050, 1110]).includes(s.start); // 12:30, 17:30 e 18:30
     const halfEnd = (cfg.halfEnds || [870]).includes(s.end); // a pranzo si può uscire alle 14:30 (a cena no)
     return (opens || ok(s.start, closes || prepHalf)) && (closes || ok(s.end, opens || halfEnd));
   }
@@ -1283,7 +1283,8 @@
       const dl = ctx.shifts.filter((s) => s.day === d && !isDouble(s));
       for (const [k, verb] of [['start', 'entrano'], ['end', 'escono']]) {
         const by = new Map();
-        for (const s of dl) if (s[k] > open && s[k] < close) by.set(s[k], (by.get(s[k]) || 0) + 1);
+        // esclusi apertura e chiusura, e l'uscita alla fine del rush della cena (21:00: è lì che si deve uscire)
+        for (const s of dl) if (s[k] > open && s[k] < close && !(k === 'end' && s[k] === (ctx.cfg.dinnerRushEnd ?? 1260))) by.set(s[k], (by.get(s[k]) || 0) + 1);
         for (const [t, n] of by) if (n > max + 1) out.push(V('SAME_TIME', 'WARNING', `${DOW_LONG[dow(d)]} ${shortDate(d).split(' ')[1]}: ${n} persone ${verb} insieme alle ${fmtTime(t)}`, null, d));
       }
     }
@@ -2260,7 +2261,7 @@
           let n = 0;
           for (const k of ['start', 'end']) {
             const m = new Map();
-            for (const x of shifts) if (x.day === d && !isDouble(x) && x[k] > OP(d) && x[k] < CL(d)) m.set(x[k], (m.get(x[k]) || 0) + 1);
+            for (const x of shifts) if (x.day === d && !isDouble(x) && x[k] > OP(d) && x[k] < CL(d) && !(k === 'end' && x[k] === (cfg.dinnerRushEnd ?? 1260))) m.set(x[k], (m.get(x[k]) || 0) + 1);
             for (const c of m.values()) n += Math.max(0, c - maxSame);
           }
           return n;
@@ -2269,7 +2270,7 @@
           const ex0 = excess();
           if (!ex0) break;
           const dl = shifts.filter((x) => x.day === d && !isDouble(x));
-          const crowded = (x) => ['start', 'end'].some((k) => x[k] > OP(d) && x[k] < CL(d) && dl.filter((y) => y[k] === x[k]).length > maxSame);
+          const crowded = (x) => ['start', 'end'].some((k) => x[k] > OP(d) && x[k] < CL(d) && !(k === 'end' && x[k] === (cfg.dinnerRushEnd ?? 1260)) && dl.filter((y) => y[k] === x[k]).length > maxSame);
           let moved = false;
           for (const x of added.filter((y) => y.day === d && movable(y) && crowded(y))) {
             const e = ctx.byId.get(x.employeeId), before = deficitOf(hardCtx, shifts, d);
