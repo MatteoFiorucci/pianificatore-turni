@@ -40,7 +40,8 @@
    */
   /** Durata massima di un ruolo: l'apertura corta finisce in tempo per lo stacco prima della notte (mezzanotte). */
   const capOf = (r) => (r === 'AS' ? Math.max(SHORT[0], 1440 - REST12 - (CFG.open ?? 450)) : Infinity);
-  function fitLens(roles, target) {
+  function fitLensPlain(roles, target) { return fitLens(roles, target, true); }
+  function fitLens(roles, target, plain = false) {
     // target = ore lavorate (contratto): la pausa dei turni lunghi non conta
     const lens = roles.map((r) => PREF[r] || 420);
     let diff = target - lens.reduce((a, b) => a + workOf(b), 0);
@@ -65,12 +66,35 @@
       const o = opts[0];
       diff -= o.d; lens[o.i] = o.to;
     }
+    if (plain) return lens;
+    // mezz'ore dei ruoli interi: si cambia la durata del ruolo intero (es. 6:30 → 5 o 7 ore) e si compensa su un altro turno
+    // (di solito apertura o chiusura, che possono finire o iniziare alla mezz'ora), con le stesse ore lavorate in totale
+    const tot = () => lens.reduce((a, b) => a + workOf(b), 0), t0 = tot();
+    const allowed = []; for (let l = SHORT[0]; l <= LONG[1]; l += 30) if (lenOk(l)) allowed.push(l);
+    for (let i = 0; i < lens.length; i++) {
+      if (!WHOLE.has(roles[i]) || lens[i] % 60 === 0) continue;
+      const cand = [];
+      for (const a of allowed.filter((l) => l % 60 === 0)) for (let j = 0; j < lens.length; j++) {
+        if (j === i || (WHOLE.has(roles[j]) && lens[j] % 60 === 0)) continue;
+        for (const b of allowed) {
+          if (b > capOf(roles[j]) || (WHOLE.has(roles[j]) && b % 60)) continue;
+          if (workOf(a) - workOf(lens[i]) + workOf(b) - workOf(lens[j]) !== 0) continue;
+          cand.push({ j, a, b, cost: Math.abs(a - lens[i]) + Math.abs(b - lens[j]) });
+        }
+      }
+      cand.sort((x, y) => x.cost - y.cost);
+      if (cand.length) { const c = cand[0]; lens[i] = c.a; lens[c.j] = c.b; }
+    }
+    if (tot() !== t0) return fitLensPlain(roles, target); // sicurezza: le ore devono restare quelle del contratto
     return lens;
   }
   // centrale: copre sempre le ore intermedie del pomeriggio (15:00–18:00), così i crew stanno sui rush
-  const CEN_STARTS = [690, 660, 720, 675, 705], MID_END = 1080;
+  const CEN_STARTS = [660, 720, 600], MID_END = 1080; // solo ore intere (niente 11:15 o 11:45)
   // pranzo e cena: momenti in cui servono 2 manager (se quel giorno ce ne sono almeno 3)
-  const LUNCH_AT = 750, DIN_END = 1230, LUNCH_CHECK = 780, DINNER_CHECK = 1200;
+  const LUNCH_AT = 720, DIN_END = 1260, LUNCH_CHECK = 780, DINNER_CHECK = 1200; // il centrale "lato cena" esce alle 21:00 (es. 13–21, 14–21)
+  // ruoli che non aprono e non chiudono il locale: inizio e fine all'ora intera (11–18, 13–21, non 11:15–18:15 o 13:30–20:30);
+  // la mezz'ora resta solo per chi apre (7:30) o chiude (21:30)
+  const WHOLE = new Set(['CEN', 'X', 'C2', 'F']);
   const isMorning = (r) => r === 'AS' || r === 'N' || r === 'A' || r === 'D' || r === 'M2';
   const isEvening = (r) => r === 'C' || r === 'C2' || r === 'X';
 
@@ -100,9 +124,14 @@
         // centrale: copre il pomeriggio (fino alle 18) e il rush dove manca il secondo manager:
         // side 'cena' → finisce alle 20:30, side 'pranzo' → inizia entro le 12:30; se la durata basta, tutti e due
         let st;
-        if (len >= DIN_END - LUNCH_AT) st = DIN_END - len;
-        else st = (side || (k % 2 ? 'cena' : 'pranzo')) === 'cena' ? Math.max(DIN_END - len, LUNCH_AT - 60) : Math.min(LUNCH_AT, Math.max(MID_END - len, CEN_STARTS[k % CEN_STARTS.length]));
+        const dinEnd = Math.min(DIN_END, cl - 30); // mezz'ora prima della chiusura (anche nei giorni a orario ridotto)
+        if (len >= dinEnd - LUNCH_AT) st = dinEnd - len;
+        else st = (side || (k % 2 ? 'cena' : 'pranzo')) === 'cena' ? Math.max(dinEnd - len, LUNCH_AT - 60)
+          : len < MID_END - LUNCH_AT ? MID_END - len // centrale corto: copre comunque il pomeriggio fino alle 18 (es. 13–18)
+            : Math.min(LUNCH_AT, Math.max(MID_END - len, CEN_STARTS[k % CEN_STARTS.length]));
         st = Math.max(op + 60, Math.min(st, maxStart));
+        st = Math.floor(st / 60) * 60; // all'ora intera (prima, non dopo: la copertura del pomeriggio resta)
+        if (st < op + 60) st += 60;
         return [st, st + len];
       }
     }
@@ -326,11 +355,11 @@
         let e = g; while (e < CLOSE(d) && !list.some((s) => s.day === d && s.start <= e && s.end > e)) e += 15;
         const near = list.filter((s) => s.day === d && !fixed.has(s) && s.role !== 'AS' && (s.end === g || s.start === e));
         for (const s of near) {
-          const grow = Math.min(30, e - g), len = s.end - s.start;
+          const grow = WHOLE.has(s.role) ? 60 : Math.min(30, e - g), len = s.end - s.start; // ruoli interi: un'ora intera
           if (!lenOk(len + grow)) continue;
           for (const t of list.filter((x) => x.managerId === s.managerId && x !== s && x.day !== d && !fixed.has(x))) {
             const tl = t.end - t.start;
-            if (!lenOk(tl - grow)) continue;
+            if (!lenOk(tl - grow) || (WHOLE.has(t.role) && grow % 60)) continue;
             const old = { start: t.start, end: t.end };
             if (t.start <= OPEN(t.day)) t.end -= grow; else t.start += grow;
             if (firstGap(list, t.day) == null) {
@@ -355,6 +384,13 @@
     const out = [], team = mgrs(state), V = (sev, msg, managerId = null, day = null) => out.push({ sev, msg, managerId, day });
     const name = (m) => T.fullName(m), when = (d) => `${T.DOW_LONG[T.dow(d)]} ${T.shortDate(d)}`;
     const carpi = carpiWeek(state, ws);
+    // orari all'ora intera: la mezz'ora solo per chi apre (fine) o chi chiude (inizio); mai i quarti d'ora
+    for (const s of list) {
+      const m = team.find((x) => x.id === s.managerId); if (!m || s.role === 'N' || s.role === 'AS') continue;
+      const opens = s.start <= OPEN(s.day), closes = s.end >= CLOSE(s.day);
+      const ok = (t, half) => t % 60 === 0 || (half && t % 30 === 0);
+      if (!((opens || ok(s.start, closes)) && (closes || ok(s.end, opens)))) V('WARNING', `${name(m)}: ${when(s.day)} ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} non è a ore intere (es. 11–18, 13–21)`, m.id, s.day);
+    }
     for (let k = 0; k < 7; k++) {
       const d = ws + k, dl = list.filter((s) => s.day === d);
       if (!dl.length) continue;
