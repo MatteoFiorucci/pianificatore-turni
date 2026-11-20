@@ -337,18 +337,18 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611201927"></script>
-<script src="turni-core.js?v=202611201927"></script>
-<script src="turni-manager.js?v=202611201927"></script>
-<script src="turni-vlh.js?v=202611201927"></script>
+<script src="turni-storico.js?v=202611201952"></script>
+<script src="turni-core.js?v=202611201952"></script>
+<script src="turni-manager.js?v=202611201952"></script>
+<script src="turni-vlh.js?v=202611201952"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611201927"></script>
-<script src="turni-cloud-config.js?v=202611201927"></script>
-<script src="turni-cloud.js?v=202611201927"></script>
-<script src="turni-cripto.js?v=202611201927"></script>
-<script src="riepilogo.js?v=202611201927"></script>
-<script src="lineare-ufficiale.js?v=202611201927"></script>
+<script src="turni-data.js?v=202611201952"></script>
+<script src="turni-cloud-config.js?v=202611201952"></script>
+<script src="turni-cloud.js?v=202611201952"></script>
+<script src="turni-cripto.js?v=202611201952"></script>
+<script src="riepilogo.js?v=202611201952"></script>
+<script src="lineare-ufficiale.js?v=202611201952"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -2144,7 +2144,7 @@ function renderStore() {
 
   <h3>⚙️ Regole del locale</h3>
   <div class="card section">
-    ${sw('roundTimes', '🕐 Turni a orari interi', 'Il generatore mette inizio e fine all\'ora intera (es. 13–16, 19–21). La mezz\'ora solo per chi apre o chi chiude (es. 7:30–12:30, 17:30–21:30); mai i quarti d\'ora. I turni messi a mano restano come li scrivi.')}
+    ${sw('roundTimes', '🕐 Turni a orari interi', 'Il generatore mette inizio e fine all\'ora intera (es. 13–16, 19–21). Eccezioni: la mezz\'ora per chi apre o chi chiude (es. 7:30–12:30, 17:30–21:30), l\'ingresso alle 12:30 e alle 18:30 per arrivare prima del picco e l\'uscita alle 14:30 dal pranzo; durante i rush anche i quarti d\'ora, solo per non far entrare o uscire troppe persone insieme. A cena si resta fino alle 21:00. I turni messi a mano restano come li scrivi.')}
     ${sw('traineeRule', '🎓 Chi è in formazione non apre e non chiude mai da solo', 'In apertura e chiusura chi è in formazione non conta per i minimi e deve avere accanto un formato nella stessa postazione.')}
     ${sw('hospSala', 'Le hospitality possono coprire la Sala', 'Anche in chiusura: la Sala la possono fare crew formati in Sala e hospitality (segnate in Aperture e chiusure).')}
     ${sw('mcCapOn', 'Limite di persone al McCafé', `Al massimo <input type="number" min="1" max="5" value="${c.mcMax ?? 1}" style="width:50px" onchange="setRule('mcMax',Math.max(1,+this.value||1))"> persona/e; <input type="number" min="1" max="5" value="${c.mcMaxEarly ?? 2}" style="width:50px" onchange="setRule('mcMaxEarly',Math.max(1,+this.value||1))"> prima delle ${dayTimeSel(c.mcMaxFino ?? 720, "setRule('mcMaxFino',+this.value)")} nei giorni <span style="white-space:nowrap">${dayChk(mcDays, (d) => `setRule('mcEarlyDays',${toggleIn(mcDays, d)})`)}</span>. Al cambio turno 30 minuti insieme sono ammessi.`)}
