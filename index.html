@@ -460,19 +460,19 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611211628"></script>
-<script src="turni-storico.js?v=202611211628"></script>
-<script src="turni-core.js?v=202611211628"></script>
-<script src="turni-manager.js?v=202611211628"></script>
-<script src="turni-vlh.js?v=202611211628"></script>
+<script src="icone.js?v=202611211648"></script>
+<script src="turni-storico.js?v=202611211648"></script>
+<script src="turni-core.js?v=202611211648"></script>
+<script src="turni-manager.js?v=202611211648"></script>
+<script src="turni-vlh.js?v=202611211648"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611211628"></script>
-<script src="turni-cloud-config.js?v=202611211628"></script>
-<script src="turni-cloud.js?v=202611211628"></script>
-<script src="turni-cripto.js?v=202611211628"></script>
-<script src="riepilogo.js?v=202611211628"></script>
-<script src="lineare-ufficiale.js?v=202611211628"></script>
+<script src="turni-data.js?v=202611211648"></script>
+<script src="turni-cloud-config.js?v=202611211648"></script>
+<script src="turni-cloud.js?v=202611211648"></script>
+<script src="turni-cripto.js?v=202611211648"></script>
+<script src="riepilogo.js?v=202611211648"></script>
+<script src="lineare-ufficiale.js?v=202611211648"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1099,15 +1099,19 @@ function hintFor(v) {
   if (v.rule === 'TRAINEE') return 'Serve un formato nella stessa postazione: segna altre persone in Formazione.';
   return 'Va sistemato a mano cliccando la casella.';
 }
+/** Pausa breve tra un tentativo e l'altro: il browser resta reattivo (niente "pagina che non risponde") e si vede l'avanzamento. */
+async function solveTick(i, n) { const el = document.getElementById('solveprog'); if (el) el.textContent = `Variante ${i} di ${n}…`; await new Promise((r) => setTimeout(r, 0)); }
 function solveWeek() {
-  showModal('<h3>🛠 Sto cercando la soluzione migliore…</h3><p class="muted">Provo a sistemare la settimana mantenendo i tuoi turni e a rigenerarla da zero in più varianti. Ci vuole qualche secondo.</p>');
-  setTimeout(() => {
+  showModal('<h3>🛠 Sto cercando la soluzione migliore…</h3><p class="muted">Provo a sistemare la settimana mantenendo i tuoi turni e a rigenerarla da zero in più varianti. Ci vuole qualche secondo.</p><p class="small muted" id="solveprog"></p>');
+  setTimeout(async () => {
     const ws = ui.ws, other = (s) => s.day < ws || s.day > ws + 6;
     const current = state.shifts.filter((s) => !other(s));
     const before = scoreWeek(current);
     const tries = [];
     // A) ripara la settimana attuale: tiene i turni, completa e sposta quelli che servono
+    let step = 0; const steps = 11;
     for (const seed of [11, 12, 13]) {
+      await solveTick(++step, steps);
       const ctx = T.makeCtx(state, ws);
       const r = T.generate(ctx, { seed: ws * 31 + seed, moveAll: true });
       tries.push({ how: 'Riparata mantenendo i tuoi turni (alcuni spostati di orario)', shifts: r.all.map((x) => ({ ...x })) });
@@ -1115,11 +1119,12 @@ function solveWeek() {
     // B) rigenera da zero in più varianti
     const empty = { ...state, shifts: state.shifts.filter(other) };
     for (let k = 1; k <= 8; k++) {
+      await solveTick(++step, steps);
       const r = T.generate(T.makeCtx(empty, ws), { seed: ws * 7919 + 1000 + k + (ui.genCount || 0) * 17 });
       tries.push({ how: 'Rigenerata da zero', shifts: r.added.map((x) => ({ ...x })) });
     }
     let best = null;
-    for (const t of tries) { t.res = scoreWeek(t.shifts); if (!best || t.res.score < best.res.score) best = t; }
+    for (const t of tries) { t.res = scoreWeek(t.shifts); if (!best || t.res.score < best.res.score) best = t; await new Promise((r) => setTimeout(r, 0)); }
     ui.solution = best;
     const better = best.res.score < before.score;
     const left = best.res.vs.filter((v) => v.sev === 'ERROR');
@@ -1293,8 +1298,8 @@ function genMgr() {
 }
 /** Risolvi problemi dei manager: prova più varianti dei turni manager della settimana e propone la migliore. */
 function solveMgrWeek() {
-  showModal('<h3>🛠 Sto cercando la soluzione migliore…</h3><p class="muted">Provo a rifare i turni manager della settimana in più varianti. Ci vuole qualche secondo.</p>');
-  setTimeout(() => {
+  showModal('<h3>🛠 Sto cercando la soluzione migliore…</h3><p class="muted">Provo a rifare i turni manager della settimana in più varianti. Ci vuole qualche secondo.</p><p class="small muted" id="solveprog"></p>');
+  setTimeout(async () => {
     const M = MGR(), ws = ui.ws, inWeek = (x) => x.day >= ws && x.day <= ws + 6;
     const others = (state.mgrShifts || []).filter((x) => !inWeek(x)), base = { ...state, mgrShifts: others };
     const score = (probs) => { const err = probs.filter((p) => p.sev === 'ERROR').length; return { err, warn: probs.length - err, score: err * 100 + probs.length, probs }; };
@@ -1302,6 +1307,7 @@ function solveMgrWeek() {
     ui.mgrGen = (ui.mgrGen || 0) + 1;
     let best = null;
     for (let k = 0; k < 12; k++) {
+      await solveTick(k + 1, 12);
       const r = M.generate(base, ws, { seed: ui.mgrGen * 101 + k });
       const sc = score(M.check({ ...base, mgrShifts: others.concat(r.shifts) }, ws, r.shifts));
       if (!best || sc.score < best.sc.score) best = { shifts: r.shifts, sc };
@@ -2429,6 +2435,28 @@ function delStation(i) {
   l.splice(i, 1); save(); render();
 }
 function setRule(k, v) { state.config[k] = v; save(); render(); }
+// ---- limiti alle richieste dall'app (impostazione del locale): quando si possono mandare, quante e per quale settimana ----
+const REQ_RULE_DEF = { on: false, day: 3, from: 660, to: 1020, max: 1, nextWeek: true };
+const reqRuleOf = () => ({ ...REQ_RULE_DEF, ...(state.config.reqRule || {}) });
+function setReqRule(k, v) { state.config.reqRule = { ...reqRuleOf(), [k]: v }; save(); render(); publishReqRule(); }
+/** La regola va anche nella scheda pubblica del locale, così l'app del personale la conosce. */
+async function publishReqRule() {
+  if (!TurniCloud.loggedIn() || TurniCloud.PROVA || !state.reqKeys) return;
+  const r = JSON.stringify(reqRuleOf());
+  if (state.reqRulePublished === r) return;
+  try { await TurniCloud.setStoreInfo({ reqRule: r }); state.reqRulePublished = r; save(); } catch (e) { /* riprova al prossimo controllo */ }
+}
+function reqRuleBox() {
+  const r = reqRuleOf(), tsel = (v, k) => `<select onchange="setReqRule('${k}',+this.value)">${TIME_OPTIONS.filter((t) => t % 30 === 0).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+  return `<label class="tg ${r.on ? 'on' : ''}" style="width:max-content;margin:0 0 6px"><input type="checkbox" ${r.on ? 'checked' : ''} onchange="setReqRule('on',this.checked)">Limiti alle richieste dall'app</label>
+    <div class="small muted" style="margin:0 0 10px 4px">Valgono per crew, hospitality e manager. Le richieste che inserisci tu a mano non hanno limiti.</div>
+    ${r.on ? `<div class="form"><div class="row" style="align-items:end">
+      <label class="f">Si possono mandare il<select onchange="setReqRule('day',+this.value)">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}" ${d === r.day ? 'selected' : ''}>${T.DOW_LONG[d]}</option>`).join('')}</select></label>
+      <label class="f">dalle${tsel(r.from, 'from')}</label><label class="f">alle${tsel(r.to, 'to')}</label>
+      <label class="f">Richieste a testa per settimana<input type="number" min="1" max="7" value="${r.max}" style="width:70px" onchange="setReqRule('max',Math.max(1,+this.value||1))"></label>
+    </div>
+    <label class="tg ${r.nextWeek ? 'on' : ''}" style="width:max-content;margin:8px 0 2px"><input type="checkbox" ${r.nextWeek ? 'checked' : ''} onchange="setReqRule('nextWeek',this.checked)">Solo per la settimana successiva</label></div>` : ''}`;
+}
 function setMgrRule(k, v) { state.config.mgr = { ...MGR_DEF, ...(state.config.mgr || {}), [k]: v }; save(); render(); }
 function setMgrPair(k, i, txt) {
   const v = T.parseHours(txt); if (v == null) return alert('Scrivi un numero di ore, es. 3 o 6:30.');
@@ -2500,7 +2528,9 @@ function renderStore() {
     </div>
     <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Giorni in cui i manager possono riposare</span><div class="row" style="gap:3px">${dayChk(g.restDays, (d) => `setMgrRule('restDays',${toggleIn(g.restDays, d)})`)}</div></div>
     <p class="small muted" style="margin:0">Le durate sono di presenza. Durate fuori da questi blocchi sono segnalate come errore. La pausa dei turni lunghi è timbrata (uscita e rientro) e non conta nelle ore lavorate: le ore di contratto si raggiungono con le ore di presenza meno le pause. Squadra, giorni dell'ordine, orari flessibili, delivery e Carpigiani: Turni → Manager.</p>
-  </div></div>`;
+  </div></div>
+  <h3>📩 Richieste del personale</h3>
+  <div class="card section">${reqRuleBox()}</div>`;
 }
 // ================= SALVATAGGIO ONLINE =================
 const sync = { status: 'off', msg: '', timer: null, busy: false, seq: 0, pendingRender: false };
@@ -3057,6 +3087,7 @@ async function checkInbox(notify) {
   try {
     const me = TurniCloud.session().email;
     if (state.loginPublished !== me) { await TurniCloud.setStoreInfo({ login: me }); state.loginPublished = me; save(); }
+    await publishReqRule();
     // una volta sola dopo l'aggiornamento: ogni dipendente riceve l'elenco delle sue richieste con lo stato
     if (!state.reqListPushed) { await pushOrari(); state.reqListPushed = true; save(); }
     await upgradeCreds();
