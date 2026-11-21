@@ -2533,8 +2533,7 @@ function renderStore() {
     <p class="small muted" style="margin:0">Le durate sono di presenza. Durate fuori da questi blocchi sono segnalate come errore. La pausa dei turni lunghi è timbrata (uscita e rientro) e non conta nelle ore lavorate: le ore di contratto si raggiungono con le ore di presenza meno le pause. Squadra, giorni dell'ordine, orari flessibili, delivery e Carpigiani: Turni → Manager.</p>
   </div></div>
   <h3>📩 Richieste del personale</h3>
-  <div class="card section">${reqRuleBox()}</div>
-  ${invitesBox()}`;
+  <div class="card section">${reqRuleBox()}</div>`;
 }
 // ================= SALVATAGGIO ONLINE =================
 const sync = { status: 'off', msg: '', timer: null, busy: false, seq: 0, pendingRender: false };
@@ -2652,23 +2651,6 @@ async function doSignUp() {
   showModal(`<h3>Locale creato</h3><p><b>${esc(nome)}</b> è pronto. Per entrare da un altro dispositivo: nome utente <b>${esc(user)}</b> e la password che hai scelto.</p>
     <p>Ora imposta il locale: <b>Impostazioni → Store</b> (orari e postazioni), <b>Impostazioni → Regole</b> (squadre di apertura e chiusura) e <b>Persone</b> (il personale).</p>
     <div class="actions"><button class="btn primary" onclick="closeModal();go('store')">Inizia dalle impostazioni</button></div>`);
-}
-// ---- solo per chi gestisce il programma: codici invito per altri locali ----
-async function loadInvites() { try { ui.invites = await TurniCloud.listInvites(); } catch (e) { ui.invites = { err: e.message }; } render(); }
-async function newInvite() {
-  try { const c = await TurniCloud.createInvite(); await loadInvites(); showModal(`<h3>Codice invito</h3><p style="font-size:26px;font-weight:800;letter-spacing:2px;text-align:center">${c}</p><p class="muted">Mandalo al nuovo locale: lo usa una sola volta in "Crea il tuo locale", dalla pagina d'ingresso del sito.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`); }
-  catch (e) { alert(e.message); }
-}
-function invitesBox() {
-  if (!TurniCloud.isOwner()) return '';
-  if (ui.invites === undefined) { ui.invites = null; loadInvites(); }
-  const l = ui.invites;
-  return `<h3>🔑 Inviti per altri locali</h3><div class="card section">
-    <p class="small muted" style="margin-top:0">Ogni codice permette a un nuovo locale di registrarsi una sola volta. I dati di ogni locale restano separati e cifrati con la sua password.</p>
-    <div style="margin-bottom:10px"><button class="btn primary" onclick="newInvite()">Crea un codice invito</button></div>
-    ${!l ? '<p class="muted">Caricamento…</p>' : l.err ? `<div class="notice warn">${esc(l.err)}</div>` : !l.length ? '<p class="muted">Nessun codice ancora.</p>'
-      : `<table class="list"><thead><tr><th>Codice</th><th>Creato</th><th>Stato</th><th></th></tr></thead><tbody>${l.map((x) => `<tr><td><code>${x.code}</code></td><td>${fmtWhen(x.creato)}</td><td>${x.usato ? `usato da <b>${esc(x.locale || '—')}</b> il ${fmtWhen(x.usatoIl)}` : '<span class="chip ok">libero</span>'}</td><td style="text-align:right">${x.usato ? '' : `<button class="link" style="color:var(--err-ink)" onclick="if(confirm('Annullare questo codice?'))TurniCloud.deleteInvite('${x.code}').then(loadInvites)">🗑</button>`}</td></tr>`).join('')}</tbody></table>`}
-  </div>`;
 }
 /** Schermata di accesso dei manager (al posto dell'app, finché non si entra). */
 function renderGate() {

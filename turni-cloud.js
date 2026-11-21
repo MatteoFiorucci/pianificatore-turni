@@ -283,27 +283,8 @@
     }
     return login(email, password);
   }
-  /** Solo per chi gestisce il programma: nuovo codice invito, ed elenco dei codici con chi li ha usati. */
-  async function createInvite() {
-    const abc = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789', rnd = Array.from(root.crypto.getRandomValues(new Uint8Array(8)), (x) => abc[x % abc.length]).join('');
-    const code = rnd.slice(0, 4) + '-' + rnd.slice(4);
-    const r = await fetch(`https://firestore.googleapis.com/v1/${docsBase()}/inviti/${code}?currentDocument.exists=false`, { method: 'PATCH', headers: { Authorization: 'Bearer ' + await token(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fields: { usato: { booleanValue: false }, creato: { stringValue: new Date().toISOString() } } }) }).catch(() => null);
-    if (!r || !r.ok) throw new CloudError('SERVER', 'Non è stato possibile creare il codice (permessi o connessione).');
-    return code;
-  }
-  async function listInvites() {
-    const r = await fetch(`https://firestore.googleapis.com/v1/${docsBase()}/inviti?pageSize=300`, { headers: { Authorization: 'Bearer ' + await token() }, cache: 'no-store' }).catch(() => null);
-    if (!r || !r.ok) throw new CloudError('SERVER', 'Elenco dei codici non disponibile.');
-    const j = await r.json();
-    return (j.documents || []).map((d) => { const f = d.fields || {}; return { code: d.name.split('/').pop(), usato: !!(f.usato && f.usato.booleanValue), creato: f.creato && f.creato.stringValue, usatoIl: f.usatoIl && f.usatoIl.stringValue, locale: f.locale && f.locale.stringValue }; })
-      .sort((a, b) => String(b.creato).localeCompare(String(a.creato)));
-  }
-  const deleteInvite = async (code) => fetch(`https://firestore.googleapis.com/v1/${docsBase()}/inviti/${encodeURIComponent(code)}`, { method: 'DELETE', headers: { Authorization: 'Bearer ' + await token() } });
-
   root.TurniCloud = {
-    checkInvite, signUp, createInvite, listInvites, deleteInvite,
-    isOwner: () => !!(cfg().owner && read() && read().uid === cfg().owner),
+    checkInvite, signUp,
     PROVA, configured, loggedIn, session, login, logout, push, pull, deviceName,
     uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, listAccess, accessExists, setOrario, deleteOrario, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
