@@ -63,8 +63,9 @@
 <body>
 <header><div class="row" style="margin:0"><h1>📅 Turni</h1><div id="hdrbtn" style="display:none;gap:6px"><button class="light" style="padding:6px 10px;font-size:13px" onclick="tab='password';msg='';render()">🔑 Password</button><button class="light" style="padding:6px 10px;font-size:13px" onclick="logout()">Esci</button></div></div><p id="hello"></p></header>
 <main id="app"></main>
-<script src="turni-cloud-config.js?v=202611202158"></script>
-<script src="turni-cripto.js?v=202611202158"></script>
+<script src="icone.js?v=202611211601"></script>
+<script src="turni-cloud-config.js?v=202611211601"></script>
+<script src="turni-cripto.js?v=202611211601"></script>
 <script>
 'use strict';
 /*
@@ -96,7 +97,7 @@ const shortDate = (iso) => { const d = new Date(iso + 'T12:00:00'); return `${d.
 function describe(q) {
   if (q.kind === 'fisso') return `Impegni fissi ogni settimana: ${(q.slots || []).map((x) => `${DAYS[x.d].toLowerCase()} ${fmt(x.a)}–${fmt(x.b)}`).join(', ')}${q.to ? ` (fino al ${shortDate(q.to)})` : ''}`;
   if (q.kind === 'turno') return `Turno: ${q.label || 'fascia'} (${fmt(q.from)}–${fmt(q.until)})${q.to && q.to !== q.date ? ` fino al ${shortDate(q.to)}` : ''}`;
-  return q.kind === 'impegno' ? `Ho un impegno alle ${fmt(q.time)}` : q.kind === 'dalle' ? `Posso lavorare solo dalle ${fmt(q.from)}` : 'Non posso lavorare';
+  return q.kind === 'impegno' ? `Ho un impegno alle ${fmt(q.time)}` : q.kind === 'dalle' ? `Posso lavorare solo dalle ${fmt(q.from)}` : q.kind === 'fino' ? `Posso lavorare solo fino alle ${fmt(q.until)}` : 'Non posso lavorare';
 }
 const setSlot = (i, k, v) => { slots[i][k] = +v; };
 function slotRows() {
@@ -188,6 +189,15 @@ async function login() {
     msg = ''; tab = 'turni'; render(); loadOrario(); if (mine().length) refresh();
   } catch (e) { show(e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Accesso non riuscito.'); }
 }
+/** Link incollato a mano: si prende il codice del locale (?s=…) e l'app lo ricorda. */
+function setStore() {
+  const v = (document.getElementById('ls').value || '').trim();
+  let code = '';
+  try { code = new URL(v).searchParams.get('s') || Object.fromEntries(new URLSearchParams(new URL(v).hash.slice(1))).s || ''; } catch (e) { code = /^[A-Za-z0-9]{20,40}$/.test(v) ? v : ''; }
+  if (!code) { document.getElementById('lsmsg').innerHTML = '<div class="notice err" style="margin-top:10px">Questo non sembra il link dell\'app: copialo di nuovo dal messaggio del manager.</div>'; return; }
+  try { localStorage.setItem('turni-locale', code); } catch (e) { /* niente */ }
+  location.search = '?s=' + encodeURIComponent(code);
+}
 function logout() { if (!confirm('Uscire? Per rientrare servono nome utente e password.')) return; session = null; role = ''; try { localStorage.removeItem(SESS); } catch (e) { /* niente */ } msg = ''; render(); }
 
 // ---- "I miei turni": orario pubblicato dal manager (cifrato con la chiave personale) ----
@@ -222,7 +232,7 @@ function weekCard(w, open) {
   const t = todayDay();
   const days = w.days.map((x) => { const l = dLabel(x.d);
     return `<div class="day ${x.d === t ? 'today' : ''}"><div><div class="dn">${l.dn}${x.d === t ? ' · oggi' : ''}</div><div class="dd">${l.dd}</div></div><div>
-      ${x.sh.length ? x.sh.map((s) => `<div class="sh">${fmt(s.a)}–${fmt(s.b)}<span class="ar ar-${s.st}">${s.r ? esc(s.r) : AREA[s.st] || esc(s.n || s.st)}</span>${s.dbl ? ' <span class="muted">(doppio)</span>' : ''}</div>`).join('') : `<div class="off">${esc(x.tag || 'Libero')}</div>`}
+      ${x.sh.length ? x.sh.map((s) => `<div class="sh">${fmt(s.a)}–${fmt(s.b)}${s.r ? `<span class="ar ar-${s.st}">${esc(s.r)}</span>` : ''}${s.dbl ? ' <span class="muted">(doppio)</span>' : ''}</div>`).join('') : `<div class="off">${esc(x.tag || 'Libero')}</div>`}
       ${x.note ? `<div class="muted">${esc(x.note)}</div>` : ''}
       ${x.mod ? `<div style="color:#8a6100;font-size:14px;font-weight:600">✏️ Turno modificato dal manager (${new Date(x.mod).toLocaleString('it-IT', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })})</div>` : ''}</div></div>`; }).join('');
   const head = `<h2>Settimana ${wkLabel(w.ws)}</h2><div class="muted">Ore: <b>${dur(w.hours)}</b>${w.target ? ` su ${dur(w.target)} da contratto` : ''} · pubblicata il ${new Date(w.at).toLocaleDateString('it-IT')}</div>
@@ -242,7 +252,39 @@ function turniView() {
   const w = all.find((x) => x.ws === selWeek), i = all.indexOf(w);
   const chips = `<div class="wkchips">${all.map((x) => `<button class="${x.ws === selWeek ? 'on' : ''} ${x.ws < mon ? 'past' : ''}" onclick="selWeek=${x.ws};render()">${x.ws === mon ? 'Questa settimana' : wkLabel(x.ws)}</button>`).join('')}</div>`;
   const nav = all.length > 1 ? `<div class="row" style="margin:0 0 10px;gap:8px"><button class="light" ${i > 0 ? '' : 'disabled'} onclick="selWeek=${i > 0 ? all[i - 1].ws : selWeek};render()">◀ Prima</button><button class="light" ${i < all.length - 1 ? '' : 'disabled'} onclick="selWeek=${i < all.length - 1 ? all[i + 1].ws : selWeek};render()">Dopo ▶</button></div>` : '';
-  return `${upd}${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}${chips}${nav}${weekCard(w, true)}`;
+  return `${upd}${orarioErr ? `<div class="notice err">${orarioErr}</div>` : ''}${chips}${nav}${weekCard(w, true)}${calBox(w, all)}`;
+}
+// ---- turni nel calendario del telefono (file .ics): con un promemoria prima di ogni turno, al posto delle notifiche ----
+const ALARM_KEY = 'turni-promemoria';
+const alarmMin = () => { const v = localStorage.getItem(ALARM_KEY); return v == null ? 60 : +v; };
+function calBox(w, all) {
+  const n = w.days.reduce((t, x) => t + x.sh.length, 0), fut = all.filter((x) => x.ws + 6 >= todayDay());
+  if (!n) return '';
+  const opt = [[0, 'nessun promemoria'], [30, '30 minuti prima'], [60, '1 ora prima'], [120, '2 ore prima'], [1440, 'il giorno prima']];
+  return `<div class="card"><b>📅 Metti i turni nel calendario del telefono</b>
+    <p class="muted" style="margin:6px 0 10px">Ogni turno diventa un appuntamento, con un promemoria che suona prima di entrare.</p>
+    <label class="f">Promemoria<select onchange="localStorage.setItem('${ALARM_KEY}',this.value)">${opt.map(([v, l]) => `<option value="${v}" ${alarmMin() === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <button class="primary" style="margin-top:4px" onclick="downloadIcs([${w.ws}])">Aggiungi questa settimana (${n} turni)</button>
+    ${fut.length > 1 ? `<button class="light" style="width:100%;margin-top:8px" onclick="downloadIcs([${fut.map((x) => x.ws).join(',')}])">Aggiungi tutte le settimane pubblicate (${fut.length})</button>` : ''}
+    <p class="muted" style="margin:10px 0 0;font-size:13px">Se il manager cambia un turno, aggiungi di nuovo la settimana: l'appuntamento si aggiorna. Su Android il file si apre con il calendario del telefono (se non si apre, toccalo nei Download).</p></div>`;
+}
+function downloadIcs(wsList) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const stamp = (d, m) => { const x = dayDate(d); return `${x.getUTCFullYear()}${pad(x.getUTCMonth() + 1)}${pad(x.getUTCDate())}T${pad(Math.floor(m / 60))}${pad(m % 60)}00`; };
+  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const al = alarmMin(), out = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Pianificatore turni//IT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Turni di lavoro'];
+  const seq = Math.floor(Date.now() / 60000) - 29000000; // cresce a ogni esportazione: il calendario tiene la versione nuova
+  for (const w of orario.weeks.filter((x) => wsList.includes(x.ws))) for (const x of w.days) for (const [i, s] of x.sh.entries()) {
+    out.push('BEGIN:VEVENT', `UID:turno-${session.oid || session.code}-${x.d}-${i}@pianificatore-turni`, `SEQUENCE:${seq}`, `DTSTAMP:${now}`,
+      `DTSTART:${stamp(x.d, s.a)}`, `DTEND:${stamp(x.d, s.b)}`, 'SUMMARY:Turno di lavoro',
+      `DESCRIPTION:${fmt(s.a)}–${fmt(s.b)}${s.dbl ? ' (doppio)' : ''}. Dall'app Turni (settimana pubblicata il ${new Date(w.at).toLocaleDateString('it-IT')}).`);
+    if (al) out.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:Turno alle ${fmt(s.a)}`, `TRIGGER:-PT${al}M`, 'END:VALARM');
+    out.push('END:VEVENT');
+  }
+  out.push('END:VCALENDAR');
+  const blob = new Blob([out.join('\r\n') + '\r\n'], { type: 'text/calendar;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `turni-${wkLabel(wsList[0]).replace(/[^0-9a-z]+/gi, '-')}.ics`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
 }
 // ---- cambio password in autonomia ----
 function passwordView() {
@@ -282,15 +324,16 @@ async function changePassword() {
     tab = 'turni'; show('ok', '✓ Password cambiata. Da adesso entra con quella nuova.');
   } catch (e) { show('err', e instanceof TypeError ? 'Nessuna connessione a internet.' : 'Non riuscito, riprova.'); }
 }
-const tabsBar = () => isMgr() ? '' : `<div class="tabs"><button class="${tab === 'turni' ? 'on' : ''}" onclick="tab='turni';msg='';render();loadOrario()">📅 I miei turni</button><button class="${tab === 'richieste' ? 'on' : ''}" onclick="tab='richieste';msg='';render()">✉️ Richieste</button></div>`;
+const tabsBar = () => `<div class="tabs"><button class="${tab === 'turni' ? 'on' : ''}" onclick="tab='turni';msg='';render();loadOrario()">📅 I miei turni</button><button class="${tab === 'richieste' ? 'on' : ''}" onclick="tab='richieste';msg='';render()">✉️ Richieste</button></div>`;
 
 function render() {
   const app = document.getElementById('app');
   document.getElementById('hdrbtn').style.display = session ? 'flex' : 'none';
-  if (!STORE) { app.innerHTML = '<div class="card"><div class="notice err">Manca il codice del locale.</div><p>Apri il link che ti ha mandato il tuo manager.</p></div>'; return; }
+  if (!STORE) { app.innerHTML = `<div class="card"><h2>Collega l'app al tuo locale</h2><p class="muted" style="margin-top:-6px">Apri il link che ti ha mandato il tuo manager, oppure incollalo qui sotto.</p>
+    <label class="f">Link dell'app<input id="ls" autocapitalize="none" spellcheck="false" placeholder="https://…/richieste.html?s=…" onkeydown="if(event.key==='Enter')setStore()"></label>
+    <button class="primary" onclick="setStore()">Continua</button><div id="lsmsg"></div></div>`; return; }
   if (!session) { document.getElementById('hello').textContent = role === 'dipendente' ? 'Richieste per i turni al tuo manager.' : 'App dei turni del locale.'; app.innerHTML = role === 'dipendente' ? loginView() : chooseView(); return; }
   document.getElementById('hello').textContent = session.nome ? `Ciao ${session.nome}!` : 'I tuoi turni e le tue richieste.';
-  if (isMgr() && tab === 'richieste') tab = 'turni';
   if (tab === 'turni') { app.innerHTML = `${installBox()}${tabsBar()}${msg}${turniView()}`; return; }
   if (tab === 'password') { app.innerHTML = passwordView(); return; }
   const today = new Date(); const iso = new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
@@ -302,7 +345,7 @@ function render() {
   <div class="card">
     <h2>Nuova richiesta</h2>
     <div class="kinds">
-      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima o che inizi dopo'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. quel giorno ho lezione la mattina'], ['fisso', 'Ho impegni fissi ogni settimana', 'es. università o allenamenti: lunedì 11–16, martedì 7–12…']].map(([k, t, h]) =>
+      ${[['impegno', 'Ho un impegno a un\'ora precisa', 'es. concerto alle 21:00: ti serve un turno che finisca prima o che inizi dopo'], ['dalle', 'Posso lavorare solo da una certa ora', 'es. quel giorno ho lezione la mattina'], ['fisso', 'Ho impegni fissi ogni settimana', 'es. università o allenamenti: lunedì 11–16, martedì 7–12…']].filter(([k]) => (isMgr() ? k === 'impegno' : k !== 'dalle')).concat(isMgr() ? MGR_KINDS : [TURNO_KIND]).map(([k, t, h]) =>
         `<label class="${kind === k ? 'on' : ''}"><input type="radio" name="k" value="${k}" ${kind === k ? 'checked' : ''} onchange="kind=this.value;keep();render()"><span>${t}${h ? `<br><span class="muted" style="font-weight:400">${h}</span>` : ''}</span></label>`).join('')}
     </div>
     ${kind !== 'fisso' ? `<label class="f">Giorno<input type="date" id="date" min="${iso}"></label>` : `
@@ -313,6 +356,9 @@ function render() {
       <label class="f">Fino al (se non lo sai, lascia vuoto)<input type="date" id="to" min="${iso}"></label>`}
     ${kind === 'impegno' ? `<label class="f">A che ora è l'impegno?<select id="time">${times(480, 1440, 1260)}</select></label>` : ''}
     ${kind === 'dalle' ? `<label class="f">Da che ora puoi lavorare?<select id="from">${times(450, 1170, 900)}</select></label>` : ''}
+    ${kind === 'fino' ? `<label class="f">Fino a che ora puoi lavorare?<select id="until">${times(630, 1290, 900)}</select></label>` : ''}
+    ${kind === 'turno' ? `<label class="f">Quale fascia?<select id="fascia">${Object.entries(FASCE_OF()).map(([k, [l]]) => `<option value="${k}">${l}</option>`).join('')}</select></label>
+      <label class="f">Fino al (per un solo giorno lascia vuoto)<input type="date" id="to" min="${iso}"></label>` : ''}
     <label class="f">Nota (facoltativa)<textarea id="note" maxlength="300" placeholder="es. concerto a Roma"></textarea></label>
     <button class="primary" id="send" onclick="send()">Invia la richiesta</button>
     <p class="muted" style="margin:10px 0 0">La richiesta va al tuo manager, che decide il turno. Finché non risponde resta "in attesa".</p>
@@ -327,7 +373,16 @@ function render() {
 }
 // mantiene i campi compilati quando si cambia tipo di richiesta
 let draft = {};
-function keep() { for (const id of ['date', 'note', 'time', 'from', 'to']) { const el = document.getElementById(id); if (el) draft[id] = el.value; } }
+// richieste in più solo per i manager: giorno libero, finire entro un orario, fascia preferita (apertura/centrale/chiusura)
+const MGR_KINDS = [['libero', 'Non posso lavorare quel giorno', 'il manager decide: le ore si spostano sugli altri giorni'], ['turno', 'Preferisco una fascia', 'solo apertura, centrale o chiusura, anche per più giorni']];
+const TURNO_KIND = ['turno', 'Preferisco una fascia', 'apertura, pranzo/pomeriggio, cena o chiusura, anche per più giorni'];
+// fasce: [nome, dalle, alle] (minuti); il manager può cambiare gli orari quando accetta
+const FASCE_MGR = { apertura: ['Apertura', 0, 960], centrale: ['Centrale', 540, 1140], chiusura: ['Chiusura', 810, 1440] };
+// la cena parte dall'ora impostata dal locale (Impostazioni → Regole: "Chi fa la cena entra dalle"), mandata con l'orario
+const FASCE_CREW = () => { const c = (orario && orario.cenaDalle) || 1020;
+  return { apertura: ['Apertura', 0, 900], pranzo: ['Pranzo/pomeriggio', 600, 1080], cena: [`Cena (dalle ${fmt(c)})`, c, 1440], chiusura: ['Chiusura', 1050, 1440] }; };
+const FASCE_OF = () => (isMgr() ? FASCE_MGR : FASCE_CREW());
+function keep() { for (const id of ['date', 'note', 'time', 'from', 'to', 'until', 'fascia']) { const el = document.getElementById(id); if (el) draft[id] = el.value; } }
 function restore() { for (const [id, v] of Object.entries(draft)) { const el = document.getElementById(id); if (el && v) el.value = v; } }
 
 async function loadPub() {
@@ -348,6 +403,9 @@ async function send() {
   const q = { date, kind, note };
   if (kind === 'impegno') q.time = +draft.time;
   if (kind === 'dalle') q.from = +draft.from;
+  if (kind === 'fino') q.until = +draft.until;
+  if (kind === 'turno') { const f = FASCE_OF()[draft.fascia] || FASCE_OF().apertura; q.label = f[0]; q.from = f[1]; q.until = f[2]; if (draft.to) q.to = draft.to;
+    if (q.to && q.to < date) { const btn2 = document.getElementById('send'); btn2.disabled = false; btn2.textContent = 'Invia la richiesta'; return show('err', '"Fino al" deve essere dopo il giorno.'); } }
   if (kind === 'fisso') {
     if (!slots.length || slots.some((x) => x.b <= x.a)) { const btn2 = document.getElementById('send'); btn2.disabled = false; btn2.textContent = 'Invia la richiesta'; return show('err', 'Controlla gli orari: "alle" deve essere dopo "dalle".'); }
     q.slots = slots.map((x) => ({ ...x })); if (draft.to) q.to = draft.to;

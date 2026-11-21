@@ -191,6 +191,16 @@
     const abs = days.filter((d) => (state.absences || []).some((a) => a.employeeId === m.id && d >= a.from && d <= a.to)).length;
     return Math.max(0, Math.round((m.weeklyMinutes || 2400) * (6 - Math.min(6, abs)) / 6));
   }
+  /** Richieste accettate dei manager (stesse regole del personale): limiti per giorno, chiave "id|giorno". */
+  const limitsOf = (state, ws) => (T.limitsFrom ? T.limitsFrom(state.requests, ws) : new Map());
+  /** Parte più lunga di [a, b] che rispetta la richiesta l (giorno libero escluso), oppure null se resta meno di 3 ore. */
+  function fitFree(l, a, b) {
+    let segs = [[Math.max(a, l.from ?? 0), Math.min(b, l.until ?? 1440)]];
+    for (const [x, y] of l.busy || []) segs = segs.flatMap(([p, q]) => (y <= p || x >= q ? [[p, q]] : [[p, Math.min(q, x)], [Math.max(p, y), q]]));
+    const best = segs.filter(([p, q]) => q > p).sort((u, v) => (v[1] - v[0]) - (u[1] - u[0]))[0];
+    return best && best[1] - best[0] >= 180 ? best : null;
+  }
+  const fitsReq = (l, s) => !l || (!l.off && (l.until == null || s.end <= l.until) && (l.from == null || s.start >= l.from) && !(l.busy || []).some(([x, y]) => s.start < y && x < s.end));
   const absentOn = (state, m, d) => (state.absences || []).some((a) => a.employeeId === m.id && d >= a.from && d <= a.to)
     || (state.eventi && T.closureOf && (T.closureOf(state.eventi, d) || {}).full);
 
@@ -213,6 +223,9 @@
     const wkHist = new Map();
     for (const s of hist) if (T.dow(s.day) >= 5) { const k = s.managerId + '|' + kindOf(s); wkHist.set(k, (wkHist.get(k) || 0) + 1); }
 
+    const lim = limitsOf(state, ws), L = (m, d) => lim.get(m.id + '|' + d);
+    // finestra tipica di un ruolo: serve a scegliere ruoli compatibili con le richieste accettate
+    const winOf = (r, d) => (isMorning(r) ? [OPEN(d), OPEN(d) + 390] : isEvening(r) ? [CLOSE(d) - 390, CLOSE(d)] : [600, 1080]);
     let best = null;
     const tries = opts.tries || 500;
     for (let t = 0; t < tries; t++) {
@@ -227,7 +240,8 @@
       for (const m of closedWeek ? [] : shuffle([...team])) {
         const room = (d) => team.length - (used.get(d) || 0) - 1 >= needOn(state, ws, d - 1);
         const cand = shuffle(REST_DAYS.filter((d) => room(d) && !(m.orderDays || []).includes(d)))
-          .sort((a, b) => (used.get(a) || 0) - (used.get(b) || 0) + ((m.flexDays || []).includes(a) - (m.flexDays || []).includes(b)) * 0.5);
+          .sort((a, b) => (used.get(a) || 0) - (used.get(b) || 0) + ((m.flexDays || []).includes(a) - (m.flexDays || []).includes(b)) * 0.5
+            - (((L(m, ws + a - 1) || {}).off ? 1 : 0) - ((L(m, ws + b - 1) || {}).off ? 1 : 0)) * 5); // giorno libero chiesto: meglio come riposo
         const pick = cand[0] ?? REST_DAYS.filter(room)[0];
         if (pick == null) { ok = false; break; }
         restOf.set(m.id, pick); used.set(pick, (used.get(pick) || 0) + 1);
@@ -241,7 +255,7 @@
       let bad = 0;
       for (let k = 0; k < 7; k++) {
         const d = ws + k;
-        const present = team.filter((m) => restOf.get(m.id) !== k + 1 && !absentOn(state, m, d));
+        const present = team.filter((m) => restOf.get(m.id) !== k + 1 && !absentOn(state, m, d) && !(L(m, d) || {}).off);
         const roles = rolesFor(state, ws, k, present.length);
         // domani è 24h: chi farà la notte (da mezzanotte) oggi fa un'apertura corta che finisce entro le 12:00 (stacco di 12 ore)
         const nightTomorrow = k < 6 && T.dayHours(state.config, ws + k + 1).h24;
@@ -262,6 +276,8 @@
             const okRole = (r) => {
               // giorno dell'ordine: entra entro le 11:30, quindi niente turni della sera
               if ((m.orderDays || []).includes(k + 1) && isEvening(r)) return false;
+              // richiesta accettata: il ruolo deve lasciare almeno 3 ore compatibili (poi il turno si adatta)
+              { const l = L(m, d); if (l && !fitFree(l, ...winOf(r, d))) return false; }
               // il giorno prima dell'ordine niente sera: il giorno dopo deve poter entrare presto
               if ((m.orderDays || []).includes(((k + 1) % 7) + 1) && isEvening(r)) return false;
               // due giorni prima dell'ordine niente sera se domani lavorano tutti (non c'è un centrale libero)
@@ -322,7 +338,10 @@
           // chi il giorno dopo apre (7:30) non può finire alle 20:30 (stacco di 12 ore): il suo centrale copre il pranzo
           const opensNext = plan.some((y) => y.m === m && y.k === x.k + 1 && isMorning(y.role));
           const side = opensNext ? 'pranzo' : dayRoles.some((r) => r === 'D' || r === 'M2' || r === 'F') ? 'cena' : dayRoles.some((r) => r === 'X' || r === 'C2') ? 'pranzo' : null;
-          const [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440, side, ws + x.k); shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
+          let [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440, side, ws + x.k);
+          const l = L(m, ws + x.k);
+          if (l && !fitsReq(l, { start: a, end: b })) { const f = fitFree(l, a, b); if (f) [a, b] = f; } // si accorcia per rispettare la richiesta
+          shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
       }
       const all = [...keep, ...shifts.filter((s) => !keepKey.has(s.managerId + '|' + s.day))];
       fillGaps(all, keep);
@@ -390,6 +409,12 @@
       const opens = s.start <= OPEN(s.day), closes = s.end >= CLOSE(s.day);
       const ok = (t, half) => t % 60 === 0 || (half && t % 30 === 0);
       if (!((opens || ok(s.start, closes)) && (closes || ok(s.end, opens)))) V('WARNING', `${name(m)}: ${when(s.day)} ${T.fmtTime(s.start)}–${T.fmtTime(s.end)} non è a ore intere (es. 11–18, 13–21)`, m.id, s.day);
+    }
+    // richieste accettate dei manager
+    const lim = limitsOf(state, ws);
+    for (const s of list) {
+      const l = lim.get(s.managerId + '|' + s.day), m = team.find((x) => x.id === s.managerId);
+      if (l && m && !fitsReq(l, s)) V('ERROR', `${name(m)}: ${when(s.day)} ha una richiesta accettata (${l.label}), ma il turno è ${T.fmtTime(s.start)}–${T.fmtTime(s.end)}`, m.id, s.day);
     }
     for (let k = 0; k < 7; k++) {
       const d = ws + k, dl = list.filter((s) => s.day === d);

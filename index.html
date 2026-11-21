@@ -118,6 +118,8 @@
   .autotag { display: inline-block; padding: 0 6px; border-radius: 999px; background: #e6f0ff; color: #2456b3; font-size: 11px; line-height: 18px; margin-left: 4px; }
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
+  .card.empty { color: var(--muted); }
+  .toolbar .ptabs { margin: 0; }
   .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
   /* iPhone ingrandisce da solo la pagina quando si tocca un campo con testo sotto i 16px: su telefono/tablet si usano 16px */
   @media (pointer: coarse), (max-width: 760px) { input, select, textarea { font-size: 16px !important; } }
@@ -325,6 +327,127 @@
     .list tr.group td:first-child { background: var(--green-soft); } .list tr.sel td:first-child { background: var(--err); }
   }
   @media print { .list thead th { position: static; } }
+
+  /* ---- menu laterale (computer) e ritocchi grafici ---- */
+  .card { box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  button.btn, label.btn { border-radius: 10px; padding: 8px 14px; transition: border-color .15s, background .15s; }
+  button.btn:hover { background: #fafafa; }
+  button.primary:hover { background: #17482a; }
+  h2 { font-size: 22px; letter-spacing: -.2px; }
+  nav .ic { display: none; }
+  nav .grp { display: none; }
+  .hint { font-size: 13px; color: var(--muted); margin: -2px 0 12px; }
+  .hint b { color: var(--ink); }
+  details.more { position: relative; display: inline-block; }
+  details.more > summary { list-style: none; display: inline-block; font-weight: 600; border-radius: 10px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: #fff; user-select: none; }
+  details.more > summary:hover { border-color: #b9b9c0; }
+  details.more.left .menu { right: auto; left: 0; }
+  details.more > summary::-webkit-details-marker { display: none; }
+  details.more .menu { position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(16,24,40,.12); padding: 6px; min-width: 230px; z-index: 20; }
+  details.more .menu button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; font: inherit; padding: 9px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+  details.more .menu button:hover { background: var(--bg); }
+  details.more .menu button.red { color: var(--err-ink); }
+  .ptabs { margin-bottom: 14px; }
+  .pcbar { display: inline-block; width: 60px; height: 6px; border-radius: 3px; background: #c9d6ee; vertical-align: middle; margin-left: 8px; overflow: hidden; } .pcbar i { display: block; height: 100%; background: var(--green); }
+  .covtab th { white-space: normal; font-size: 11px; vertical-align: bottom; }
+  .covtab th, .covtab td { padding-left: 6px; padding-right: 6px; }
+  .covtab td:first-child input { width: 100%; min-width: 140px; }
+  .covtab td:nth-child(n+6):nth-child(-n+7) { width: 64px; }
+  .covtab select { max-width: 150px; }
+  .card:has(> table.list.covtab) { overflow-x: auto !important; }
+  .form .inl { display: flex; align-items: center; gap: 6px; }
+  .form div.f { display: grid; gap: 4px; }
+  .form div.f .lbl { font-size: 12px; font-weight: 600; color: var(--muted); }
+  /* settimana a tutta larghezza: i controlli si aprono dal contatore errori, in un pannello a destra */
+  .layout.nochecks, .layout.drawer { grid-template-columns: minmax(0, 1fr); }
+  .layout.nochecks > aside.problems { display: none; }
+  .layout.drawer > aside.problems { position: fixed; top: 14px; right: 14px; bottom: 14px; width: min(380px, calc(100vw - 28px)); max-height: none; z-index: 15; box-shadow: 0 12px 40px rgba(16,24,40,.22); }
+  button.chipbtn { border: 0; cursor: pointer; font: inherit; font-weight: 600; font-size: 13px; }
+  button.chipbtn:hover { filter: brightness(.96); }
+  .xclose { padding: 3px 9px !important; font-size: 12px; margin-left: 6px; }
+  .grid tr.cov .name { white-space: normal; max-width: 230px; line-height: 1.25; }
+  .grid .name { min-width: 160px; }
+  td.cell { min-width: 88px; }
+  /* la settimana entra sempre nello schermo: colonne dei giorni uguali, divise nello spazio che c'è */
+  .layout > .gridwrap > table.grid { table-layout: fixed; }
+  .layout > .gridwrap > table.grid thead th.name { width: 170px; }
+  .layout > .gridwrap > table.grid thead th:last-child { width: 86px; }
+  .layout > .gridwrap > table.grid td.cell, .layout > .gridwrap > table.grid td.tot { min-width: 0; overflow-wrap: anywhere; }
+  .layout > .gridwrap > table.grid .name { min-width: 0; max-width: none; white-space: normal; overflow-wrap: anywhere; }
+  .layout > .gridwrap > table.grid thead th { overflow: hidden; }
+  .layout > .gridwrap > table.grid thead .evtag { max-width: 100%; overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
+  @media (max-width: 760px) { .layout > .gridwrap > table.grid { table-layout: auto; } .layout > .gridwrap > table.grid td.cell { min-width: 76px; } }
+  .help-modal ul { margin: 0; padding-left: 20px; } .help-modal li { margin: 5px 0; line-height: 1.45; } .help-modal .legend { margin-top: 12px; }
+  body.side header { position: fixed; top: 0; left: 0; bottom: 0; width: 220px; height: auto; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; padding: 18px 12px; overflow-y: auto; }
+  body.side header .brand { font-size: 17px; padding: 0 10px 6px; white-space: normal; line-height: 1.3; display: block; }
+  header .brand small { font-size: inherit; font-weight: inherit; }
+  body.side header .brand .sep { display: none; }
+  body.side header .brand small { display: block; font-size: 12px; font-weight: 600; color: #a9cdb5; letter-spacing: 0; }
+  body.side nav { flex-direction: column; overflow: visible; gap: 2px; width: auto; max-width: none; }
+  body.side nav .grp { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #9cc3a9; padding: 16px 12px 4px; font-weight: 700; }
+  body.side nav button { text-align: left; padding: 9px 12px; display: flex; align-items: center; gap: 10px; width: 100%; }
+  body.side nav .ic { display: inline-block; width: 20px; text-align: center; }
+  body.side nav button .badge { margin-left: auto; }
+  body.side .sync { margin: auto 0 0; flex-direction: column; }
+  body.side .sync button { width: 100%; text-align: left; padding: 8px 12px; }
+  body.side main { margin-left: 220px; padding: 22px 28px 40px; }
+  @media print { body.side main { margin-left: 0; padding: 0; } }
+
+  /* ---- icone, logo, intestazioni delle pagine e rifiniture ---- */
+  body { background: #f4f5f2; }
+  .ico { display: block; }
+  nav .ic { display: inline-flex; align-items: center; opacity: .9; }
+  nav button { display: inline-flex; align-items: center; gap: 7px; }
+  header .brand { gap: 10px; }
+  header .brand .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--yellow); color: var(--green); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  header .brand .bt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+  header .brand .bt b { font-size: 17px; letter-spacing: .2px; }
+  header .brand .bt small { font-size: 12px; font-weight: 600; color: #a9cdb5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.side header .brand { display: flex !important; align-items: center; padding: 2px 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 4px; }
+  body.side nav button { color: #dcebe1; border-radius: 10px; }
+  body.side nav button:hover { background: rgba(255,255,255,.09); }
+  body.side nav button.active { background: var(--yellow); color: var(--green); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  body:not(.side) header .brand .bt small { display: none; }
+  .pagehead { display: flex; align-items: center; gap: 14px; margin: 2px 0 18px; }
+  .pagehead .pi { width: 44px; height: 44px; border-radius: 12px; background: var(--green-soft); color: var(--green); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .pagehead h1 { margin: 0; font-size: 24px; letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; }
+  .pagehead p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
+  .card { border-color: #e4e5e1; }
+  .list th { background: #f7f8f6; }
+  .list tbody tr:hover td { background: #fafbf9; }
+  .seg { border-radius: 10px; }
+  .chip { letter-spacing: .1px; }
+  :focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+  * { scrollbar-width: thin; scrollbar-color: #c9ccc5 transparent; }
+  @media (max-width: 760px) { .pagehead { display: none; } }
+
+  /* ---- Home ---- */
+  .homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+  .hcard { padding: 18px; }
+  .hcard .hk { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .hcard .hw { font-size: 19px; font-weight: 700; margin: 2px 0 12px; }
+  .hcard .hrow { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid #eef0ec; padding: 9px 0; font: inherit; cursor: pointer; color: var(--ink); }
+  .hcard .hrow:hover { color: var(--green); }
+  .hcard .hrow .muted:last-child { margin-left: auto; }
+  .hcard .hs { display: flex; align-items: center; gap: 8px; padding: 9px 0 0; font-size: 13.5px; }
+  .hcard .hs.warn { color: var(--warn-ink); } .hcard .hs.ok { color: var(--green); }
+  .hcard .hact { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  button.btn, details.more > summary { display: inline-flex; align-items: center; gap: 7px; }
+
+  /* ---- dashboard ---- */
+  .dashhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 12px; }
+  .dashhead h3 { margin: 0; font-size: 17px; }
+  .dashgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
+  .viz { width: 100%; height: auto; display: block; overflow: visible; }
+  .hero { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+  .hero b { font-size: 24px; letter-spacing: -.3px; color: var(--ink); }
+  .hero span { color: var(--muted); font-size: 13px; }
+  .vlegend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .vlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .vlegend i.tick { height: 3px; width: 14px; background: var(--ink); border-radius: 2px; vertical-align: 3px; }
+  .vlegend i.dash { height: 0; width: 14px; border-top: 2px dashed var(--muted); border-radius: 0; vertical-align: 3px; }
+  #vtip { position: fixed; z-index: 40; background: #1d1d1f; color: #fff; font-size: 12px; padding: 6px 9px; border-radius: 8px; pointer-events: none; display: none; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+  [data-tip] { cursor: default; }
 </style>
 </head>
 <body>
@@ -337,29 +460,52 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="turni-storico.js?v=202611202158"></script>
-<script src="turni-core.js?v=202611202158"></script>
-<script src="turni-manager.js?v=202611202158"></script>
-<script src="turni-vlh.js?v=202611202158"></script>
+<script src="icone.js?v=202611211601"></script>
+<script src="turni-storico.js?v=202611211601"></script>
+<script src="turni-core.js?v=202611211601"></script>
+<script src="turni-manager.js?v=202611211601"></script>
+<script src="turni-vlh.js?v=202611211601"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611202158"></script>
-<script src="turni-cloud-config.js?v=202611202158"></script>
-<script src="turni-cloud.js?v=202611202158"></script>
-<script src="turni-cripto.js?v=202611202158"></script>
-<script src="riepilogo.js?v=202611202158"></script>
-<script src="lineare-ufficiale.js?v=202611202158"></script>
+<script src="turni-data.js?v=202611211601"></script>
+<script src="turni-cloud-config.js?v=202611211601"></script>
+<script src="turni-cloud.js?v=202611211601"></script>
+<script src="turni-cripto.js?v=202611211601"></script>
+<script src="riepilogo.js?v=202611211601"></script>
+<script src="lineare-ufficiale.js?v=202611211601"></script>
 <script>
 'use strict';
 const T = window.Turni;
 const KEY = 'turni-familyfood-v1';
-const VIEWS = [['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['vlh', 'VLH'], ['previsioni', 'Previsioni'], ['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie'], ['richieste', 'Richieste'], ['regole', 'Regole'], ['store', 'Store']];
+// menu: gruppi di voci [vista, icona, nome]; "Persone" raccoglie in una pagina (con le schede) personale, formazione, aperture, doppi e ferie
+const NAV = [[null, [['home', 'Home'], ['turni', 'Turni'], ['giornaliero', 'Giornaliero'], ['previsioni', 'Previsioni'], ['richieste', 'Richieste']]],
+  ['Gestione', [['personale', 'Persone'], ['regole', 'Impostazioni']]]];
+// pagine raccolte sotto una voce del menu, con le schede in alto: [voce del menu, schede]
+const GROUPS = { giornaliero: [['giornaliero', 'Lineare'], ['vlh', 'VLH']], regole: [['regole', 'Regole'], ['store', 'Store']] };
+const groupOf = (v) => Object.keys(GROUPS).find((g) => GROUPS[g].some(([k]) => k === v)) || null;
+// intestazione di ogni pagina: titolo e una riga di spiegazione
+const PAGE = {
+  home: ['Home', 'Il riassunto: settimane, richieste e previsioni'],
+  turni: ['Turni', 'La settimana di crew, hospitality e manager'],
+  giornaliero: ['Giornaliero', 'Il lineare del giorno, con previsione e coperture'],
+  vlh: ['VLH', 'Le posizioni da aprire ora per ora'],
+  previsioni: ['Previsioni', 'Vendite, clienti e ore di lavoro previste · eventi e chiusure'],
+  richieste: ['Richieste', 'Le richieste del personale dall\'app Turni'],
+  personale: ['Persone', 'Chi lavora nel locale: ore, formazione, aperture, doppi e assenze'],
+  regole: ['Impostazioni', 'Regole di crew e hospitality, orari e postazioni del locale, regole dei manager'],
+};
+const PEOPLE = [['personale', 'Personale'], ['formazione', 'Formazione'], ['aperture', 'Aperture e chiusure'], ['doppi', 'Doppi'], ['ferie', 'Ferie e malattie']];
+const isPeople = (v) => PEOPLE.some(([k]) => k === v);
+/** Tutte le sezioni: [vista, nome]. */
+const VIEWS = [...NAV.flatMap(([, items]) => items).filter(([k]) => k !== 'personale' && !GROUPS[k]), ...Object.values(GROUPS).flat(), ...PEOPLE];
+/** Menu laterale sul computer (finestra larga); su telefono, tablet e finestre strette resta la barra in alto. */
+const sideOn = () => !compactOn() && window.innerWidth > 900;
 const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
 
 // ---------- stato (salvato nel browser) ----------
 let storageOk = true;
 let state = loadState();
-const ui = { view: 'turni', ws: T.mondayOf(T.todayDay()), day: T.todayDay(), type: 'CREW', deleteMode: false, selected: new Set(), draft: null };
+const ui = { view: 'home', ws: T.mondayOf(T.todayDay()), day: T.todayDay(), type: 'CREW', deleteMode: false, selected: new Set(), draft: null };
 // Aperta dall'app "Turni" (sezione Manager, ?s = locale) o installata: finché non si entra con la password
 // dei manager non si vede niente (né menu né dati), solo la schermata di accesso, che non si può chiudere.
 const APP_STORE = new URLSearchParams(location.search).get('s');
@@ -392,6 +538,7 @@ const INFO = {
   'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico delle vendite, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione del sistema di cassa, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Ore totali</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati si usa un valore di partenza). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Ore totali diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la previsione del sistema di cassa, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi per canale, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
   'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero e nessun turno. Nella settimana della chiusura il riposo di ognuno (crew, hospitality e manager) va nei giorni di chiusura e le ore del contratto non si perdono: si distribuiscono sugli altri giorni aperti.<br><b>🕐 Orario ridotto</b> (es. il 24 chiude alle 20:30, o apre più tardi): quel giorno il generatore usa il nuovo orario come se fosse quello normale. La squadra di chiusura si sposta sulla nuova chiusura, nessun turno va oltre, e le previsioni calano della quota di clienti che di solito entra nelle ore perse.<br><b>🕒 Chiusura parziale</b> (manutenzione in mezzo alla giornata): le previsioni calano della quota di clienti di quelle ore; niente turni e niente minimi in quegli orari. Per aprire più tardi o chiudere prima usa "Orario ridotto".<br><b>⭐ Evento o ricorrenza</b> (promozioni, ricorrenze, feste locali): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni, nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto molti più clienti del solito.`],
   'mgr': [`Squadra manager`, `I manager hanno un calendario a parte (non entrano nelle Ore totali e nei rush dei crew).<br><br><b>Ruolo e ore</b>: ore da contratto di ognuno, su 6 giorni; i giorni in cui possono riposare si scelgono nella sezione <b>Store</b>.<br><b>Giorni ordine</b>: giorni in cui quella persona fa l'ordine: entra entro l'orario impostato nella sezione Store (o in apertura), non riposa e il giorno prima non fa la sera.<br><b>Orario flessibile</b>: giorni in cui può fare un orario a metà giornata invece di apertura o chiusura.<br><b>1 centrale</b>: una volta a settimana, nei primi giorni della settimana, un turno centrale (es. per controllare gli orari).<br><br>Ogni giorno: un manager in apertura e uno in chiusura. Nei giorni di <b>delivery</b> c'è un secondo manager in apertura. <b>Carpigiani</b> (ogni 2 settimane, qualsiasi manager): il giorno dello smontaggio due manager la sera, il giorno del rimontaggio due manager in apertura. Stacchi, durate dei turni e manager minimi al giorno: sezione <b>Store</b>. Il weekend gira tra aperture, centrali e chiusure.`],
+  'hosp-rot': [`Pranzi e cene delle hospitality`, `Quanti turni di pranzo e di cena fa ognuna questa settimana e nelle 4 settimane prima (pranzo = turno che sta per lo più prima delle 16:00). Il generatore li fa a rotazione: chi ha fatto più cene fa più pranzi, e il contrario. La barra mostra la parte di pranzi.`],
   'mgr-weekend': [`Weekend dei manager`, `Quante aperture, centrali e cene ha fatto ognuno nel fine settimana nelle ultime 4 settimane (questa compresa). Il generatore le fa a rotazione, così in un mese ognuno fa almeno un'apertura, un centrale e una cena.`],
   'affiancamenti': [`Affiancamenti in apertura e chiusura`, `Qui programmi chi deve imparare ad <b>aprire</b> la cucina (MFY) o il McCafé, oppure a <b>chiudere</b> il McCafé. Per ogni persona scegli quante volte in tutto (es. 4), quante al massimo a settimana (es. 3) e, se vuoi, in quali giorni.<br><br>Quando generi i turni, il programma la mette in apertura (o in chiusura) in quella postazione <b>in più</b> rispetto alla squadra, solo nei giorni in cui c'è un formato che apre (o chiude) accanto a lei. Nel lineare questi turni hanno il segno 🎓.<br><br>Finiti gli affiancamenti, la persona diventa <b>autonoma</b>: viene segnata da sola in Aperture e chiusure e da lì in poi apre (o chiude) senza affiancamento. Puoi anche segnarla autonoma prima, con il pulsante ✅.<br><br>La chiusura della cucina non ha affiancamenti da programmare: in chiusura in cucina ci sono sempre più persone.`],
   'vlhGen': [`Turni creati in base alla VLH`, `Quando è attivo, il generatore guarda i clienti previsti ora per ora e le tabelle VLH: in ogni ora mette le persone che servono per le posizioni da aprire, area per area (MFY, OA, McCafé, sala). Restano valide squadre di apertura e chiusura, presidi delle postazioni, ore da contratto e riposi.<br><br>Se le persone non bastano, le posizioni restano <b>scoperte</b> e le trovi tra i problemi della settimana. Se nella sezione Previsioni hai scritto a mano le <b>Ore totali</b> del giorno, la VLH non le supera: toglie prima le posizioni aperte per pochi clienti (mai le prime tre). Le Ore totali stimate in automatico non fanno da limite.`],
@@ -415,6 +562,12 @@ const INFO = {
   'cfg-requestMargin': [`Richieste: fine turno prima di un impegno`, `Quando un dipendente chiede "ho un impegno alle…", il turno deve finire almeno queste ore prima, oppure iniziare dopo l'impegno (vedi "inizio turno dopo un impegno"). Quando accetti la richiesta puoi comunque cambiare gli orari.`],
   'cfg-aft': [`Post-rush pomeriggio`, `Fascia del pomeriggio tra i due rush. Qui il generatore non mette turni "rigidi" tutti dentro questa fascia né turni "ibridi" a cavallo: preferisce turni sfalsati che si agganciano ai rush (uno che finisce quando l'altro inizia).`],
   'cfg-pre': [`Chi fa la cena entra dalle`, `Ora più presto in cui entra chi lavora per la cena. Così i turni di cena non partono nel mezzo del pomeriggio.`],
+  'store': [`Store`, `Qui si adatta l'app a questo locale: orari, postazioni e regole. Ogni locale ha le sue impostazioni (salvate e cifrate con i suoi dati): un locale nuovo le imposta qui, senza cambiare il programma.<br><br>Le <b>squadre di apertura e chiusura</b> (quante persone per postazione) si impostano in Regole → Fasce di copertura; <b>chi può aprire o chiudere</b> in Persone → Aperture e chiusure; durate e stacchi dei crew in Regole.`],
+  'aperture-note': [`Chi apre e chi chiude`, `Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la possono chiudere sia crew sia hospitality.<br><br>Chi è 🎓 in formazione non apre e non chiude mai da solo. In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.`],
+  'vlh-help': [`Come leggere la VLH`, `Postazioni da aprire ora per ora secondo le tabelle VLH. I GC si possono correggere a mano (sfondo giallo). Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate.<br><br>I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé.<br><br>Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu. In stampa puoi correggerli a penna.`],
+  'dash-vendite': [`Vendite rispetto all'anno scorso`, `<b>Cosa mostra</b>: per ogni giorno, quanto ha venduto il locale rispetto allo <b>stesso giorno della settimana dell'anno scorso</b> (52 settimane prima: lunedì con lunedì). Il numero grande è la variazione della settimana intera.<br><br><b>Come si legge</b>: barra <b style="color:#2a78d6">blu</b> verso l'alto = sopra l'anno scorso; barra <b style="color:#e34948">rossa</b> verso il basso = sotto. I giorni già passati usano le <b>vendite vere</b>; quelli futuri le <b>previsioni</b> (barre chiare tratteggiate). Passa il mouse su una barra per vedere gli euro.<br><br><b>A cosa serve</b>: capire se il locale cresce o cala e in quali giorni; è il numero da portare in riunione. Se un giorno previsto è molto diverso dall'anno scorso, controlla gli eventi in Previsioni (un evento sbagliato sposta anche le ore dei turni).<br><br>Le vendite vere arrivano con le previsioni automatiche (aggiornate ogni giorno da SmartBusiness).`],
+  'dash-ore': [`Ore pianificate e ore previste`, `<b>Cosa mostra</b>: per ogni giorno, le <b>ore messe in turno</b> (barre blu: crew, hospitality e doppi, senza manager) e le <b>Ore totali previste</b> (lineetta nera), cioè le ore che servono secondo la previsione delle vendite. Il numero grande è quante ore sei sopra (+) o sotto (−) la previsione nella settimana.<br><br><b>Come si legge</b>: barra più alta della lineetta = più ore del necessario; barra più bassa = meno ore del previsto.<br><br><b>A cosa serve</b>: controllare il costo del lavoro prima di pubblicare i turni. Troppe ore in un giorno tranquillo = soldi spesi; troppo poche in un giorno forte = rischio di restare scoperti nei rush.`],
+  'dash-prod': [`Vendite per ora di lavoro`, `<b>Cosa mostra</b>: quanti euro di vendite fa il locale per ogni ora di lavoro pianificata (vendite del giorno divise per le ore di crew, hospitality e doppi, senza manager). La linea tratteggiata è la media della settimana; il numero è scritto sul giorno migliore e su quello peggiore.<br><br><b>Come si legge</b>: barra alta = poche persone per tante vendite; barra bassa = tante persone per poche vendite.<br><br><b>A cosa serve</b>: è l'indice della produttività. Un giorno molto <b>sotto</b> la media ha probabilmente troppe ore (si possono togliere); un giorno molto <b>sopra</b> rischia di essere scoperto. Confrontando le settimane vedi se la produttività migliora.`],
   'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale, giorno per giorno (anche 24 ore): sezione Store. Il generatore non mette turni fuori da quest'orario.`],
   'col-nome': [`Fascia di copertura`, `Ogni riga è una fascia oraria (es. il rush del pranzo) con il numero minimo di persone che devono essere presenti per tutta la sua durata. Puoi cambiarne nome e orari, aggiungerne o eliminarne.`],
   'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Ore totali (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality.`],
@@ -435,12 +588,18 @@ if (COMPACT) { ui.view = 'giornaliero'; try { ui.showAll = localStorage.getItem(
 function setShowAll(v) { ui.showAll = v; try { localStorage.setItem('turni-tutto', v ? '1' : '0'); } catch (e) { /* niente */ } if (!v && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero'; render(); window.scrollTo(0, 0); }
 function renderBrand() {
   const n = (state.config && state.config.storeName) || '';
-  document.getElementById('brand').textContent = n ? `🗓 Orari · ${n}` : '🗓 Orari';
+  document.getElementById('brand').innerHTML = `<span class="logo">${icon('turni', 20)}</span><span class="bt"><b>Orari</b>${n ? `<small>${esc(n)}</small>` : ''}</span>`;
   document.title = n ? `Orari · ${n}` : 'Pianificatore turni';
 }
 // altezza reale della barra verde (su telefono è più alta): i titoli delle tabelle si fermano subito sotto
-function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', document.querySelector('header').offsetHeight + 'px'); }
-window.addEventListener('resize', setHeaderHeight);
+function setHeaderHeight() { document.documentElement.style.setProperty('--hdr', (document.body.classList.contains('side') ? 0 : document.querySelector('header').offsetHeight) + 'px'); }
+window.addEventListener('resize', () => { if (document.body.classList.contains('side') !== sideOn()) render(); else setHeaderHeight(); });
+/** Menu "⋯ Altro": voci [testo, azione, rossa?]. Si chiude da solo quando scegli una voce o clicchi fuori. */
+const MORE_IC = [['📄', 'file'], ['ⓘ', 'info'], ['🗑', 'trash'], ['🔔', 'bell'], ['📱', 'phone']];
+const moreMenu = (items) => `<details class="more" ontoggle="if(this.open)this.classList.toggle('left',this.getBoundingClientRect().left<window.innerWidth/2)"><summary>${icon('altro', 16)} Altro</summary><div class="menu">${items.map(([t, js, red]) => {
+  const m = MORE_IC.find(([e]) => t.startsWith(e)); const txt = m ? t.slice(m[0].length).trim() : t;
+  return `<button class="${red ? 'red' : ''}" onclick="this.closest('details').open=false;${js}">${m ? icon(m[1], 17) : '<span style="width:17px"></span>'}<span>${txt}</span></button>`; }).join('')}</div></details>`;
+document.addEventListener('click', (e) => { for (const d of document.querySelectorAll('details.more[open]')) if (!d.contains(e.target)) d.open = false; });
 /** Impostazioni dello store: postazioni (nomi e colori) applicate a tutto lo schermo. */
 function applyStoreUi() {
   T.applyStore(state.config);
@@ -473,19 +632,192 @@ function render() {
   renderBrand(); renderSync();
   const pending = (state.requests || []).filter((q) => q.status === 'in attesa').length;
   if (compactOn() && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero';
-  document.getElementById('nav').innerHTML = VIEWS.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k)).map(([k, l]) => `<button class="${ui.view === k ? 'active' : ''}" onclick="go('${k}')">${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
-  const views = { turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
+  document.body.classList.toggle('side', sideOn());
+  document.getElementById('nav').innerHTML = NAV.map(([g, items]) => {
+    const list = items.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k));
+    if (!list.length) return '';
+    return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) || groupOf(ui.view) === k ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${icon(k)}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
+  }).join('');
+  const views = { home: renderHome, turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
+  const viewHtml = { html: views[ui.view]() };
   document.getElementById('app').innerHTML =
     (TurniCloud.PROVA ? '<div class="notice warn" style="margin-bottom:12px">🧪 <b>Versione di prova</b> (sul computer): vedi i tuoi dati veri, ma le modifiche <b>non vengono salvate online</b> e i dipendenti non vedono niente.</div>' : '') +
     (storageOk ? '' : '<div class="notice warn" style="margin-bottom:12px">Questo browser non permette di salvare: le modifiche si perdono chiudendo la pagina. Prova ad aprirla con Safari o Chrome, non in navigazione privata.</div>') +
-    views[ui.view]() +
+    pageHead(viewHtml) +
+    (groupOf(ui.view) ? `<div class="seg ptabs">${GROUPS[groupOf(ui.view)].map(([k, l]) => `<button class="${ui.view === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('')}</div>` : '') +
+    (isPeople(ui.view) ? `<div class="seg ptabs">${PEOPLE.map(([k, l]) => `<button class="${ui.view === k ? 'on' : ''}" onclick="go('${k}')">${l}</button>`).join('')}</div>` : '') +
+    viewHtml.html +
     (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
   setHeaderHeight();
+}
+/** Intestazione della pagina (icona, titolo, spiegazione). Toglie il primo titolo della sezione se è lo stesso. */
+function pageHead(v) {
+  const key = isPeople(ui.view) ? 'personale' : groupOf(ui.view) || ui.view, p = PAGE[key];
+  if (!p || compactOn()) return '';
+  let extra = '';
+  const m = v.html.match(/<h2[^>]*>([\s\S]*?)<\/h2>/);
+  if (m && !isPeople(ui.view) && ui.view !== 'store' && m[1].replace(/<[^>]+>/g, '').trim().toLowerCase().startsWith(p[0].toLowerCase())) {
+    extra = (m[1].match(/<button type="button" class="ib"[\s\S]*?<\/button>/) || [''])[0];
+    v.html = v.html.replace(m[0], '');
+  }
+  else if (!m && INFO[key]) extra = ib(key);
+  return `<div class="pagehead"><span class="pi">${icon(key, 22)}</span><div><h1>${p[0]} ${extra}</h1><p>${p[1]}</p></div></div>`;
 }
 function showModal(html) { document.getElementById('modal').innerHTML = `<div class="modal-bg" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`; }
 function closeModal() { document.getElementById('modal').innerHTML = ''; ui.draft = null; if (sync.pendingRender) { sync.pendingRender = false; render(); } }
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
 
+
+
+// ---- dashboard della Home: 3 grafici della settimana (SVG semplici, valori al passaggio del mouse) ----
+const VZ = { up: '#2a78d6', down: '#e34948', bar: '#2a78d6', ink: '#1d1d1f', muted: '#6b6b70', grid: '#e7e8e4', surface: '#ffffff',
+  cat: ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'] };
+const eur = (v) => Math.round(v).toLocaleString('it-IT') + ' €';
+const pct = (v) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1).replace('.', ',')}%`;
+const DSHORT = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+/** Dati della settimana per i grafici: vendite (vere o previste), anno scorso, ore pianificate e previste. */
+function dashData(ws) {
+  const af = state.autoForecast || {}, reali = af.reali || {}, today = T.todayDay(), fc = (state.forecasts || {})[ws];
+  const days = DAYS7.map((k) => {
+    const d = ws + k, r = reali[T.toIso(d)], ly = reali[T.toIso(d - 364)], f = T.forecastDay(fc, k) || {};
+    const real = d < today && r ? r[0] : null;
+    const sales = real != null ? real : f.sales || null;
+    const planned = state.shifts.filter((x) => x.day === d).reduce((t, x) => t + (x.end - x.start) / 60, 0);
+    return { k, d, sales, real: real != null, ly: ly ? ly[0] : null, planned, target: f.crewHours || null };
+  });
+  return { days };
+}
+/** Vendite rispetto all'anno scorso: barre +/−% giorno per giorno; i giorni non ancora passati sono previsioni (più chiari). */
+function chartSales(dd) {
+  const ok = dd.days.filter((x) => x.sales && x.ly);
+  if (!ok.length) return '<p class="muted small">Servono le previsioni automatiche aggiornate (con le vendite dell\'anno scorso): <b>📥 Carica previsioni automatiche</b> in Previsioni.</p>';
+  const tot = ok.reduce((t, x) => t + x.sales, 0), totLy = ok.reduce((t, x) => t + x.ly, 0), g = (tot / totLy - 1) * 100;
+  const W = 460, H = 190, top = 18, bot = 26, mid = top + (H - top - bot) / 2, max = Math.max(5, ...ok.map((x) => Math.abs(x.sales / x.ly - 1) * 100)) * 1.15;
+  const y = (v) => mid - v / max * ((H - top - bot) / 2), bw = 34, step = (W - 40) / 7;
+  const bars = dd.days.map((x, i) => {
+    const cx = 30 + step * i + step / 2;
+    const lab = `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${VZ.muted}">${DSHORT[i]}</text>`;
+    if (!x.sales || !x.ly) return lab;
+    const v = (x.sales / x.ly - 1) * 100, c = v >= 0 ? VZ.up : VZ.down, y0 = Math.min(y(v), mid), h = Math.max(1, Math.abs(y(v) - mid));
+    const tip = `${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}: ${eur(x.sales)}${x.real ? '' : ' (previste)'} · anno scorso ${eur(x.ly)} · ${pct(v)}`;
+    return `<g data-tip="${esc(tip)}"><rect x="${cx - step / 2}" y="${top}" width="${step}" height="${H - top - bot}" fill="transparent"/>
+      <rect x="${cx - bw / 2}" y="${y0}" width="${bw}" height="${h}" rx="4" fill="${c}" fill-opacity="${x.real ? 1 : 0.4}" ${x.real ? '' : `stroke="${c}" stroke-dasharray="3 2"`}/>
+      <text x="${cx}" y="${v >= 0 ? y0 - 5 : y0 + h + 12}" text-anchor="middle" font-size="11" fill="${VZ.ink}">${pct(v)}</text></g>${lab}`;
+  }).join('');
+  return `<div class="hero"><b class="${g >= 0 ? 'up' : 'down'}">${pct(g)}</b> <span>${eur(tot)} contro ${eur(totLy)} dell'anno scorso</span></div>
+    <svg viewBox="0 0 ${W} ${H}" class="viz" role="img" aria-label="Vendite rispetto all'anno scorso, giorno per giorno">
+      <line x1="20" x2="${W - 10}" y1="${mid}" y2="${mid}" stroke="${VZ.grid}"/>${bars}</svg>
+    <div class="vlegend"><span><i style="background:${VZ.up}"></i>sopra l'anno scorso</span><span><i style="background:${VZ.down}"></i>sotto</span><span><i style="background:${VZ.up};opacity:.4"></i>giorni previsti</span></div>`;
+}
+/** Ore pianificate (crew, hospitality e doppi) contro le Ore totali previste, giorno per giorno. */
+function chartHours(dd) {
+  const W = 460, H = 190, top = 14, bot = 26, max = Math.max(1, ...dd.days.map((x) => Math.max(x.planned, x.target || 0))) * 1.12;
+  const y = (v) => H - bot - v / max * (H - top - bot), step = (W - 40) / 7, bw = 30;
+  const totP = dd.days.reduce((t, x) => t + x.planned, 0), withT = dd.days.filter((x) => x.target), totT = withT.reduce((t, x) => t + x.target, 0), totPt = withT.reduce((t, x) => t + x.planned, 0);
+  const marks = dd.days.map((x, i) => {
+    const cx = 30 + step * i + step / 2, diff = x.target ? x.planned - x.target : null;
+    const tip = `${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}: ${hrsTxt(x.planned)} pianificate${x.target ? ` · previste ${hrsTxt(x.target)} · ${diff >= 0 ? '+' : '−'}${hrsTxt(Math.abs(diff))}` : ' · nessuna previsione'}`;
+    return `<g data-tip="${esc(tip)}"><rect x="${cx - step / 2}" y="${top}" width="${step}" height="${H - top - bot}" fill="transparent"/>
+      ${x.planned ? `<rect x="${cx - bw / 2}" y="${y(x.planned)}" width="${bw}" height="${H - bot - y(x.planned)}" rx="4" fill="${VZ.bar}"/>` : ''}
+      ${x.target ? `<line x1="${cx - bw / 2 - 5}" x2="${cx + bw / 2 + 5}" y1="${y(x.target)}" y2="${y(x.target)}" stroke="${VZ.ink}" stroke-width="2.5" stroke-linecap="round"/>` : ''}</g>
+      <text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${VZ.muted}">${DSHORT[i]}</text>`;
+  }).join('');
+  if (!totP) return '<p class="muted small">Turni non ancora fatti per questa settimana.</p>';
+  const head = withT.length ? `<b class="${totPt > totT ? 'down' : 'up'}">${totPt >= totT ? '+' : '−'}${hrsTxt(Math.abs(totPt - totT))}</b> <span>${hrsTxt(totPt)} pianificate contro ${hrsTxt(totT)} previste</span>`
+    : `<b>${hrsTxt(totP)}</b> <span>pianificate · mancano le Ore totali previste</span>`;
+  return `<div class="hero">${head}</div><svg viewBox="0 0 ${W} ${H}" class="viz" role="img" aria-label="Ore pianificate contro ore previste">
+    <line x1="20" x2="${W - 10}" y1="${H - bot}" y2="${H - bot}" stroke="${VZ.grid}"/>${marks}</svg>
+    <div class="vlegend"><span><i style="background:${VZ.bar}"></i>ore pianificate (senza manager)</span><span><i class="tick"></i>Ore totali previste</span></div>`;
+}
+/** Vendite per ora di lavoro (vendite / ore pianificate senza manager), giorno per giorno. */
+function chartProd(dd) {
+  const ok = dd.days.filter((x) => x.sales && x.planned);
+  if (!ok.length) return '<p class="muted small">Servono vendite previste e turni della settimana.</p>';
+  const v = (x) => x.sales / x.planned, avg = ok.reduce((t, x) => t + x.sales, 0) / ok.reduce((t, x) => t + x.planned, 0);
+  const W = 460, H = 190, top = 18, bot = 26, max = Math.max(...ok.map(v)) * 1.15, y = (q) => H - bot - q / max * (H - top - bot), step = (W - 40) / 7, bw = 30;
+  const hi = ok.reduce((a, b) => (v(b) > v(a) ? b : a)), lo = ok.reduce((a, b) => (v(b) < v(a) ? b : a));
+  const marks = dd.days.map((x, i) => {
+    const cx = 30 + step * i + step / 2, has = x.sales && x.planned, q = has ? v(x) : 0;
+    return `<g data-tip="${esc(has ? `${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}: ${eur(q)} per ora (${eur(x.sales)}${x.real ? '' : ' previste'} / ${hrsTxt(x.planned)})` : 'Dati mancanti')}"><rect x="${cx - step / 2}" y="${top}" width="${step}" height="${H - top - bot}" fill="transparent"/>
+      ${has ? `<rect x="${cx - bw / 2}" y="${y(q)}" width="${bw}" height="${H - bot - y(q)}" rx="4" fill="${VZ.bar}" fill-opacity="${x.real ? 1 : 0.4}" ${x.real ? '' : `stroke="${VZ.bar}" stroke-dasharray="3 2"`}/>` : ''}
+      ${has && (x === hi || x === lo) ? `<text x="${cx}" y="${y(q) - 5}" text-anchor="middle" font-size="11" fill="${VZ.ink}">${Math.round(q)} €</text>` : ''}</g>
+      <text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${VZ.muted}">${DSHORT[i]}</text>`;
+  }).join('');
+  return `<div class="hero"><b>${eur(avg)}</b> <span>per ora di lavoro nella settimana</span></div><svg viewBox="0 0 ${W} ${H}" class="viz" role="img" aria-label="Vendite per ora di lavoro">
+    <line x1="20" x2="${W - 10}" y1="${y(avg)}" y2="${y(avg)}" stroke="${VZ.muted}" stroke-dasharray="4 4"/><line x1="20" x2="${W - 10}" y1="${H - bot}" y2="${H - bot}" stroke="${VZ.grid}"/>${marks}</svg>
+    <div class="vlegend"><span><i class="dash"></i>media della settimana</span><span><i style="background:${VZ.bar};opacity:.4"></i>giorni previsti</span></div>`;
+}
+const hrsTxt = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`; };
+function dashboardHtml() {
+  const ws0 = T.mondayOf(T.todayDay()), ws = ui.dashWs ?? ws0, dd = dashData(ws);
+  const sel = `<div class="seg">${[[ws0 - 7, 'Scorsa'], [ws0, 'Questa'], [ws0 + 7, 'Prossima']].map(([w, l]) => `<button class="${ws === w ? 'on' : ''}" onclick="ui.dashWs=${w};render()">${l}</button>`).join('')}</div>`;
+  const card = (t, sub, html, info) => `<div class="card hcard"><div class="hk" style="display:flex;align-items:center;gap:6px">${t} ${ib(info)}</div><div class="small muted" style="margin:2px 0 8px">${sub}</div>${html}</div>`;
+  return `<div class="dashhead"><h3>Andamento · ${T.weekLabel(ws)}</h3>${sel}</div>
+  <div class="dashgrid">
+    ${card('Vendite rispetto all\'anno scorso', 'Stesso giorno della settimana, 52 settimane fa', chartSales(dd), 'dash-vendite')}
+    ${card('Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours(dd), 'dash-ore')}
+    ${card('Vendite per ora di lavoro', 'Vendite divise per le ore pianificate (senza manager)', chartProd(dd), 'dash-prod')}
+  </div>`;
+}
+// suggerimento al passaggio del mouse sui grafici
+document.addEventListener('mouseover', (e) => {
+  const g = e.target.closest && e.target.closest('[data-tip]'); let tip = document.getElementById('vtip');
+  if (!g) { if (tip) tip.style.display = 'none'; return; }
+  if (!tip) { tip = document.createElement('div'); tip.id = 'vtip'; document.body.appendChild(tip); }
+  tip.textContent = g.getAttribute('data-tip'); tip.style.display = 'block';
+  const b = g.getBoundingClientRect(); tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, b.left + b.width / 2 - tip.offsetWidth / 2)) + 'px'; tip.style.top = Math.max(8, b.top - tip.offsetHeight - 8) + 'px';
+});
+// ================= HOME =================
+/** Pagina iniziale: com'è messa questa settimana e la prossima, richieste da decidere, previsioni. */
+function renderHome() {
+  const today = T.todayDay(), ws0 = T.mondayOf(today);
+  const inW = (ws) => (x) => x.day >= ws && x.day <= ws + 6;
+  const goWeek = (ws, type) => `ui.ws=${ws};ui.type='${type || 'CREW'}';go('turni')`;
+  const weekCard = (ws, label) => {
+    const crew = state.shifts.filter(inW(ws)).length, mgr = (state.mgrShifts || []).filter(inW(ws)).length;
+    const head = `<div class="hk">${label}</div><div class="hw">${T.weekLabel(ws)}</div>`;
+    if (!crew && !mgr) return `<div class="card hcard">${head}<div class="hs warn">${icon('avviso', 18)} Turni non ancora fatti</div>
+      <div class="hact"><button class="btn primary" onclick="${goWeek(ws)};askGenerate()">${icon('genera', 16)} Genera turni</button></div></div>`;
+    const vs = T.validate(T.makeCtx(state, ws)).filter((v) => v.rule !== 'VLH');
+    const ce = vs.filter((v) => v.sev === 'ERROR').length, cw = vs.length - ce;
+    const mp = MGR() && (state.managers || []).length ? MGR().check(state, ws) : [];
+    const me = mp.filter((x) => x.sev === 'ERROR').length;
+    const line = (n, w, txt, type) => `<button class="hrow" onclick="${goWeek(ws, type)}"><span class="chip ${n ? 'err' : w ? 'warn' : 'ok'}">${n ? `${n} errori` : w ? `${w} avvisi` : 'ok'}</span> ${txt} <span class="muted">›</span></button>`;
+    const pub = !TurniCloud.loggedIn() ? '' : !pubOf(ws) ? '<div class="hs warn">📢 Non ancora pubblicata</div>' : changedSincePublish(ws) ? '<div class="hs warn">📢 Modificata dopo la pubblicazione: da ripubblicare</div>' : '<div class="hs ok">📢 Pubblicata: il personale la vede nell\'app</div>';
+    return `<div class="card hcard">${head}${line(ce, cw, `Crew e hospitality · ${crew} turni`, 'CREW')}${line(me, mp.length - me, `Manager · ${mgr} turni`, 'MANAGER')}${pub}
+      ${ce || me ? `<div class="hact"><button class="btn" style="border-color:var(--err-ink);color:var(--err-ink)" onclick="${goWeek(ws, ce ? 'CREW' : 'MANAGER')};${ce ? 'solveWeek()' : 'solveMgrWeek()'}">${icon('risolvi', 16)} Risolvi problemi</button></div>` : ''}</div>`;
+  };
+  // richieste da decidere
+  const pend = (state.requests || []).filter((q) => q.status === 'in attesa').sort((a, b) => a.day - b.day);
+  const reqCard = `<div class="card hcard"><div class="hk">Richieste del personale</div><div class="hw">${pend.length ? `${pend.length} da decidere` : 'Nessuna da decidere'}</div>
+    ${pend.slice(0, 4).map((q) => { const e = personById(q.employeeId); return `<button class="hrow" onclick="go('richieste')"><b>${esc(e ? T.fullName(e) : '—')}</b> <span class="muted">${T.shortDate(q.day)} · ${esc(KIND_TXT(q))}</span></button>`; }).join('')}
+    ${pend.length > 4 ? `<div class="small muted" style="margin-top:4px">e altre ${pend.length - 4}…</div>` : ''}
+    <div class="hact"><button class="btn" onclick="go('richieste')">Apri le richieste</button></div></div>`;
+  // previsioni: settimane senza Ore totali nelle prossime 6
+  const af = state.autoForecast;
+  const noFc = [0, 1, 2, 3, 4, 5].map((k) => ws0 + 7 * k).filter((ws) => !DAYS7.some((k) => (T.forecastDay((state.forecasts || {})[ws], k) || {}).crewHours));
+  const fcCard = `<div class="card hcard"><div class="hk">Previsioni</div><div class="hw">${af && af.at ? `Aggiornate ${esc(fmtWhen(af.at))}` : 'Mai caricate in automatico'}</div>
+    ${noFc.length ? `<div class="hs warn">${icon('avviso', 18)} Senza ore totali: ${noFc.map((ws) => T.shortDate(ws)).join(', ')}</div>` : `<div class="hs ok">${icon('ok', 18)} Ore totali presenti per le prossime 6 settimane</div>`}
+    <div class="hact"><button class="btn" onclick="go('previsioni')">Apri le previsioni</button></div></div>`;
+  // oggi
+  const todayShifts = state.shifts.filter((x) => x.day === today), todayMgr = (state.mgrShifts || []).filter((x) => x.day === today);
+  const people = new Set(todayShifts.map((x) => x.employeeId)).size;
+  const todayCard = `<div class="card hcard"><div class="hk">Oggi</div><div class="hw">${T.DOW_LONG[T.dow(today)]} ${T.itDate(today)}</div>
+    <div class="hs">${people} tra crew e hospitality · ${new Set(todayMgr.map((x) => x.managerId)).size} manager</div>
+    <div class="hact"><button class="btn" onclick="ui.day=${today};go('giornaliero')">Apri il lineare di oggi</button></div></div>`;
+  return `<div class="homegrid">${weekCard(ws0, 'Questa settimana')}${weekCard(ws0 + 7, 'Prossima settimana')}${reqCard}${fcCard}${todayCard}</div>${dashboardHtml()}`;
+}
+/** Hospitality: pranzi e cene di ognuna (questa settimana e le 4 prima), per vedere la rotazione. */
+function hospSideCard(emps) {
+  const ws = ui.ws, side = (x) => ((x.start + x.end) / 2 < 960 ? 'P' : 'C');
+  const cnt = (e, a, b) => { const c = { P: 0, C: 0 }; state.shifts.filter((x) => x.employeeId === e.id && x.day >= a && x.day <= b).forEach((x) => c[side(x)]++); return c; };
+  const bar = (c) => { const t = c.P + c.C; return t ? `<span class="pcbar"><i style="width:${(c.P / t) * 100}%"></i></span>` : ''; };
+  const rows = emps.map((e) => { const w = cnt(e, ws, ws + 6), m = cnt(e, ws - 28, ws - 1);
+    const pc = (c) => `${c.P} ${c.P === 1 ? 'pranzo' : 'pranzi'} · ${c.C} ${c.C === 1 ? 'cena' : 'cene'}`;
+    return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${pc(w)}</td><td>${pc(m)} ${bar(m)}</td></tr>`; }).join('');
+  return `<div class="card section" style="margin-top:14px"><h3 style="margin-top:0">Pranzi e cene ${ib('hosp-rot')}</h3>
+    <table class="list"><thead><tr><th>Hospitality</th><th>Questa settimana</th><th>Le 4 settimane prima</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
 // ================= TURNI =================
 function renderTurni() {
   if (ui.type === 'MANAGER') return renderMgrTurni();
@@ -543,53 +875,19 @@ function renderTurni() {
     <button class="btn" onclick="ui.ws=T.mondayOf(T.todayDay());render()">Oggi</button>
     ${typeSeg(ctx)}
     <div class="spacer"></div>
-    <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
+    <button class="chip chipbtn ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}" title="Mostra o nascondi l'elenco dei controlli" onclick="ui.checks=!ui.checks;render()">${ui.checks ? '✕ ' : ''}${nErr} errori · ${nWarn} avvisi ${ui.checks ? '' : '›'}</button>
     ${publishChip()}
-    <button class="btn" onclick="askClearWeek()">Svuota settimana</button>
-    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">🛠 Risolvi problemi</button>
-    <button class="btn" onclick="Riepilogo.apri(ui.ws)" title="Tabelle della settimana (manager, hospitality, crew, doppi): stampa, PDF ed Excel">📄 Riepilogo</button>
-    <button class="btn primary" onclick="askGenerate()">⚙ Genera turni</button>
+    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveWeek()">${icon('risolvi', 16)} Risolvi problemi</button>
+    <button class="btn primary" onclick="askGenerate()">${icon('genera', 16)} Genera turni</button>
+    ${moreMenu([['📄 Riepilogo (stampa, PDF, Excel)', 'Riepilogo.apri(ui.ws)'], ['ⓘ Come funziona', 'showTurniHelp()'], ['🗑 Svuota settimana', 'askClearWeek()', true]])}
   </div>
   ${ctx.forecast ? (() => { const fd = (k) => T.forecastDay((state.forecasts || {})[ui.ws], k) || {};
-    return `<div class="notice info" style="margin-bottom:10px">📈 <b>Ore totali</b> <span class="small muted">(senza manager)</span>: ${DAYS7.map((k) => `${T.DOW_SHORT[k + 1]} ${fd(k).crewHours ? `<b>${fd(k).crewHours}h</b>` : '—'}`).join(' · ')} <button class="link" onclick="go('previsioni')">Previsioni</button></div>`; })() : ''}
-  <details class="help card">
-    <summary>Come funziona (clicca per aprire)</summary>
-    <ul>
-      <li><b>Clicca una casella</b> per inserire o modificare il turno di quel giorno; puoi aggiungere un secondo turno (doppio).</li>
-      <li>Ogni modifica viene controllata subito: le caselle diventano <b style="color:var(--err-ink)">rosse</b> (errore) o <b style="color:var(--warn-ink)">gialle</b> (avviso). Passa il mouse su una casella per leggere il motivo; l'elenco completo è a destra.</li>
-      <li>Regole attuali: ore settimanali da contratto esatte (oltre = straordinario) · massimo ${T.fmtDur(cfg.crewMax)} al giorno per i crew e ${T.fmtDur(cfg.hospMax)} per le hospitality, doppi inclusi · turno minimo ${T.fmtDur(cfg.minShift)} · stacco ${T.fmtDur(cfg.rest11)} tra giorni consecutivi · ${T.fmtDur(cfg.rest36)} se in mezzo c'è un riposo · niente turni nei riposi fissi e nelle ferie.</li>
-      <li>Le hospitality hanno le loro fasce (impostate in Regole): le vedi in cima alla scheda Hospitality.</li>
-      <li><b>Squadra di chiusura</b>: alla chiusura restano esattamente le persone indicate nelle fasce di chiusura in Regole. Nessun altro, tranne chi è in formazione e affiancato.</li>
-      <li><b>Aree</b>: le postazioni del locale, impostate nella sezione Store (più Hospitality).</li>
-      <li>In settimana il turno normale dei crew ha una durata massima più corta; i <b>turni lunghi</b> li fanno tutti <b>a rotazione</b>, al massimo il numero impostato a testa a settimana, prima chi ne ha fatti meno nelle ultime settimane. Nel fine settimana sono tutti a disposizione e i turni possono essere più lunghi. Le durate si impostano in Regole.</li>
-      <li><b>Pomeriggio post-rush</b>: niente turni lunghi tutti lì dentro né turni ibridi a cavallo; si copre con turni sfalsati, uno che arriva dal pranzo e uno che entra per la cena. I turni più lunghi servono solo a coprire un rush più preparazione o recupero. Gli orari si impostano in Regole.</li>
-      <li>Orari del locale: sezione Store. Le righe in alto (solo Crew) mostrano la copertura di ogni fascia: quanti crew ci sono nel momento più scoperto, rispetto al minimo richiesto (rush pranzo e cena compresi). Le fasce si cambiano in Regole.</li>
-      <li>Chi ha un <b>orario fisso</b> nei suoi giorni viene messo sempre e solo in quell'orario.</li>
-      <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
-      <li><b>Spostare un riposo solo per una settimana</b>: clicca la casella del giorno in cui la persona deve riposare e premi <b>↔ Metti il riposo in questo giorno</b>. Le settimane dopo resta il riposo fisso; nella casella compare <b>RIPOSO ↔</b>.</li>
-      <li><b>Pranzo e cena bilanciati</b>, per i crew e per le hospitality: il generatore aggiunge le persone a turno nella fascia più scoperta, così se le persone non bastano mancano un po' in tutte e due, non tutte nello stesso servizio. Anche le ore in più e i doppi delle hospitality vanno dove ce ne sono meno.</li>
-      <li><b>Cambi turno proposti</b> (Richieste): solo tra persone dello stesso ruolo e formate nella postazione del turno che prendono; per aperture e chiusure solo chi è formato per aprire o chiudere.</li>
-      <li><b>Aperture e chiusure sempre coperte</b>: se alla fine mancano ancora, il generatore le copre comunque, anche con ore in più per qualcuno o spostando il suo turno di quel giorno. Restano scoperte solo se nessun formato è disponibile (riposo, ferie, richiesta o stacco di 11 ore): lo trovi scritto nel riepilogo della generazione.</li>
-      <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto. Nella colonna Ore sono indicati a parte.</li>
-      <li>I minimi delle fasce possono cambiare in base al giorno: li trovi e li cambi in Regole.</li>
-      <li>Aperture e chiusure le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality). Le <b>aperture vanno a rotazione</b>: sulle ultime 4 settimane apre prima chi ha aperto meno, e nella stessa settimana nessuno ne fa molte più degli altri, sempre se le altre regole lo permettono.</li>
-      <li><b>Squadra di apertura</b>: all'apertura ci sono esattamente le persone indicate nelle fasce di apertura in Regole, nessun altro. Chi arriva dopo va bene.</li>
-      <li><b>Data di inizio</b> (Personale): prima di quel giorno la persona non ha turni e le sue ore della settimana si riducono in proporzione.</li>
-      <li>🎓 = <b>in formazione</b> o <b>in affiancamento</b> (sezione Formazione): in apertura e chiusura ha sempre accanto un formato nella stessa postazione.</li>
-      <li><b>Genera turni</b> crea una bozza che rispetta le regole: prima aperture e chiusure (chi è segnato in Aperture e chiusure), poi rush e picchi, poi completa le ore di ognuno con orari vari, come negli orari passati del locale.</li>
-      <li>I dati restano salvati in questo browser. Per portarli su un altro dispositivo o farne un backup usa <b>Esporta dati</b> / <b>Importa dati</b> in Regole.</li>
-    </ul>
-    <div class="legend">
-      <span><i class="sw" style="background:var(--err)"></i>errore</span><span><i class="sw" style="background:var(--warn)"></i>avviso / ore mancanti</span>
-      <span><i class="sw" style="background:var(--ok)"></i>ore esatte</span><span><i class="sw" style="box-shadow:inset 3px 0 0 var(--yellow)"></i>turno doppio</span>
-      <span class="rest">RIPOSO</span> = riposo fisso
-    </div>
-  </details>
-  <div class="layout">
+    return `<div class="hint">📈 <b>Ore totali</b> (senza manager): ${DAYS7.map((k) => `${T.DOW_SHORT[k + 1]} ${fd(k).crewHours ? `<b>${fd(k).crewHours}h</b>` : '—'}`).join(' · ')} <button class="link" onclick="go('previsioni')">Previsioni</button></div>`; })() : ''}
+  <div class="layout ${ui.checks ? 'drawer' : 'nochecks'}">
     ${later.length ? `<div class="small muted" style="grid-column:1/-1;margin-bottom:-8px">Non mostrati perché entrano più avanti: ${later.map((e) => `${esc(T.fullName(e))} (dal ${T.itDate(e.startDate)})`).join(', ')}</div>` : ''}
     <div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${covBlock}${rows || `<tr><td class="name" colspan="9">Nessun dipendente: aggiungili nella sezione Personale, oppure importa un file di dati (Regole → Dati).</td></tr>`}</tbody></table></div>
-    <aside class="card problems"><h3 style="display:flex;justify-content:space-between;align-items:center">Controlli della settimana ${nErr ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="solveWeek()">🛠 Risolvi</button>' : ''}</h3>${probs}</aside>
-  </div>`;
+    <aside class="card problems"><h3 style="display:flex;justify-content:space-between;align-items:center;gap:8px">Controlli della settimana <span>${nErr ? '<button class="btn" style="padding:4px 10px;font-size:12px" onclick="solveWeek()">' + icon('risolvi', 14) + ' Risolvi</button>' : ''}<button class="btn xclose" title="Chiudi i controlli" onclick="ui.checks=false;render()">✕</button></span></h3>${probs}</aside>
+  </div>${ui.type === 'HOSPITALITY' ? hospSideCard(emps) : ''}`;
 }
 
 function cellHtml(ctx, e, d, vlist) {
@@ -847,6 +1145,41 @@ function applySolution() {
   ui.solution = null; save(); closeModal(); render();
 }
 
+/** "Come funziona" della pagina Turni (dal menu ⋯ Altro). */
+function showTurniHelp() {
+  const cfg = state.config;
+  showModal(`<h3>ⓘ Come funziona la pagina Turni</h3><div class="help-modal">${`<ul>
+      <li><b>Clicca una casella</b> per inserire o modificare il turno di quel giorno; puoi aggiungere un secondo turno (doppio).</li>
+      <li>Ogni modifica viene controllata subito: le caselle diventano <b style="color:var(--err-ink)">rosse</b> (errore) o <b style="color:var(--warn-ink)">gialle</b> (avviso). Passa il mouse su una casella per leggere il motivo; l'elenco completo è a destra.</li>
+      <li>Regole attuali: ore settimanali da contratto esatte (oltre = straordinario) · massimo ${T.fmtDur(cfg.crewMax)} al giorno per i crew e ${T.fmtDur(cfg.hospMax)} per le hospitality, doppi inclusi · turno minimo ${T.fmtDur(cfg.minShift)} · stacco ${T.fmtDur(cfg.rest11)} tra giorni consecutivi · ${T.fmtDur(cfg.rest36)} se in mezzo c'è un riposo · niente turni nei riposi fissi e nelle ferie.</li>
+      <li>Le hospitality hanno le loro fasce (impostate in Regole): le vedi in cima alla scheda Hospitality.</li>
+      <li><b>Squadra di chiusura</b>: alla chiusura restano esattamente le persone indicate nelle fasce di chiusura in Regole. Nessun altro, tranne chi è in formazione e affiancato.</li>
+      <li><b>Aree</b>: le postazioni del locale, impostate nella sezione Store (più Hospitality).</li>
+      <li>In settimana il turno normale dei crew ha una durata massima più corta; i <b>turni lunghi</b> li fanno tutti <b>a rotazione</b>, al massimo il numero impostato a testa a settimana, prima chi ne ha fatti meno nelle ultime settimane. Nel fine settimana sono tutti a disposizione e i turni possono essere più lunghi. Le durate si impostano in Regole.</li>
+      <li><b>Pomeriggio post-rush</b>: niente turni lunghi tutti lì dentro né turni ibridi a cavallo; si copre con turni sfalsati, uno che arriva dal pranzo e uno che entra per la cena. I turni più lunghi servono solo a coprire un rush più preparazione o recupero. Gli orari si impostano in Regole.</li>
+      <li>Orari del locale: sezione Store. Le righe in alto (solo Crew) mostrano la copertura di ogni fascia: quanti crew ci sono nel momento più scoperto, rispetto al minimo richiesto (rush pranzo e cena compresi). Le fasce si cambiano in Regole.</li>
+      <li>Chi ha un <b>orario fisso</b> nei suoi giorni viene messo sempre e solo in quell'orario.</li>
+      <li>Le ore di ognuno vanno distribuite su <b>tutti i giorni che non sono di riposo</b> (6 su 7): se manca un giorno compare un avviso.</li>
+      <li><b>Spostare un riposo solo per una settimana</b>: clicca la casella del giorno in cui la persona deve riposare e premi <b>↔ Metti il riposo in questo giorno</b>. Le settimane dopo resta il riposo fisso; nella casella compare <b>RIPOSO ↔</b>.</li>
+      <li><b>Pranzo e cena bilanciati</b>, per i crew e per le hospitality: il generatore aggiunge le persone a turno nella fascia più scoperta, così se le persone non bastano mancano un po' in tutte e due, non tutte nello stesso servizio. Anche le ore in più e i doppi delle hospitality vanno dove ce ne sono meno.</li>
+      <li><b>Cambi turno proposti</b> (Richieste): solo tra persone dello stesso ruolo e formate nella postazione del turno che prendono; per aperture e chiusure solo chi è formato per aprire o chiudere.</li>
+      <li><b>Aperture e chiusure sempre coperte</b>: se alla fine mancano ancora, il generatore le copre comunque, anche con ore in più per qualcuno o spostando il suo turno di quel giorno. Restano scoperte solo se nessun formato è disponibile (riposo, ferie, richiesta o stacco di 11 ore): lo trovi scritto nel riepilogo della generazione.</li>
+      <li>I <b>doppi</b> (segnati con <b style="color:var(--warn-ink)">D</b>) sono ore in più rispetto al contratto. Nella colonna Ore sono indicati a parte.</li>
+      <li>I minimi delle fasce possono cambiare in base al giorno: li trovi e li cambi in Regole.</li>
+      <li>Aperture e chiusure le fa solo chi è segnato nella sezione <b>Aperture e chiusure</b> (crew o hospitality). Le <b>aperture vanno a rotazione</b>: sulle ultime 4 settimane apre prima chi ha aperto meno, e nella stessa settimana nessuno ne fa molte più degli altri, sempre se le altre regole lo permettono.</li>
+      <li><b>Squadra di apertura</b>: all'apertura ci sono esattamente le persone indicate nelle fasce di apertura in Regole, nessun altro. Chi arriva dopo va bene.</li>
+      <li><b>Data di inizio</b> (Personale): prima di quel giorno la persona non ha turni e le sue ore della settimana si riducono in proporzione.</li>
+      <li>🎓 = <b>in formazione</b> o <b>in affiancamento</b> (sezione Formazione): in apertura e chiusura ha sempre accanto un formato nella stessa postazione.</li>
+      <li><b>Genera turni</b> crea una bozza che rispetta le regole: prima aperture e chiusure (chi è segnato in Aperture e chiusure), poi rush e picchi, poi completa le ore di ognuno con orari vari, come negli orari passati del locale.</li>
+      <li>I dati si salvano online, cifrati, e sono gli stessi su PC e telefono. Una copia su file si fa da <b>Esporta dati</b> / <b>Importa dati</b> in Regole.</li>
+    </ul>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--err)"></i>errore</span><span><i class="sw" style="background:var(--warn)"></i>avviso / ore mancanti</span>
+      <span><i class="sw" style="background:var(--ok)"></i>ore esatte</span><span><i class="sw" style="box-shadow:inset 3px 0 0 var(--yellow)"></i>turno doppio</span>
+      <span class="rest">RIPOSO</span> = riposo fisso
+    </div>`}</div>
+    <div class="actions"><button class="btn primary" onclick="closeModal()">Ho capito</button></div>`);
+}
 function askClearWeek() {
   showModal(`<h3>Svuotare la settimana?</h3><p>Verranno cancellati tutti i turni dal ${T.itDate(ui.ws)} al ${T.itDate(ui.ws + 6)}. Riposi e ferie restano.</p>
     <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="clearWeek()">Svuota</button></div>`);
@@ -894,15 +1227,14 @@ function renderMgrTurni() {
     <button class="btn" onclick="ui.ws=T.mondayOf(T.todayDay());render()">Oggi</button>
     ${typeSeg(ctx)}
     <div class="spacer"></div>
-    <span class="chip ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}">${nErr} errori · ${nWarn} avvisi</span>
-    <button class="btn" onclick="clearMgrWeek()">Svuota</button>
-    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveMgrWeek()">🛠 Risolvi problemi</button>
-    <button class="btn" onclick="Riepilogo.apri(ui.ws)" title="Tabelle della settimana (manager, hospitality, crew, doppi): stampa, PDF ed Excel">📄 Riepilogo</button>
-    <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>⚙ Genera turni manager</button>
+    <button class="chip chipbtn ${nErr ? 'err' : nWarn ? 'warn' : 'ok'}" title="Mostra o nascondi l'elenco dei controlli" onclick="ui.checks=!ui.checks;render()">${ui.checks ? '✕ ' : ''}${nErr} errori · ${nWarn} avvisi ${ui.checks ? '' : '›'}</button>
+    <button class="btn" ${nErr ? '' : 'disabled title="Nessun errore da risolvere"'} style="${nErr ? 'border-color:var(--err-ink);color:var(--err-ink)' : ''}" onclick="solveMgrWeek()">${icon('risolvi', 16)} Risolvi problemi</button>
+    <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>${icon('genera', 16)} Genera turni manager</button>
+    ${moreMenu([['📄 Riepilogo (stampa, PDF, Excel)', 'Riepilogo.apri(ui.ws)'], ['🗑 Svuota la settimana dei manager', 'clearMgrWeek()', true]])}
   </div>
   ${team.length && !state.config.carpiStart ? `<div class="notice warn" style="margin-bottom:10px">🍦 Per segnare la Carpigiani nei giorni giusti indica <b>un martedì di smontaggio</b> (poi ogni 2 settimane): <input type="date" onchange="if(this.value){state.config.carpiStart=this.value;save();render()}" style="margin-left:6px"></div>` : ''}
-  ${team.length ? `<div class="layout"><div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${cov}${rows}</tbody></table></div>
-    <aside class="card problems"><h3 style="margin-top:0">Controlli manager</h3>${probHtml}
+  ${team.length ? `<div class="layout ${ui.checks ? 'drawer' : 'nochecks'}"><div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${cov}${rows}</tbody></table></div>
+    <aside class="card problems"><h3 style="margin-top:0;display:flex;justify-content:space-between;align-items:center">Controlli manager <button class="btn xclose" title="Chiudi i controlli" onclick="ui.checks=false;render()">✕</button></h3>${probHtml}
       <h3>Weekend nelle ultime 4 settimane ${ib('mgr-weekend')}</h3><ul class="small" style="padding-left:18px">${wk}</ul></aside></div>`
     : '<div class="notice info">Aggiungi la squadra dei manager qui sotto, poi premi <b>⚙ Genera turni manager</b>.</div>'}
   ${mgrTeamCard()}`;
@@ -1068,10 +1400,11 @@ function renderGiornaliero() {
   ui.dragGeo = { H0, span };
   // manager (calendario a parte): sempre in cima
   const mDay = (state.mgrShifts || []).filter((x) => x.day === day && mgrById(x.managerId)).sort((a, b) => a.start - b.start || a.end - b.end);
-  const mRow = (x) => { const m = mgrById(x.managerId); return `<div class="lrow click" onclick="openMgrDay(${m.id},${day})" title="${esc(T.fullName(m))} · ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}">
+  if (editing) mDay.forEach((x) => { if (x.id == null) x.id = newId(); });
+  const mRow = (x) => { const m = mgrById(x.managerId); return `<div class="lrow ${editing ? '' : 'click'}" ${editing ? `data-rmsid="${x.id}"` : `onclick="openMgrDay(${m.id},${day})"`} title="${esc(T.fullName(m))} · ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}">
       <div class="lpos">${MROLE[mRoleOf(x)]}</div><div class="lname">${esc(T.fullName(m))}</div>
-      <div class="ltime">${T.fmtTime(x.start)}</div><div class="ltime">${T.fmtTime(x.end)}</div>
-      <div class="ltrack" style="${grid}"><div class="lbar st-MANAGER" style="left:${pct(x.start)};width:${(((x.end - x.start) / span) * 100).toFixed(3)}%"><span class="lbl">${MROLE[mRoleOf(x)]}</span></div></div></div>`; };
+      <div class="ltime" data-t="a">${T.fmtTime(x.start)}</div><div class="ltime" data-t="b">${T.fmtTime(x.end)}</div>
+      <div class="ltrack" style="${grid}"><div class="lbar st-MANAGER${editing ? ' drag' : ''}" ${editing ? `data-msid="${x.id}" onpointerdown="mDragStart(event)"` : ''} style="left:${pct(x.start)};width:${(((x.end - x.start) / span) * 100).toFixed(3)}%"><span class="lbl">${MROLE[mRoleOf(x)]}</span>${editing ? '<span class="hl"></span><span class="hr"></span>' : ''}</div></div></div>`; };
   const mgrSec = mDay.length ? `<div class="lsec"><h4>Manager (${mDay.length})</h4>${head}${mDay.map(mRow).join('')}</div>` : '';
   const body = mgrSec + shown.map(([title, list, st]) => `<div class="lsec" ${st ? `data-st="${st}"` : ''}><h4>${title} (${list.length})</h4>${head}${
     list.sort((a, b) => a.start - b.start || a.end - b.end).map(row).join('') || '<div class="lrow"><div></div><div class="lname muted">nessuno</div></div>'}</div>`).join('');
@@ -1116,7 +1449,6 @@ function renderGiornaliero() {
     <button class="btn" onclick="ui.day=T.todayDay();render()">Oggi</button>
     <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
     <div class="seg"><button class="${byArea ? '' : 'on'}" onclick="ui.groupBy='ruolo';render()">Per ruolo</button><button class="${byArea ? 'on' : ''}" onclick="ui.groupBy='area';render()">Per area</button></div>
-    <button class="btn" onclick="go('vlh')" title="Postazioni da aprire ora per ora (VLH)">📋 VLH</button>
     <button class="btn ${editing ? 'primary' : ''}" onclick="ui.dragEdit=!ui.dragEdit;render()" title="Sposta e allunga i turni trascinandoli (anche con il dito sul tablet)">${editing ? '✓ Fine modifica' : '✋ Modifica trascinando'}</button>
     <div class="spacer"></div>
     ${compactOn() ? '' : `<button class="btn" onclick="ui.ws=T.mondayOf(ui.day);go('turni')">Vai alla settimana</button>
@@ -1204,7 +1536,7 @@ function renderVLH() {
     <div class="seg">${[['Pranzo 8–15', 0], ['Cena 15–22', 1], ['Tutte e due', 2]].map(([t, k]) => `<button class="${vlhSheet() === k ? 'on' : ''}" onclick="ui.vlhSheet=${k};render()">${t}</button>`).join('')}</div>
     <label class="small"><input type="checkbox" ${ui.vlhNomi !== false ? 'checked' : ''} onchange="ui.vlhNomi=this.checked;render()"> Proponi i nomi</label>
     <div class="spacer"></div>
-    <button class="btn" onclick="go('giornaliero')">Lineare</button>
+
     <button class="btn primary" onclick="window.print()">🖨 Stampa</button>
   </div>`;
   if (!state.vlh || !state.vlh.giorni) {
@@ -1264,7 +1596,7 @@ function renderVLH() {
         return `<td class="next vslot ${out ? 'fuori' : ''}" data-h="${h}" data-code="${p.code}"><div class="pos">${p.n} ${esc(p.name)}</div>${x ? `<div class="who man" data-h="${h}" data-code="${p.code}" data-id="${x.id}" onpointerdown="vlhDragStart(event)">${esc(x.name)}</div>` : ''}</td>`; }).join('')}</tr>`).join('')}`;
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
-  return nav + genNote + `<div class="card no-print notice info small" style="margin-bottom:10px">Postazioni da aprire ora per ora secondo le tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}). I GC si possono correggere a mano (sfondo giallo)${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">torna alla previsione</a>` : ''}. Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate. I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé. Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">torna alla proposta automatica</a>` : ''}. In stampa puoi correggerli a penna.</div>
+  return nav + genNote + `<p class="hint no-print">Tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}) ${ib('vlh-help')}${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">GC: torna alla previsione</a>` : ''}${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">nomi: torna alla proposta automatica</a>` : ''}</p>
     ${VLH_SHEETS.filter((hs, k) => vlhSheet() === 2 || vlhSheet() === k).map((hs) => `<div class="card vlhsheet"><div class="vlhscroll">${sheet(hs)}</div></div>`).join('')}`;
 }
 
@@ -1323,7 +1655,7 @@ async function applyAutoForecasts(data) {
   const planned = new Set(state.shifts.map((s) => T.mondayOf(s.day)));
   // storico dei giorni speciali e clienti per ora: servono a stimare l'effetto di eventi e chiusure
   const old = state.autoForecast || {};
-  state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {}, indici: data.indici || old.indici || null, profiloOrario: data.profiloOrario || old.profiloOrario || null, orarioSB: data.orarioSB || old.orarioSB || null };
+  state.autoForecast = { at: data.creato, upTo: data.datiFinoA, err: data.errori || {}, indici: data.indici || old.indici || null, profiloOrario: data.profiloOrario || old.profiloOrario || null, reali: data.reali || old.reali || null, orarioSB: data.orarioSB || old.orarioSB || null };
   let n = 0, manual = 0, locked = 0;
   for (const [iso, p] of Object.entries(data.giorni)) {
     const day = Math.round(Date.parse(iso) / 864e5), ws = T.mondayOf(day), k = day - ws;
@@ -1937,8 +2269,7 @@ function renderAperture() {
   }).join('');
   return `
   <h2>Aperture e chiusure ${ib('aperture')}</h2>
-  <div class="notice info" style="margin-bottom:10px">Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (sezione Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati.${state.config.hospSala !== false ? ' La <b>Sala</b> la possono chiudere sia crew sia hospitality: se non segni nessuno, possono chiuderla tutti i crew formati in Sala e tutte le hospitality.' : ''}<br>
-  ${state.config.traineeRule !== false ? 'Chi è 🎓 in formazione non apre e non chiude mai da solo/a. ' : ''}In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.</div>
+  <p class="hint">Chi è segnato qui apre o chiude quella postazione ${ib('aperture-note')}</p>
   <p>${pills}</p>
   <div class="card"><table class="list"><thead><tr><th>Nome</th>${OPENINGS_().map((st) => `<th style="text-align:center">Apertura<br>${T.STATIONS[st].label}</th>`).join('')}${CLOSINGS_().map((st) => `<th style="text-align:center">Chiusura<br>${st === 'SERVIZIO' ? 'Sala' : T.STATIONS[st].label}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>`;
 }
@@ -2026,18 +2357,18 @@ function renderRegole() {
     </div>
   </div>
   <h2>Fasce di copertura ${ib('fasce')}</h2>
-  <div class="card"><table class="list"><thead><tr><th>Nome ${ib('col-nome')}</th><th>Dalle</th><th>Alle</th><th>Minimo crew per giorno (Lun → Dom) ${ib('col-min')}</th><th>Postazione ${ib('col-post')}</th><th>Solo formati apertura ${ib('col-ap')}</th><th>Solo formati chiusura ${ib('col-ch')}</th><th>Squadra esatta ${ib('col-esatta')}</th><th></th></tr></thead><tbody>
+  <div class="card"><table class="list covtab"><thead><tr><th>Nome ${ib('col-nome')}</th><th>Dalle</th><th>Alle</th><th>Minimo crew per giorno (Lun → Dom) ${ib('col-min')}</th><th>Postazione ${ib('col-post')}</th><th>Solo formati apertura ${ib('col-ap')}</th><th>Solo formati chiusura ${ib('col-ch')}</th><th>Squadra esatta ${ib('col-esatta')}</th><th></th></tr></thead><tbody>
     ${state.coverage.map((r, i) => `<tr>
       <td><input type="text" value="${esc(r.name)}" onchange="state.coverage[${i}].name=this.value;save()"></td>
       <td>${timeSelect(r.start, `state.coverage[${i}].start=+this.value;save()`)}</td>
       <td>${timeSelect(r.end, `state.coverage[${i}].end=+this.value;save()`)}</td>
-      <td style="white-space:nowrap">${[0, 1, 2, 3, 4, 5, 6].map((k) => `<input type="number" min="0" title="${T.DOW_SHORT[k + 1]}" value="${r.min ? r.min[k] : r.minStaff}" style="width:46px;padding:5px" onchange="setCovMin(${i},${k},this.value)">`).join('')}</td>
+      <td style="white-space:nowrap">${[0, 1, 2, 3, 4, 5, 6].map((k) => `<input type="number" min="0" title="${T.DOW_SHORT[k + 1]}" value="${r.min ? r.min[k] : r.minStaff}" style="width:31px;padding:5px 1px;text-align:center" onchange="setCovMin(${i},${k},this.value)">`).join('')}</td>
       <td><select onchange="state.coverage[${i}].station=this.value||null;if(!this.value)state.coverage[${i}].opening=false;save();render()"><option value="">Qualsiasi crew</option>${[...T.CREW_STATIONS, 'HOSPITALITY'].map((st) => `<option value="${st}" ${r.station === st ? 'selected' : ''}>${T.STATIONS[st].label}</option>`).join('')}</select></td>
       <td style="text-align:center"><input type="checkbox" ${r.opening ? 'checked' : ''} ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].opening=this.checked;save()"></td>
       <td style="text-align:center"><input type="checkbox" ${r.closing ? 'checked' : ''} ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].closing=this.checked;save()"></td>
       <td style="text-align:center"><select ${r.station ? '' : 'disabled title="Scegli prima una postazione"'} onchange="state.coverage[${i}].exact=this.value==='start'?'start':this.value==='end';save()">
         <option value="" ${!r.exact ? 'selected' : ''}>no</option><option value="start" ${r.exact === 'start' ? 'selected' : ''}>all'inizio</option><option value="end" ${r.exact === true ? 'selected' : ''}>alla fine</option></select></td>
-      <td style="text-align:right"><button class="link" style="color:var(--err-ink)" onclick="state.coverage.splice(${i},1);save();render()">Elimina</button></td></tr>`).join('')}
+      <td style="text-align:right"><button class="link" style="color:var(--err-ink)" title="Elimina questa fascia" onclick="if(confirm('Eliminare la fascia «' + state.coverage[${i}].name + '»?')){state.coverage.splice(${i},1);save();render()}">🗑</button></td></tr>`).join('')}
   </tbody></table>
   <div style="padding:12px"><button class="btn" onclick="state.coverage.push({id:'c'+newId(),name:'Nuova fascia',start:720,end:840,min:[1,1,1,1,1,1,1],station:null});save();render()">+ Aggiungi fascia</button></div></div>
   <h2 style="margin-top:20px">Dati</h2>
@@ -2126,9 +2457,7 @@ function renderStore() {
   const toggleIn = (list, d) => JSON.stringify(list.includes(d) ? list.filter((x) => x !== d) : [...list, d].sort());
   const mcDays = c.mcEarlyDays || [5, 6, 7];
   return `
-  <h2>Store: impostazioni del locale</h2>
-  <div class="notice info" style="margin-bottom:12px">Qui si adatta l'app a questo locale: orari, postazioni e regole. Ogni locale ha le sue impostazioni (salvate e cifrate con i suoi dati): un locale nuovo le imposta qui, senza cambiare il programma.
-    Le <b>squadre di apertura e chiusura</b> (quante persone per postazione) si impostano in <a href="#" onclick="go('regole');return false">Regole → Fasce di copertura</a>; <b>chi può aprire o chiudere</b> in <a href="#" onclick="go('aperture');return false">Aperture e chiusure</a>; durate e stacchi dei crew in <a href="#" onclick="go('regole');return false">Regole</a>.</div>
+  <h2>Store: impostazioni del locale ${ib('store')}</h2>
 
   <h3>🕒 Orari del locale</h3>
   <div class="card section"><table class="list" style="max-width:560px"><tbody>${hours}</tbody></table>
@@ -2156,8 +2485,8 @@ function renderStore() {
   <h3>👔 Regole dei manager</h3>
   <div class="card section"><div class="form">
     <div class="row">
-      <label class="f">Turni corti: da <input type="text" value="${hrs(g.short[0])}" style="width:60px" onchange="setMgrPair('short',0,this.value)"></label><label class="f">a <input type="text" value="${hrs(g.short[1])}" style="width:60px" onchange="setMgrPair('short',1,this.value)"> ore</label>
-      <label class="f">Turni lunghi: da <input type="text" value="${hrs(g.long[0])}" style="width:60px" onchange="setMgrPair('long',0,this.value)"></label><label class="f">a <input type="text" value="${hrs(g.long[1])}" style="width:60px" onchange="setMgrPair('long',1,this.value)"> ore</label>
+      <div class="f"><span class="lbl">Turni corti (ore)</span><span class="inl">da <input type="text" value="${hrs(g.short[0])}" style="width:60px" onchange="setMgrPair('short',0,this.value)"> a <input type="text" value="${hrs(g.short[1])}" style="width:60px" onchange="setMgrPair('short',1,this.value)"></span></div>
+      <div class="f"><span class="lbl">Turni lunghi (ore)</span><span class="inl">da <input type="text" value="${hrs(g.long[0])}" style="width:60px" onchange="setMgrPair('long',0,this.value)"> a <input type="text" value="${hrs(g.long[1])}" style="width:60px" onchange="setMgrPair('long',1,this.value)"></span></div>
     </div>
     <div class="row">
       <label class="f">Pausa nei turni da (ore in su)<input type="text" value="${hrs(g.breakFrom)}" style="width:70px" onchange="const v=T.parseHours(this.value);if(v)setMgrRule('breakFrom',v)"></label>
@@ -2485,6 +2814,85 @@ function dragEnd() {
   save(); render();
   shiftToast(s, before);
 }
+
+// ---- manager: stessa modifica trascinando (sposta, allunga/accorcia dai bordi, in verticale scambia con un altro manager) ----
+let mdrag = null;
+function mDragStart(ev) {
+  const bar = ev.currentTarget, x = (state.mgrShifts || []).find((y) => y.id === +bar.dataset.msid);
+  if (!x) return;
+  ev.preventDefault(); bar.setPointerCapture(ev.pointerId);
+  const track = bar.parentElement, row = track.parentElement;
+  const mode = ev.target.classList.contains('hl') ? 'left' : ev.target.classList.contains('hr') ? 'right' : 'move';
+  mdrag = { x, bar, row, mode, x0: ev.clientX, y0: ev.clientY, a: x.start, b: x.end, moved: false, swap: null,
+    pxPerMin: track.getBoundingClientRect().width / ui.dragGeo.span, tip: document.createElement('div') };
+  mdrag.tip.className = 'dragtip'; document.body.appendChild(mdrag.tip);
+  bar.classList.add('dragging');
+  bar.addEventListener('pointermove', mDragMove); bar.addEventListener('pointerup', mDragEnd); bar.addEventListener('pointercancel', mDragEnd);
+  mDragMove(ev);
+}
+function mDragMove(ev) {
+  if (!mdrag) return;
+  const d = mdrag, x = d.x, { open: OPEN, close: CLOSE } = T.dayHours(state.config, x.day);
+  const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+  if (Math.abs(dx) > 6 || Math.abs(dy) > 6) d.moved = true;
+  const vertical = d.mode === 'move' && Math.abs(dy) > 18;
+  const dm = Math.round(dx / d.pxPerMin / SNAP) * SNAP, len = x.end - x.start;
+  let a = x.start, b = x.end;
+  if (!vertical) {
+    if (d.mode === 'move') { a = Math.min(Math.max(OPEN, x.start + dm), CLOSE - len); b = a + len; }
+    if (d.mode === 'left') a = Math.min(Math.max(OPEN, x.start + dm), x.end - 60);
+    if (d.mode === 'right') b = Math.max(Math.min(CLOSE, x.end + dm), x.start + 60);
+  }
+  d.a = a; d.b = b;
+  const { H0, span } = ui.dragGeo;
+  d.bar.style.left = (((a - H0 * 60) / span) * 100).toFixed(3) + '%';
+  d.bar.style.width = (((b - a) / span) * 100).toFixed(3) + '%';
+  const ta = d.row.querySelector('[data-t="a"]'), tb = d.row.querySelector('[data-t="b"]');
+  if (ta) ta.textContent = T.fmtTime(a); if (tb) tb.textContent = T.fmtTime(b);
+  document.querySelectorAll('.lrow.swaptarget').forEach((r) => r.classList.remove('swaptarget'));
+  d.swap = null;
+  if (vertical) {
+    const el = document.elementFromPoint(ev.clientX, ev.clientY), row = el && el.closest('.lrow[data-rmsid]');
+    const o = row && (state.mgrShifts || []).find((y) => y.id === +row.dataset.rmsid);
+    if (o && o.id !== x.id && o.managerId !== x.managerId) { row.classList.add('swaptarget'); d.swap = o; }
+  }
+  const len2 = b - a, w = MGR() ? MGR().workOf(len2, state) : len2;
+  d.tip.textContent = d.swap ? `↔ scambia con ${T.fullName(mgrById(d.swap.managerId))}` : `${T.fmtTime(a)}–${T.fmtTime(b)} · ${hrsTxt(len2 / 60)}${w !== len2 ? ` (lavorate ${hrsTxt(w / 60)})` : ''}`;
+  d.tip.style.left = ev.clientX + 'px'; d.tip.style.top = ev.clientY + 'px';
+}
+function mDragEnd() {
+  if (!mdrag) return;
+  const d = mdrag; mdrag = null;
+  d.tip.remove(); d.bar.classList.remove('dragging');
+  document.querySelectorAll('.lrow.swaptarget').forEach((r) => r.classList.remove('swaptarget'));
+  const x = d.x;
+  if (!d.moved) return openMgrDay(x.managerId, x.day);
+  if (d.swap) {
+    const o = d.swap, ma = x.managerId; x.managerId = o.managerId; o.managerId = ma; save(); render();
+    return mgrToast(`↔ Scambiati: <b>${esc(T.fullName(mgrById(o.managerId)))}</b> ${T.fmtTime(o.start)}–${T.fmtTime(o.end)} · <b>${esc(T.fullName(mgrById(x.managerId)))}</b> ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`,
+      () => { const y = x.managerId; x.managerId = o.managerId; o.managerId = y; }, [x, o]);
+  }
+  if (d.a === x.start && d.b === x.end) return render();
+  const before = { start: x.start, end: x.end };
+  x.start = d.a; x.end = d.b; save(); render();
+  mgrToast(`${esc(T.fullName(mgrById(x.managerId)))}: ${T.fmtTime(before.start)}–${T.fmtTime(before.end)} → <b>${T.fmtTime(x.start)}–${T.fmtTime(x.end)}</b>`, () => Object.assign(x, before), [x]);
+}
+/** Barra in basso dopo una modifica di un manager: annulla e, se la settimana è pubblicata, aggiorna la sua app. */
+function mgrToast(txt, undo, list) {
+  const ws = T.mondayOf(list[0].day), ids = [...new Set(list.map((y) => y.managerId))];
+  const published = pubOf(ws) && TurniCloud.loggedIn() && ids.some((id) => state.reqCreds && state.reqCreds[id]);
+  ui.toastUndo = () => { undo(); save(); render(); hideToast(); };
+  ui.toastNotify = async () => {
+    const w = pubOf(ws); if (!w) return;
+    const snap = weekSnapshot(ws); ids.forEach((id) => { w.emp[id] = snap[id]; });
+    w.marks = w.marks || {}; list.forEach((y) => { w.marks[y.managerId + '|' + y.day] = new Date().toISOString(); });
+    save(); render();
+    const r = await pushOrari(ids);
+    document.getElementById('toast').innerHTML = `<div class="bar"><span>${r.ok ? '✅ Aggiornato nell\'app (scheda I miei turni).' : '⚠️ Invio non riuscito (connessione?): riprova.'}</span><button onclick="hideToast()">OK</button></div>`;
+  };
+  document.getElementById('toast').innerHTML = `<div class="bar"><span>${txt}</span><button onclick="ui.toastUndo()">↩︎ Annulla</button>${published ? `<button class="go" onclick="ui.toastNotify()">📲 Aggiorna l'app</button>` : ''}<button onclick="hideToast()" aria-label="chiudi">✕</button></div>`;
+  clearTimeout(ui.toastTimer); ui.toastTimer = setTimeout(hideToast, 20000);
+}
 /** Barra in basso dopo una modifica: annulla, e (se la settimana è pubblicata) aggiorna subito l'app del dipendente. */
 function shiftToast(s, before) {
   const e = empById(s.employeeId), ws = T.mondayOf(s.day);
@@ -2499,7 +2907,7 @@ function shiftToast(s, before) {
 function areaBar(s) {
   const e = empById(s.employeeId), list = e.type === 'HOSPITALITY' ? ['HOSPITALITY', ...(T.CREW_STATIONS.includes('SERVIZIO') && state.config.hospSala !== false ? ['SERVIZIO'] : [])] : [...T.CREW_STATIONS];
   const div = document.createElement('div'); div.className = 'dropbar no-print';
-  div.style.top = (document.querySelector('header').getBoundingClientRect().bottom + 8) + 'px';
+  div.style.top = (document.body.classList.contains('side') ? 16 : document.querySelector('header').getBoundingClientRect().bottom + 8) + 'px';
   div.innerHTML = list.map((st) => `<span data-st="${st}" class="st-${st}" style="${st === s.station ? 'opacity:.45' : ''}">${T.STATIONS[st].short}</span>`).join('');
   document.body.appendChild(div); return div;
 }
@@ -2613,10 +3021,10 @@ async function pushOrari(ids) {
       days: w.emp[e.id].days.map((x) => ((w.marks || {})[e.id + '|' + x.d] ? { ...x, mod: w.marks[e.id + '|' + x.d] } : x)) }));
     // le sue richieste con lo stato: così le vede da qualunque telefono o browser entri
     const reqs = (state.requests || []).filter((q) => q.employeeId === e.id).sort((a, b) => b.day - a.day).slice(0, 30)
-      .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
+      .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' || q.kind === 'fino' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
-      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: isMgr ? [] : reqs, ruolo: isMgr ? 'manager' : 'personale' }));
+      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs, cenaDalle: state.config.dinnerPreStart ?? 990, ruolo: isMgr ? 'manager' : 'personale' }));
       res.ok++;
     } catch (err) { res.fail++; }
   }
@@ -2629,7 +3037,7 @@ async function pushOrari(ids) {
 const DAYS_IT = ['', 'lunedì', 'martedì', 'mercoledì', 'giovedì', 'venerdì', 'sabato', 'domenica'];
 const SLOTS_TXT = (q) => (q.slots || []).map((x) => `${DAYS_IT[x.d]} ${T.fmtTime(x.a)}–${T.fmtTime(x.b)}`).join(', ');
 const PERIOD_TXT = (q) => `dal ${T.itDate(q.day)}${q.to != null ? ` al ${T.itDate(q.to)}` : ' (senza data di fine)'}`;
-const KIND_TXT = (q) => q.kind === 'turno' ? `vuole fare solo ${q.label ? q.label.toLowerCase() : 'questa fascia'}${q.to != null && q.to !== q.day ? ` fino al ${T.itDate(q.to)}` : ''}` : q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : 'non può lavorare quel giorno';
+const KIND_TXT = (q) => q.kind === 'turno' ? `vuole fare solo ${q.label ? q.label.toLowerCase() : 'questa fascia'}${q.to != null && q.to !== q.day ? ` fino al ${T.itDate(q.to)}` : ''}` : q.kind === 'fisso' ? `ha impegni fissi ogni settimana: ${SLOTS_TXT(q)}` : q.kind === 'impegno' ? `ha un impegno alle ${T.fmtTime(q.time)}` : q.kind === 'dalle' ? `può lavorare solo dalle ${T.fmtTime(q.from)}` : q.kind === 'fino' ? `può lavorare solo fino alle ${T.fmtTime(q.until)}` : 'non può lavorare quel giorno';
 const LIMIT_TXT = (q) => q.kind === 'turno' ? `turno tra le ${T.fmtTime(q.from)} e le ${T.fmtTime(q.until)}` : q.kind === 'fisso' ? 'niente turni in quegli orari' : q.kind === 'libero' ? 'giorno libero' : q.kind === 'impegno' && q.after != null ? `finire entro le ${T.fmtTime(q.until)} o iniziare dalle ${T.fmtTime(q.after)}` : q.until != null ? `finire entro le ${T.fmtTime(q.until)}` : `iniziare dalle ${T.fmtTime(q.from)}`;
 // link unico dell'app per il personale (uguale per tutti): ?s = codice del locale (resta anche nell'app installata)
 const appLink = () => `${location.href.split('#')[0].split('?')[0].replace(/index\.html$/, '').replace(/\/?$/, '/')}richieste.html?s=${TurniCloud.uid()}`;
@@ -2660,12 +3068,14 @@ async function checkInbox(notify) {
       if (known.has(d.rid)) continue;
       let x;
       try { x = await TurniCripto.openWith(state.reqKeys.priv, d); } catch (e) { continue; }
-      const e = empById(+d.emp);
+      const e = personById(+d.emp);
       if (!e || !x || !x.date) continue;
       const day = T.toDay(x.date), margin = state.config.requestMargin ?? 30, after = state.config.requestAfter ?? 120;
       const q = { id: newId(), rid: d.rid, employeeId: e.id, day, kind: x.kind, note: String(x.note || '').slice(0, 300), status: 'in attesa', createdAt: d.createdAt };
       if (x.kind === 'impegno') { q.time = +x.time; q.until = Math.max(0, q.time - margin); q.after = Math.min(1440, q.time + after); }
       if (x.kind === 'dalle') q.from = +x.from;
+      if (x.kind === 'fino') q.until = +x.until;
+      if (x.kind === 'turno') { q.from = +x.from; q.until = +x.until; q.label = String(x.label || '').slice(0, 40); q.to = x.to ? T.toDay(x.to) : q.day; if (!(q.until > q.from)) continue; }
       if (x.kind === 'fisso') {
         q.slots = (Array.isArray(x.slots) ? x.slots : []).map((y) => ({ d: +y.d, a: +y.a, b: +y.b })).filter((y) => y.d >= 1 && y.d <= 7 && y.b > y.a).slice(0, 14);
         q.to = x.to ? T.toDay(x.to) : null;
@@ -2683,7 +3093,7 @@ async function checkInbox(notify) {
   } catch (e) { return 0; } finally { inboxBusy = false; }
 }
 function notifyRequests(fresh) {
-  const txt = fresh.map((q) => `${T.fullName(empById(q.employeeId))} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}: ${KIND_TXT(q)}`);
+  const txt = fresh.map((q) => `${T.fullName(personById(q.employeeId))} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}: ${KIND_TXT(q)}`);
   try { if (window.Notification && Notification.permission === 'granted') new Notification('📩 Nuove richieste turni', { body: txt.join('\n') }); } catch (e) { /* niente */ }
   if (!modalOpen()) showModal(`<h3>📩 ${fresh.length === 1 ? 'Nuova richiesta' : fresh.length + ' nuove richieste'} dal personale</h3>
     <ul style="padding-left:18px">${txt.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
@@ -2752,8 +3162,28 @@ async function makeAccess(id, quiet) {
     return true;
   } catch (err) { if (!quiet) alert('Non riuscito: ' + err.message); return false; }
 }
+/**
+ * Chi ha finito di lavorare (data di uscita passata, quindi dal giorno dopo l'ultimo giorno) perde l'accesso all'app:
+ * si cancellano online i suoi accessi e il suo orario pubblicato, e le sue credenziali.
+ */
+async function cleanupLeavers() {
+  if (TurniCloud.PROVA || !TurniCloud.loggedIn() || !state.reqCreds) return;
+  const today = T.todayDay();
+  const gone = [...state.employees, ...(state.managers || [])].filter((e) => e.endDate != null && e.endDate < today && state.reqCreds[e.id]);
+  if (!gone.length) return;
+  try {
+    const all = await TurniCloud.listAccess();
+    for (const e of gone) {
+      const c = state.reqCreds[e.id];
+      for (const a of all) if (String(a.emp) === String(e.id)) await TurniCloud.deleteAccess(a.code);
+      await TurniCloud.deleteOrario(c.oid || c.code);
+      delete state.reqCreds[e.id];
+    }
+    save(); render();
+  } catch (err) { /* senza rete: si riprova alla prossima apertura */ }
+}
 async function makeAllAccess() {
-  const todo = state.employees.filter((e) => e.active && !state.reqCreds[e.id]);
+  const todo = [...(state.managers || []).filter((m) => m.active !== false), ...state.employees.filter((e) => e.active)].filter((e) => !state.reqCreds[e.id]);
   let ok = 0; for (const e of todo) if (await makeAccess(e.id, true)) ok++;
   render();
   if (ok < todo.length) alert(`Creati ${ok} accessi su ${todo.length}: riprova per gli altri (connessione?).`);
@@ -2795,7 +3225,15 @@ function shareAccess(id) {
   share(`Accesso di ${T.fullName(e)}`, `Ciao ${e.firstName || ''}! Ecco i tuoi dati per l'app dei turni:\nNome utente: ${c.user}\nPassword: ${c.pw}\nApp: ${appLink()}\nSono personali: non darli a nessuno.`);
 }
 function copyLink() { const t = document.getElementById('lnk'); t.select(); try { navigator.clipboard.writeText(t.value); } catch (e) { document.execCommand('copy'); } closeModal(); }
+/** Manager: i turni di quel giorno e se rispettano la richiesta (niente proposte di turno o scambi: li decide il manager). */
+function mgrProposal(q) {
+  const ws = T.mondayOf(q.day), l = T.limitsFrom(state.requests.map((x) => (x === q ? { ...x, status: 'accettata' } : x)), ws).get(q.employeeId + '|' + q.day);
+  const cur = (state.mgrShifts || []).filter((x) => x.managerId === q.employeeId && x.day === q.day).map((x) => ({ ...x, station: 'MANAGER' }));
+  const fits = (x) => !l || (!l.off && (l.until == null || x.end <= l.until) && (l.from == null || x.start >= l.from) && !(l.busy || []).some(([a, b]) => x.start < b && a < x.end));
+  return { current: cur, currentOk: cur.every(fits), proposal: null, swaps: null, mgr: true };
+}
 function proposalOf(q) {
+  if (mgrById(q.employeeId)) return mgrProposal(q);
   ui.propCache = ui.propCache || new Map();
   const key = [state.shifts.length, q.until, q.from, q.kind, state.shifts.filter((x) => x.day === q.day).map((x) => x.employeeId + ':' + x.start + '-' + x.end).join(',')].join('|');
   const c = ui.propCache.get(q.id);
@@ -2806,7 +3244,7 @@ function proposalOf(q) {
   ui.propCache.set(q.id, { key, res });
   return res;
 }
-const swapTxt = (q, sw) => { const me = T.fullName(empById(q.employeeId)), other = T.fullName(empById(sw.partner));
+const swapTxt = (q, sw) => { const me = T.fullName(personById(q.employeeId)), other = T.fullName(empById(sw.partner));
   return `${esc(me)} prende <b>${shiftTxt(sw.mine)}</b> (era di ${esc(other)}); ${esc(other)} prende <b>${shiftTxt(sw.theirs)}</b>`; };
 const newsTxt = (sw) => (sw.news.length ? `<span style="color:var(--warn-ink)">⚠️ crea ${sw.news.length === 1 ? 'un problema' : sw.news.length + ' problemi'}: ${sw.news.map((v) => esc(v.msg)).join(' · ')}</span>` : '<span style="color:var(--green)">✅ nessun problema nuovo</span>');
 const shiftTxt = (x) => `${T.fmtTime(x.start)}–${T.fmtTime(x.end)} ${T.STATIONS[x.station] ? T.STATIONS[x.station].short : ''}${x.start <= state.config.open ? ' (apertura)' : ''}`;
@@ -2816,11 +3254,14 @@ function renderRichieste() {
   const pend = reqs.filter((q) => q.status === 'in attesa').sort((a, b) => a.day - b.day);
   const done = reqs.filter((q) => q.status !== 'in attesa').sort((a, b) => b.day - a.day).slice(0, 60);
   const card = (q) => {
-    const e = empById(q.employeeId), name = e ? T.fullName(e) : '?';
+    const e = personById(q.employeeId), name = e ? T.fullName(e) : '?';
     let prop = '';
     if (q.status === 'in attesa' && q.kind === 'fisso') {
       const c = fixedConflicts(q);
       prop = `<div class="prop">${c.length ? `⚠️ Turni già pianificati non compatibili (${c.length}): ${c.slice(0, 6).map((x) => `${T.shortDate(x.day)} ${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`).join(', ')}${c.length > 6 ? '…' : ''}<br><span class="muted">Se accetti, li vedrai come errori: si sistemano con 🛠 Risolvi problemi o rigenerando quelle settimane.</span>` : '✅ Nessun turno già pianificato va in conflitto. Le prossime settimane, "Genera turni" ne terrà conto.'}</div>`;
+    } else if (q.status === 'in attesa' && mgrById(q.employeeId)) {
+      const p = proposalOf(q), cur = p.current;
+      prop = `<div class="prop">${cur.length ? `Turno attuale: <b>${cur.map((x) => `${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`).join(', ')}</b> ${p.currentOk ? '✅ già compatibile' : '⚠️ non compatibile: dopo l\'accettazione spostalo nel Giornaliero o rigenera i turni manager'}` : 'Settimana dei manager non ancora fatta: se la accetti, il generatore ne terrà conto.'}</div>`;
     } else if (q.status === 'in attesa' && q.kind !== 'libero') {
       const p = proposalOf(q);
       const cur = p.current.filter((x) => !x.doppio);
@@ -2830,7 +3271,7 @@ function renderRichieste() {
     }
     const st = q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : q.status === 'rifiutata' ? '<span class="chip err">Rifiutata</span>' : '<span class="chip warn">In attesa</span>';
     return `<div class="card reqcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:start"><div>
-      <div class="when">${esc(name)} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</div>
+      <div class="when">${esc(name)}${mgrById(q.employeeId) ? ' <span class="autotag">manager</span>' : ''} · ${q.kind === 'fisso' ? PERIOD_TXT(q) : `${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}`}${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</div>
       <div>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.note ? ` <span class="muted">· "${esc(q.note)}"</span>` : ''}</div>
       ${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</div>${st}</div>
       ${prop}
@@ -2838,35 +3279,42 @@ function renderRichieste() {
         : `<div style="margin-top:8px;display:flex;gap:16px"><button class="link" onclick="reopenRequest(${q.id})">Rimetti in attesa</button><button class="link" style="color:var(--err-ink)" onclick="deleteRequests([${q.id}])">🗑 Elimina</button></div>`}
     </div>`;
   };
-  const people = sortByName(state.employees.filter((e) => e.active));
-  return `
-  <h2>Richieste del personale ${ib('richieste')}</h2>
-  ${!logged ? '<div class="notice warn">Per ricevere le richieste serve il salvataggio online: accedi in Regole → Dati.</div>'
-    : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>`
-    : `${ntfyBox()}<div class="toolbar"><button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert('Nessuna richiesta nuova.')})">🔄 Controlla nuove richieste</button>
-        ${window.Notification && Notification.permission !== 'granted' ? '<button class="btn" onclick="Notification.requestPermission().then(()=>render())">🔔 Avvisami anche con le notifiche del browser</button>' : ''}</div>`}
-  <div class="card section" style="margin-top:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div style="flex:1;min-width:220px"><b>✍️ Richiesta a mano</b><div class="small muted">Per le richieste arrivate a voce, per messaggio o da chi non usa l'app.</div></div><button class="btn primary" onclick="newManualRequest()">+ Aggiungi richiesta</button></div>
-  <h3 style="margin:18px 0 8px">Da decidere (${pend.length})</h3>
-  ${pend.map(card).join('') || '<p class="muted">Nessuna richiesta in attesa.</p>'}
-  ${done.length ? `<details style="margin-top:18px" ${ui.showDone ? 'open' : ''} ontoggle="ui.showDone=this.open"><summary style="cursor:pointer;font-weight:700;font-size:15px;margin-bottom:8px">Già decise (${reqs.length - pend.length})</summary>
-    <div style="margin:4px 0 10px"><button class="btn" style="color:var(--err-ink)" onclick="deleteRequests(state.requests.filter((q)=>q.status!=='in attesa').map((q)=>q.id))">🗑 Elimina tutte le decise</button></div>
-    ${done.map(card).join('')}</details>` : ''}
-  ${logged && state.reqKeys ? `<h3 style="margin:22px 0 8px">App del personale e accessi</h3>
+  const people = [...sortByName((state.managers || []).filter((m) => m.active !== false)), ...sortByName(state.employees.filter((e) => e.active))];
+  const tab = ui.reqTab || 'pend', nDone = reqs.length - pend.length;
+  const tabs = `<div class="seg ptabs">${[['pend', `Da decidere${pend.length ? ` (${pend.length})` : ''}`], ['done', `Già decise${nDone ? ` (${nDone})` : ''}`], ['app', 'App e accessi']].map(([k, l]) => `<button class="${tab === k ? 'on' : ''}" onclick="ui.reqTab='${k}';render()">${l}</button>`).join('')}</div>`;
+  const ready = logged && state.reqKeys;
+  const setup = !logged ? '<div class="notice warn" style="margin-bottom:12px">Per ricevere le richieste dall\'app serve il salvataggio online: accedi in Regole → Dati. Quelle a mano si possono inserire comunque.</div>'
+    : !state.reqKeys ? `<div class="card section"><p style="margin-top:0">Le richieste non sono ancora attive per il tuo locale.</p><button class="btn primary" onclick="enableRequests()">Attiva le richieste del personale</button></div>` : '';
+  const more = [];
+  if (ready && window.Notification && Notification.permission !== 'granted') more.push(['🔔 Avvisami con le notifiche del browser', 'Notification.requestPermission().then(()=>render())']);
+  if (ready) more.push(['📱 Notifiche sul telefono (ntfy)', "ui.reqTab='app';ui.ntfyOpen=true;render()"]);
+  if (nDone) more.push(['🗑 Elimina tutte le richieste decise', "deleteRequests(state.requests.filter((q)=>q.status!=='in attesa').map((q)=>q.id))", true]);
+  const bar = `<div class="toolbar">${tabs}<div class="spacer"></div>${ready ? '<button class="btn" onclick="checkInbox(true).then((n)=>{if(!n)alert(\'Nessuna richiesta nuova.\')})" title="Scarica subito le richieste arrivate dall\'app">↻ Controlla nuove</button>' : ''}<button class="btn primary" onclick="newManualRequest()">✍️ Richiesta a mano</button>${more.length ? moreMenu(more) : ''}</div>`;
+  const doneRow = (q) => { const e = personById(q.employeeId);
+    return `<tr><td><b>${esc(e ? T.fullName(e) : '?')}</b>${q.manual ? ' <span class="autotag" title="Inserita dal manager">a mano</span>' : ''}</td><td style="white-space:nowrap">${q.kind === 'fisso' ? PERIOD_TXT(q) : T.itDate(q.day)}</td>
+      <td>${esc(KIND_TXT(q))}${q.kind !== 'libero' ? ` → <b>${LIMIT_TXT(q)}</b>` : ''}${q.reply ? `<div class="small muted">Risposta: ${esc(q.reply)}</div>` : ''}</td>
+      <td>${q.status === 'accettata' ? '<span class="chip ok">Accettata</span>' : '<span class="chip err">Rifiutata</span>'}</td>
+      <td style="text-align:right;white-space:nowrap"><button class="link" onclick="reopenRequest(${q.id})" title="Rimetti in attesa">↺</button> <button class="link" style="color:var(--err-ink);margin-left:10px" title="Elimina" onclick="deleteRequests([${q.id}])">🗑</button></td></tr>`; };
+  let body;
+  if (tab === 'done') body = done.length ? `<div class="card"><table class="list"><thead><tr><th>Nome</th><th>Quando</th><th>Richiesta</th><th>Esito</th><th></th></tr></thead><tbody>${done.map(doneRow).join('')}</tbody></table></div>${nDone > done.length ? `<p class="small muted">Sono mostrate le ultime ${done.length}.</p>` : ''}` : '<p class="muted">Nessuna richiesta decisa.</p>';
+  else if (tab === 'app') body = ready ? `${ntfyBox()}<h3 style="margin:18px 0 8px">App del personale e accessi</h3>` + `
   <div class="card section"><p style="margin-top:0"><b>1. Un solo link per tutti</b> (es. nel gruppo WhatsApp): da lì scaricano l'app sul telefono.</p>
-    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
+    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><a href="${esc(appLink())}" target="_blank" rel="noopener" title="Apri l'app del personale"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code></a><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
     <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
   <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
   <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
-    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b></td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? (c.changed ? '<span class="muted small">cambiata dal dipendente</span>' : `<code>${esc(c.pw)}</code>`) : ''}</td>
+    ${people.map((e) => { const c = state.reqCreds[e.id]; return `<tr><td><b>${esc(T.fullName(e))}</b>${mgrById(e.id) ? ' <span class="autotag">manager</span>' : ''}</td><td>${c ? `<code>${esc(c.user)}</code>` : '<span class="muted small">non ancora</span>'}</td><td>${c ? (c.changed ? '<span class="muted small">cambiata dal dipendente</span>' : `<code>${esc(c.pw)}</code>`) : ''}</td>
       <td style="text-align:right;white-space:nowrap">${c ? `${c.changed ? '' : `<button class="btn" onclick="shareAccess(${e.id})">📤 Invia</button> `}<button class="link" onclick="if(confirm('Creare una password nuova? Quella vecchia non funzionerà più.'))makeAccess(${e.id})">Nuova password</button>` : `<button class="btn" onclick="makeAccess(${e.id})">Crea accesso</button>`}</td></tr>`; }).join('')}
-  </tbody></table></div>` : ''}`;
+  </tbody></table></div>` : '<p class="muted">L\'app del personale si attiva con il salvataggio online.</p>';
+  else body = pend.map(card).join('') || '<div class="card section empty">✅ Nessuna richiesta da decidere.</div>';
+  return `${bar}${setup}${body}`;
 }
 function askAccept(id) {
   const q = state.requests.find((x) => x.id === id); if (!q) return;
   if (q.kind === 'fisso') {
     const c = fixedConflicts(q);
     return showModal(`<h3>Accetta gli impegni fissi</h3>
-      <p><b>${esc(T.fullName(empById(q.employeeId)))}</b>: ${esc(SLOTS_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
+      <p><b>${esc(T.fullName(personById(q.employeeId)))}</b>: ${esc(SLOTS_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
       <div class="form"><div class="row"><label class="f">Valido dal<input type="date" id="acc-from" value="${T.toIso(q.day)}"></label><label class="f">Fino al (vuoto = senza fine)<input type="date" id="acc-to" value="${q.to != null ? T.toIso(q.to) : ''}"></label></div>
       ${c.length ? `<p class="notice warn" style="margin:0">${c.length} turni già pianificati vanno in conflitto: dopo l'accettazione usa 🛠 Risolvi problemi in quelle settimane.</p>` : ''}
       <label class="f">Messaggio per il dipendente (facoltativo)<input type="text" id="acc-msg" maxlength="200" placeholder="es. ok, ne tengo conto nei turni"></label></div>
@@ -2876,7 +3324,7 @@ function askAccept(id) {
   const weekHas = state.shifts.some((x) => x.day >= T.mondayOf(q.day) && x.day <= T.mondayOf(q.day) + 6);
   const timeSel = (idn, v, from, to) => `<select id="${idn}">${TIME_OPTIONS.filter((t) => t >= from && t <= to).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
   showModal(`<h3>Accetta la richiesta</h3>
-    <p><b>${esc(T.fullName(empById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
+    <p><b>${esc(T.fullName(personById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
     <div class="form">
       ${q.kind === 'impegno' ? `<div class="row"><label class="f">Turno prima: deve finire entro le${timeSel('acc-t', q.until, 360, 1380)}</label><label class="f">oppure turno dopo: può iniziare dalle${timeSel('acc-t2', q.after ?? Math.min(1380, (q.time ?? q.until) + (state.config.requestAfter ?? 120)), 360, 1380)}</label></div>` : ''}
       ${q.kind === 'turno' ? `<div class="row"><label class="f">Turno dalle${timeSel('acc-t', q.from, 360, 1380)}</label><label class="f">alle${timeSel('acc-t2', q.until, 360, 1440)}</label></div>` : ''}
@@ -2930,7 +3378,7 @@ async function doAccept(id) {
   closeModal(); save(); render();
   if (swapped) {
     const other = empById(swapped.partner);
-    showModal(`<h3>✅ Richiesta accettata e turni scambiati</h3><p>${esc(T.fullName(empById(q.employeeId)))}: <b>${shiftTxt(swapped.mine)}</b><br>${esc(T.fullName(other))}: <b>${shiftTxt(swapped.theirs)}</b></p>
+    showModal(`<h3>✅ Richiesta accettata e turni scambiati</h3><p>${esc(T.fullName(personById(q.employeeId)))}: <b>${shiftTxt(swapped.mine)}</b><br>${esc(T.fullName(other))}: <b>${shiftTxt(swapped.theirs)}</b></p>
       <p class="notice warn">Ricordati di avvisare <b>${esc(T.fullName(other))}</b> che il suo turno di ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)} è cambiato.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
   }
   pushOrari([q.employeeId]).catch(() => null);
@@ -3004,6 +3452,11 @@ function saveManualRequest(accept) {
 /** Turni già pianificati (da oggi in poi) che non rispettano gli impegni fissi della richiesta. */
 function fixedConflicts(q) {
   const from = Math.max(q.day, T.todayDay());
+  if (mgrById(q.employeeId)) {
+    return (state.mgrShifts || []).filter((s) => s.managerId === q.employeeId && s.day >= from && (q.to == null || s.day <= q.to))
+      .filter((s) => !T.limitsFrom([{ ...q, status: 'accettata' }], T.mondayOf(s.day)).get(q.employeeId + '|' + s.day) || !mgrProposal({ ...q, day: s.day }).currentOk)
+      .sort((a, b) => a.day - b.day || a.start - b.start);
+  }
   const fake = { ...state, requests: [{ ...q, status: 'accettata' }] };
   const out = [];
   for (const s of state.shifts) {
@@ -3083,7 +3536,7 @@ function saveConfig() {
 
 saveLocal();
 render();
-if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true));
+if (TurniCloud.loggedIn()) cloudPull().then(() => checkInbox(true)).then(() => cleanupLeavers());
 else if (ui.locked) { if (storeCode()) loadGateLogin(storeCode()); else { ui.gateLogin = ''; render(); } }
 else if (TurniCloud.configured()) { if (!state.employees.length) askCloudLogin(); }
 // installabile come app (schermata Home del telefono o del computer)

@@ -325,6 +325,8 @@
       longHistory: new Map(),
       // aperture fatte nelle 3 settimane prima, per postazione: chiave "id|postazione" (per farle a rotazione)
       openHistory: new Map(),
+      // hospitality: pranzi e cene fatti nelle 2 settimane prima (chiave id → { L, D }), per farli a rotazione
+      sideHistory: new Map(),
       // richieste del personale accettate dal manager: chiave "id|giorno" → { until, from, off, label }
       limits: limitsFrom(state.requests, ws),
       // giorni con il locale chiuso (tutto il giorno o in parte), dalla sezione Eventi
@@ -335,6 +337,7 @@
       const e = ctx.byId.get(x.employeeId);
       if (isLongWeekday(state.config, e, x)) ctx.longHistory.set(e.id, (ctx.longHistory.get(e.id) || 0) + 1);
       if (e && !x.doppio && x.day >= ws - 21 && x.start <= dayHours(state.config, x.day).open) { const k = e.id + '|' + x.station; ctx.openHistory.set(k, (ctx.openHistory.get(k) || 0) + 1); }
+      if (e && e.type === 'HOSPITALITY' && x.day >= ws - 14) { const h = ctx.sideHistory.get(e.id) || { L: 0, D: 0 }; h[(x.start + x.end) / 2 < 960 ? 'L' : 'D']++; ctx.sideHistory.set(e.id, h); }
     }
     const fc = forecastFor(state, ws, ctx);
     if (fc) {
@@ -1558,7 +1561,16 @@
       for (const x of shifts) if (x.day === d && x.employeeId !== e.id && !isDouble(x) && (x.end === a || x.start === b)) n++;
       return Math.min(1, n * 0.5);
     };
-    const natural = (e, d, a, b) => tplFreq(e.type, a, b) + habit(e, a) * 1.5 - variety(e, d, a, b) * 1.2 - longPenalty(e, d, a, b) + handover(e, d, a, b) + rnd() * 0.6;
+    // hospitality: pranzo e cena a rotazione (al posto dell'abitudine): si spinge verso il lato fatto di meno,
+    // contando le 2 settimane prima e quella in corso (questa pesa di più)
+    function sideTurn(e, d, a, b) {
+      const side = (a + b) / 2 < 960 ? 'L' : 'D', other = side === 'L' ? 'D' : 'L';
+      const h = (ctx.sideHistory && ctx.sideHistory.get(e.id)) || { L: 0, D: 0 }, cur = { L: 0, D: 0 };
+      for (const x of shifts) if (x.employeeId === e.id) cur[(x.start + x.end) / 2 < 960 ? 'L' : 'D']++;
+      const diff = (h[other] + cur[other] * 2) - (h[side] + cur[side] * 2);
+      return Math.max(-2, Math.min(2, diff * 0.5));
+    }
+    const natural = (e, d, a, b) => tplFreq(e.type, a, b) + (e.type === 'HOSPITALITY' && cfg.hospRotation !== false ? sideTurn(e, d, a, b) * 1.5 : habit(e, a) * 1.5) - variety(e, d, a, b) * 1.2 - longPenalty(e, d, a, b) + handover(e, d, a, b) + rnd() * 0.6;
     /**
      * Sceglie turno e persona insieme: tra le finestre che chiudono quasi più buchi possibile (≥ 80% della migliore)
      * preferisce chi ha più ore da fare e l'orario più naturale per lui/lei.
@@ -2304,7 +2316,7 @@
     ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf, roundTimeOk,
     STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, dateHoursMap, cfgWithEvents, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
-    fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
+    limitsFrom, fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
   };
   if (typeof module !== 'undefined') module.exports = root.Turni;
 })(typeof window !== 'undefined' ? window : globalThis);
