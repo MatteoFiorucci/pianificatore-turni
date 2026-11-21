@@ -460,19 +460,19 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611211658"></script>
-<script src="turni-storico.js?v=202611211658"></script>
-<script src="turni-core.js?v=202611211658"></script>
-<script src="turni-manager.js?v=202611211658"></script>
-<script src="turni-vlh.js?v=202611211658"></script>
+<script src="icone.js?v=202611212122"></script>
+<script src="turni-storico.js?v=202611212122"></script>
+<script src="turni-core.js?v=202611212122"></script>
+<script src="turni-manager.js?v=202611212122"></script>
+<script src="turni-vlh.js?v=202611212122"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611211658"></script>
-<script src="turni-cloud-config.js?v=202611211658"></script>
-<script src="turni-cloud.js?v=202611211658"></script>
-<script src="turni-cripto.js?v=202611211658"></script>
-<script src="riepilogo.js?v=202611211658"></script>
-<script src="lineare-ufficiale.js?v=202611211658"></script>
+<script src="turni-data.js?v=202611212122"></script>
+<script src="turni-cloud-config.js?v=202611212122"></script>
+<script src="turni-cloud.js?v=202611212122"></script>
+<script src="turni-cripto.js?v=202611212122"></script>
+<script src="riepilogo.js?v=202611212122"></script>
+<script src="lineare-ufficiale.js?v=202611212122"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -805,7 +805,10 @@ function renderHome() {
   const todayCard = `<div class="card hcard"><div class="hk">Oggi</div><div class="hw">${T.DOW_LONG[T.dow(today)]} ${T.itDate(today)}</div>
     <div class="hs">${people} tra crew e hospitality · ${new Set(todayMgr.map((x) => x.managerId)).size} manager</div>
     <div class="hact"><button class="btn" onclick="ui.day=${today};go('giornaliero')">Apri il lineare di oggi</button></div></div>`;
-  return `<div class="homegrid">${weekCard(ws0, 'Questa settimana')}${weekCard(ws0 + 7, 'Prossima settimana')}${reqCard}${fcCard}${todayCard}</div>${dashboardHtml()}`;
+  const welcome = TurniCloud.configured() && !TurniCloud.loggedIn() ? `<div class="card hcard" style="margin-bottom:16px"><div class="hk">Benvenuto</div><div class="hw">Accedi o crea il tuo locale</div>
+    <p class="small muted" style="margin:0 0 10px">Con l'accesso i dati si salvano online, cifrati, e sono gli stessi su PC e telefono. Un locale nuovo si crea con il codice invito.</p>
+    <div class="hact"><button class="btn primary" onclick="askCloudLogin()">Accedi</button><button class="btn" onclick="askSignUp()">Crea il tuo locale</button></div></div>` : '';
+  return `${welcome}<div class="homegrid">${weekCard(ws0, 'Questa settimana')}${weekCard(ws0 + 7, 'Prossima settimana')}${reqCard}${fcCard}${todayCard}</div>${dashboardHtml()}`;
 }
 /** Hospitality: pranzi e cene di ognuna (questa settimana e le 4 prima), per vedere la rotazione. */
 function hospSideCard(emps) {
@@ -2530,7 +2533,8 @@ function renderStore() {
     <p class="small muted" style="margin:0">Le durate sono di presenza. Durate fuori da questi blocchi sono segnalate come errore. La pausa dei turni lunghi è timbrata (uscita e rientro) e non conta nelle ore lavorate: le ore di contratto si raggiungono con le ore di presenza meno le pause. Squadra, giorni dell'ordine, orari flessibili, delivery e Carpigiani: Turni → Manager.</p>
   </div></div>
   <h3>📩 Richieste del personale</h3>
-  <div class="card section">${reqRuleBox()}</div>`;
+  <div class="card section">${reqRuleBox()}</div>
+  ${invitesBox()}`;
 }
 // ================= SALVATAGGIO ONLINE =================
 const sync = { status: 'off', msg: '', timer: null, busy: false, seq: 0, pendingRender: false };
@@ -2613,7 +2617,58 @@ function cloudLoginFields(msg) {
       <label class="f">Nome utente o email<input type="text" id="cl-email" autocomplete="username" autocapitalize="none" spellcheck="false" value="${esc(showUser(s && s.email))}"></label>
       <label class="f">Password<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')cloudLogin()"></label>
       <button class="btn primary" id="cl-btn" style="align-self:end" onclick="cloudLogin()">Accedi</button>
-    </div><div id="cl-err" class="notice err" style="display:none"></div></div>`;
+    </div><div id="cl-err" class="notice err" style="display:none"></div></div>
+    <p class="small muted" style="margin:10px 0 0">Nuovo locale? <button class="link" onclick="askSignUp()">Crea il tuo locale</button> (serve un codice invito).</p>`;
+}
+// ---- nuovo locale: registrazione con codice invito ----
+function askSignUp(msg) {
+  showModal(`<h3>Crea il tuo locale</h3>
+    <p class="muted" style="margin-top:0">Ti serve il codice invito che ti ha dato chi gestisce il programma. Il nome utente e la password li userete tutti i manager del locale.</p>
+    ${msg ? `<div class="notice err">${esc(msg)}</div>` : ''}
+    <div class="form">
+      <label class="f">Nome del locale<input type="text" id="su-nome" maxlength="60" placeholder="es. Centro commerciale Nord"></label>
+      <label class="f">Nome utente dei manager<input type="text" id="su-user" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="es. centronord"></label>
+      <div class="row"><label class="f">Password (almeno 8 caratteri)<input type="password" id="su-pw" autocomplete="new-password"></label>
+      <label class="f">Ripeti la password<input type="password" id="su-pw2" autocomplete="new-password"></label></div>
+      <label class="f">Codice invito<input type="text" id="su-code" autocapitalize="characters" spellcheck="false" placeholder="es. K7Q4-M2XP" onkeydown="if(event.key==='Enter')doSignUp()"></label>
+    </div>
+    <p class="small muted">La password serve anche a cifrare i dati del locale: senza, nessuno li può leggere, nemmeno chi gestisce il sito. Non perderla.</p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn primary" id="su-btn" onclick="doSignUp()">Crea il locale</button></div>`);
+  setTimeout(() => { const i = document.getElementById('su-nome'); if (i) i.focus(); }, 50);
+}
+async function doSignUp() {
+  const v = (id) => document.getElementById(id).value.trim();
+  const nome = v('su-nome'), user = v('su-user').toLowerCase().replace(/\s+/g, ''), pw = document.getElementById('su-pw').value, pw2 = document.getElementById('su-pw2').value, code = v('su-code').toUpperCase();
+  if (!nome || !user || !pw || !code) return askSignUp('Compila tutti i campi.');
+  if (!/^[a-z0-9._-]{3,40}$/.test(user)) return askSignUp('Il nome utente può avere solo lettere, numeri, punto e trattino (almeno 3).');
+  if (pw.length < 8) return askSignUp('La password deve avere almeno 8 caratteri.');
+  if (pw !== pw2) return askSignUp('Le due password non coincidono.');
+  const btn = document.getElementById('su-btn'); btn.disabled = true; btn.textContent = 'Creo il locale…';
+  try { await TurniCloud.signUp(toLoginEmail(user), pw, code, nome); }
+  catch (e) { return askSignUp(e.message); }
+  // locale nuovo: si parte da dati vuoti (anche se su questo dispositivo c'era altro) con il nome del locale
+  state = TurniData.emptyState(); state.config.storeName = nome;
+  ui.locked = false; save(); TurniCloud.setDirty(true); await cloudPush(null); go('home');
+  showModal(`<h3>Locale creato</h3><p><b>${esc(nome)}</b> è pronto. Per entrare da un altro dispositivo: nome utente <b>${esc(user)}</b> e la password che hai scelto.</p>
+    <p>Ora imposta il locale: <b>Impostazioni → Store</b> (orari e postazioni), <b>Impostazioni → Regole</b> (squadre di apertura e chiusura) e <b>Persone</b> (il personale).</p>
+    <div class="actions"><button class="btn primary" onclick="closeModal();go('store')">Inizia dalle impostazioni</button></div>`);
+}
+// ---- solo per chi gestisce il programma: codici invito per altri locali ----
+async function loadInvites() { try { ui.invites = await TurniCloud.listInvites(); } catch (e) { ui.invites = { err: e.message }; } render(); }
+async function newInvite() {
+  try { const c = await TurniCloud.createInvite(); await loadInvites(); showModal(`<h3>Codice invito</h3><p style="font-size:26px;font-weight:800;letter-spacing:2px;text-align:center">${c}</p><p class="muted">Mandalo al nuovo locale: lo usa una sola volta in "Crea il tuo locale", dalla pagina d'ingresso del sito.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`); }
+  catch (e) { alert(e.message); }
+}
+function invitesBox() {
+  if (!TurniCloud.isOwner()) return '';
+  if (ui.invites === undefined) { ui.invites = null; loadInvites(); }
+  const l = ui.invites;
+  return `<h3>🔑 Inviti per altri locali</h3><div class="card section">
+    <p class="small muted" style="margin-top:0">Ogni codice permette a un nuovo locale di registrarsi una sola volta. I dati di ogni locale restano separati e cifrati con la sua password.</p>
+    <div style="margin-bottom:10px"><button class="btn primary" onclick="newInvite()">Crea un codice invito</button></div>
+    ${!l ? '<p class="muted">Caricamento…</p>' : l.err ? `<div class="notice warn">${esc(l.err)}</div>` : !l.length ? '<p class="muted">Nessun codice ancora.</p>'
+      : `<table class="list"><thead><tr><th>Codice</th><th>Creato</th><th>Stato</th><th></th></tr></thead><tbody>${l.map((x) => `<tr><td><code>${x.code}</code></td><td>${fmtWhen(x.creato)}</td><td>${x.usato ? `usato da <b>${esc(x.locale || '—')}</b> il ${fmtWhen(x.usatoIl)}` : '<span class="chip ok">libero</span>'}</td><td style="text-align:right">${x.usato ? '' : `<button class="link" style="color:var(--err-ink)" onclick="if(confirm('Annullare questo codice?'))TurniCloud.deleteInvite('${x.code}').then(loadInvites)">🗑</button>`}</td></tr>`).join('')}</tbody></table>`}
+  </div>`;
 }
 /** Schermata di accesso dei manager (al posto dell'app, finché non si entra). */
 function renderGate() {
