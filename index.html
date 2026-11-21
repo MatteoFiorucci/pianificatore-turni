@@ -808,7 +808,7 @@ function renderHome() {
   const welcome = TurniCloud.configured() && !TurniCloud.loggedIn() ? `<div class="card hcard" style="margin-bottom:16px"><div class="hk">Benvenuto</div><div class="hw">Accedi o crea il tuo locale</div>
     <p class="small muted" style="margin:0 0 10px">Con l'accesso i dati si salvano online, cifrati, e sono gli stessi su PC e telefono. Un locale nuovo si crea con il codice invito.</p>
     <div class="hact"><button class="btn primary" onclick="askCloudLogin()">Accedi</button><button class="btn" onclick="askSignUp()">Crea il tuo locale</button></div></div>` : '';
-  return `${welcome}<div class="homegrid">${weekCard(ws0, 'Questa settimana')}${weekCard(ws0 + 7, 'Prossima settimana')}${reqCard}${fcCard}${todayCard}</div>${dashboardHtml()}`;
+  return `${welcome}${TurniCloud.loggedIn() ? setupCard() : ''}<div class="homegrid">${weekCard(ws0, 'Questa settimana')}${weekCard(ws0 + 7, 'Prossima settimana')}${reqCard}${fcCard}${todayCard}</div>${dashboardHtml()}`;
 }
 /** Hospitality: pranzi e cene di ognuna (questa settimana e le 4 prima), per vedere la rotazione. */
 function hospSideCard(emps) {
@@ -2535,6 +2535,100 @@ function renderStore() {
   <h3>📩 Richieste del personale</h3>
   <div class="card section">${reqRuleBox()}</div>`;
 }
+// ================= CONFIGURAZIONE GUIDATA (locale nuovo) =================
+// Quattro passi alla prima apertura di un locale nuovo: orari, postazioni, persone nei picchi, personale.
+// Tutto resta modificabile dopo in Impostazioni → Store / Regole.
+const SETUP_STEPS = ['Il locale', 'Postazioni', 'Persone nei picchi', 'Il personale'];
+const needsSetup = () => !state.config.setupDone && !(state.employees || []).length;
+function setupHead(n) {
+  return `<div class="small muted" style="margin-bottom:4px">Passo ${n + 1} di ${SETUP_STEPS.length}</div>
+    <div style="display:flex;gap:4px;margin-bottom:12px">${SETUP_STEPS.map((t, i) => `<span style="display:block;flex:1;height:5px;border-radius:3px;background:${i <= n ? 'var(--green)' : 'var(--line)'}"></span>`).join('')}</div>
+    <h3 style="margin-top:0">${SETUP_STEPS[n]}</h3>`;
+}
+function setupNav(n) {
+  const last = n === SETUP_STEPS.length - 1;
+  return `<div class="actions" style="justify-content:space-between">
+    ${n ? `<button class="btn" onclick="openSetup(${n - 1})">‹ Indietro</button>` : `<button class="btn" onclick="closeModal()">Più tardi</button>`}
+    <button class="btn primary" onclick="${last ? 'finishSetup()' : `setupNext(${n})`}">${last ? 'Fine' : 'Avanti ›'}</button></div>`;
+}
+function openSetup(n = 0) {
+  ui.setupStep = n; const c = state.config;
+  let body = '';
+  if (n === 0) {
+    const h = (d) => ({ open: c.open ?? 450, close: c.close ?? 1290, ...((c.hours || {})[d] || {}) });
+    const rows = [1, 2, 3, 4, 5, 6, 7].map((d) => `<tr><td><b>${T.DOW_LONG[d]}</b></td>
+      <td>${dayTimeSel(h(d).open, `setupHour(${d},'open',+this.value)`)} – ${dayTimeSel(h(d).close, `setupHour(${d},'close',+this.value)`)}</td></tr>`).join('');
+    body = `<label class="f">Nome del locale<input type="text" id="setup-nome" value="${esc(c.storeName || '')}" maxlength="80"></label>
+      <p class="small muted" style="margin:12px 0 6px">Orari di apertura al pubblico. Cambiane uno e premi <b>Copia il lunedì su tutti</b> se sono uguali ogni giorno.</p>
+      <table class="list"><tbody>${rows}</tbody></table>
+      <div style="margin-top:6px"><button class="link" onclick="setupCopyMonday()">Copia il lunedì su tutti i giorni</button></div>
+      <p class="small muted" style="margin-bottom:0">Aperture 24 ore: Impostazioni → Store.</p>`;
+  } else if (n === 1) {
+    const rows = storeStations().map((x, i) => `<label class="tg ${x.active !== false ? 'on' : ''}" style="margin:3px"><input type="checkbox" ${x.active !== false ? 'checked' : ''} onchange="setupStation(${i},this.checked)">${esc(x.label)}</label>`).join('');
+    body = `<p class="small muted" style="margin-top:0">Quali postazioni ci sono nel tuo locale? Togli quelle che non hai.</p>
+      <div class="row" style="flex-wrap:wrap">${rows}</div>
+      <div class="row" style="margin-top:10px;gap:6px"><input type="text" id="setup-st" placeholder="Altra postazione (es. Drive 2)" style="flex:1"><button class="btn" onclick="setupAddStation()">+ Aggiungi</button></div>
+      <p class="small muted" style="margin-bottom:0">Nomi, sigle e colori: Impostazioni → Store.</p>`;
+  } else if (n === 2) {
+    const cov = (id) => state.coverage.find((r) => r.id === id);
+    const val = (id, d) => { const r = cov(id); return r && r.min ? r.min[d] : 0; };
+    const inp = (id, from, to) => `<input type="number" min="0" max="40" value="${Math.max(...[0, 1, 2, 3, 4, 5, 6].slice(from, to + 1).map((d) => val(id, d)))}" style="width:60px" onchange="setupPeak('${id}',${from},${to},this.value)">`;
+    const g = { ...MGR_DEF, ...(c.mgr || {}) };
+    body = `<p class="small muted" style="margin-top:0">Quante persone (crew, senza manager) servono come minimo nel momento più pieno?</p>
+      <table class="list"><thead><tr><th></th><th>Lun–gio</th><th>Ven–dom</th></tr></thead><tbody>
+        <tr><td><b>Picco pranzo</b> <span class="muted small">12:30–14</span></td><td>${inp('c9', 0, 3)}</td><td>${inp('c9', 4, 6)}</td></tr>
+        <tr><td><b>Picco cena</b> <span class="muted small">19–20:30</span></td><td>${inp('c10', 0, 3)}</td><td>${inp('c10', 4, 6)}</td></tr>
+      </tbody></table>
+      <label class="f" style="margin-top:10px">Manager minimi ogni giorno<input type="number" min="1" max="6" value="${g.minPerDay}" style="width:70px" onchange="state.config.mgr={...MGR_DEF,...(state.config.mgr||{}),minPerDay:Math.max(1,+this.value||2)};save()"></label>
+      <p class="small muted" style="margin-bottom:0">Le altre fasce (apertura, chiusura, pomeriggio) partono da valori tipici: le trovi e le cambi in Impostazioni → Regole.</p>`;
+  } else {
+    body = `<p style="margin-top:0">Ultimo passo: inserisci le persone del locale (crew, hospitality e manager) con contratto, giorni di riposo e postazioni in cui sono formate.</p>
+      <p class="small muted">Le trovi in <b>Persone</b>. Quando ci sono, in <b>Turni</b> premi <b>Genera turni</b> e il programma prepara la settimana.</p>`;
+  }
+  showModal(setupHead(n) + body + setupNav(n));
+}
+function setupSaveName() {
+  const el = document.getElementById('setup-nome'); if (!el) return;
+  const v = el.value.trim(); if (v && v !== state.config.storeName) { state.config.storeName = v; save(); }
+}
+function setupNext(n) {
+  if (n === 0) { setupSaveName(); if (!state.config.storeName) return alert('Scrivi il nome del locale.'); }
+  openSetup(n + 1);
+}
+function setupHour(d, k, v) {
+  setupSaveName();
+  const c = state.config; c.hours = c.hours || {};
+  const h = c.hours[d] = { open: c.open ?? 450, close: c.close ?? 1290, ...(c.hours[d] || {}), [k]: v };
+  if (!h.h24 && h.close <= h.open) alert("La chiusura deve essere dopo l'apertura.");
+  else { if (d === 1) { c.open = h.open; c.close = h.close; } save(); }
+  openSetup(0);
+}
+function setupCopyMonday() {
+  setupSaveName();
+  const c = state.config, m = { open: c.open ?? 450, close: c.close ?? 1290, ...((c.hours || {})[1] || {}) };
+  c.hours = {}; for (let d = 1; d <= 7; d++) c.hours[d] = { open: m.open, close: m.close };
+  c.open = m.open; c.close = m.close; save(); openSetup(0);
+}
+function setupStation(i, on) { storeStations()[i].active = on; save(); openSetup(1); }
+function setupAddStation() {
+  const name = (document.getElementById('setup-st').value || '').trim(); if (!name) return;
+  storeStations().push({ id: 'P' + newId(), label: name, short: name.slice(0, 4).toUpperCase(), color: '#5b8c5a', active: true, custom: true });
+  save(); openSetup(1);
+}
+function setupPeak(id, from, to, v) {
+  const r = state.coverage.find((x) => x.id === id); if (!r) return;
+  const n = Math.max(0, Math.min(40, Math.round(+v || 0)));
+  r.min = [...(r.min || [0, 0, 0, 0, 0, 0, 0])]; for (let d = from; d <= to; d++) r.min[d] = n;
+  save();
+}
+function finishSetup() { state.config.setupDone = true; save(); closeModal(); go('personale'); }
+/** Home di un locale appena creato: i passi per partire. */
+function setupCard() {
+  if (!needsSetup()) return '';
+  return `<div class="card hcard" style="margin-bottom:16px"><div class="hk">Primi passi</div><div class="hw">Configura il tuo locale</div>
+    <p class="small muted" style="margin:0 0 10px">Quattro passi veloci: orari, postazioni, persone nei picchi e personale. Potrai cambiare tutto anche dopo.</p>
+    <div class="hact"><button class="btn primary" onclick="openSetup(0)">Inizia</button></div></div>`;
+}
 // ================= SALVATAGGIO ONLINE =================
 const sync = { status: 'off', msg: '', timer: null, busy: false, seq: 0, pendingRender: false };
 const modalOpen = () => !!document.getElementById('modal').innerHTML;
@@ -2648,9 +2742,7 @@ async function doSignUp() {
   // locale nuovo: si parte da dati vuoti (anche se su questo dispositivo c'era altro) con il nome del locale
   state = TurniData.emptyState(); state.config.storeName = nome;
   ui.locked = false; save(); TurniCloud.setDirty(true); await cloudPush(null); go('home');
-  showModal(`<h3>Locale creato</h3><p><b>${esc(nome)}</b> è pronto. Per entrare da un altro dispositivo: nome utente <b>${esc(user)}</b> e la password che hai scelto.</p>
-    <p>Ora imposta il locale: <b>Impostazioni → Store</b> (orari e postazioni), <b>Impostazioni → Regole</b> (squadre di apertura e chiusura) e <b>Persone</b> (il personale).</p>
-    <div class="actions"><button class="btn primary" onclick="closeModal();go('store')">Inizia dalle impostazioni</button></div>`);
+  openSetup(0);
 }
 /** Schermata di accesso dei manager (al posto dell'app, finché non si entra). */
 function renderGate() {
@@ -2693,7 +2785,7 @@ function askCloudLogin(msg) {
     <p class="muted">Entra con il nome utente (o l'email) e la password del salvataggio online: i dati saranno gli stessi su PC e telefono.</p>
     ${cloudLoginFields(msg)}
     <div class="actions"><button class="btn" onclick="closeModal()">Non ora</button></div>`);
-  setTimeout(() => { const i = document.getElementById(document.getElementById('cl-email').value ? 'cl-pw' : 'cl-email'); if (i) i.focus(); }, 50);
+  setTimeout(() => { const em = document.getElementById('cl-email'); if (!em) return; const i = document.getElementById(em.value ? 'cl-pw' : 'cl-email'); if (i) i.focus(); }, 50);
 }
 async function cloudLogin() {
   const email = toLoginEmail(document.getElementById('cl-email').value), pw = document.getElementById('cl-pw').value;
