@@ -460,19 +460,19 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611211655"></script>
-<script src="turni-storico.js?v=202611211655"></script>
-<script src="turni-core.js?v=202611211655"></script>
-<script src="turni-manager.js?v=202611211655"></script>
-<script src="turni-vlh.js?v=202611211655"></script>
+<script src="icone.js?v=202611211658"></script>
+<script src="turni-storico.js?v=202611211658"></script>
+<script src="turni-core.js?v=202611211658"></script>
+<script src="turni-manager.js?v=202611211658"></script>
+<script src="turni-vlh.js?v=202611211658"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611211655"></script>
-<script src="turni-cloud-config.js?v=202611211655"></script>
-<script src="turni-cloud.js?v=202611211655"></script>
-<script src="turni-cripto.js?v=202611211655"></script>
-<script src="riepilogo.js?v=202611211655"></script>
-<script src="lineare-ufficiale.js?v=202611211655"></script>
+<script src="turni-data.js?v=202611211658"></script>
+<script src="turni-cloud-config.js?v=202611211658"></script>
+<script src="turni-cloud.js?v=202611211658"></script>
+<script src="turni-cripto.js?v=202611211658"></script>
+<script src="riepilogo.js?v=202611211658"></script>
+<script src="lineare-ufficiale.js?v=202611211658"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -2449,7 +2449,7 @@ async function publishReqRule() {
 function reqRuleBox() {
   const r = reqRuleOf(), tsel = (v, k) => `<select onchange="setReqRule('${k}',+this.value)">${TIME_OPTIONS.filter((t) => t % 30 === 0).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
   return `<label class="tg ${r.on ? 'on' : ''}" style="width:max-content;margin:0 0 6px"><input type="checkbox" ${r.on ? 'checked' : ''} onchange="setReqRule('on',this.checked)">Limiti alle richieste dall'app</label>
-    <div class="small muted" style="margin:0 0 10px 4px">Valgono per crew, hospitality e manager. Le richieste che inserisci tu a mano non hanno limiti.</div>
+    <div class="small muted" style="margin:0 0 10px 4px">Valgono per crew e hospitality: i manager hanno richieste libere. Le richieste che inserisci tu a mano non hanno limiti.</div>
     ${r.on ? `<div class="form"><div class="row" style="align-items:end">
       <label class="f">Si possono mandare il<select onchange="setReqRule('day',+this.value)">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}" ${d === r.day ? 'selected' : ''}>${T.DOW_LONG[d]}</option>`).join('')}</select></label>
       <label class="f">dalle${tsel(r.from, 'from')}</label><label class="f">alle${tsel(r.to, 'to')}</label>
