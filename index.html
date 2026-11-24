@@ -474,6 +474,7 @@
 <script src="turni-cripto.js?v=202611212122"></script>
 <script src="riepilogo.js?v=202611212122"></script>
 <script src="importa-personale.js?v=202611212122"></script>
+<script src="turni-sb.js?v=202611212122"></script>
 <script src="lineare-ufficiale.js?v=202611212122"></script>
 <script>
 'use strict';
@@ -566,6 +567,12 @@ const INFO = {
   'cfg-pre': [`Chi fa la cena entra dalle`, `Ora più presto in cui entra chi lavora per la cena. Così i turni di cena non partono nel mezzo del pomeriggio.`],
   'store': [`Store`, `Qui si adatta l'app a questo locale: orari, postazioni e regole. Ogni locale ha le sue impostazioni (salvate e cifrate con i suoi dati): un locale nuovo le imposta qui, senza cambiare il programma.<br><br>Le <b>squadre di apertura e chiusura</b> (quante persone per postazione) si impostano in Regole → Fasce di copertura; <b>chi può aprire o chiudere</b> in Persone → Aperture e chiusure; durate e stacchi dei crew in Regole.`],
   'aperture-note': [`Chi apre e chi chiude`, `Per le <b>chiusure</b>: finché per una postazione non segni nessuno, possono chiudere tutti quelli formati in quella postazione (Formazione). Appena ne segni almeno uno, chiudono solo quelli segnati. La <b>Sala</b> la possono chiudere sia crew sia hospitality.<br><br>Chi è 🎓 in formazione non apre e non chiude mai da solo. In <b>apertura</b> c'è solo la squadra di apertura impostata in Regole → Fasce di copertura.`],
+  'sb-file': ['Dati da SmartBusiness', `Con i report di SmartBusiness l'app calcola da sola clienti e vendite previsti, giorno per giorno e ora per ora (anche per la VLH). Su <b>www.smart-business.info</b>:<ol style="margin:6px 0 6px 18px;padding:0">
+    <li><b>Reports → Analisi Fasce Orarie → Fasce Orarie per Data</b>. Imposta: Periodo (le date si scelgono dal calendario), Fasce Orarie = <b>Quarti d'ora</b>, tutti i giorni, il tuo locale, Tipo = <b>Sales + GC</b> (in fondo alla pagina).</li>
+    <li>Esegui ed esporta in Excel (icona del dischetto → Excel) una volta per ogni <b>CDC</b>: <b>Tutti</b>, poi Mc Cafè, Front, Chiosco (e Drive, se c'è). Il CDC Tutti è indispensabile, gli altri servono a dividere vendite e clienti per canale.</li>
+    <li><b>Altri Reports → Report Controllo VLH</b>: Periodo da oggi a 10 giorni dopo, il tuo locale, esporta in Excel (sono le previsioni ora per ora di SmartBusiness).</li>
+    <li>Qui premi <b>Carica i file SmartBusiness</b> e seleziona tutti i file scaricati insieme.</li></ol>
+    La prima volta scarica un periodo lungo (l'ideale è un anno: servono almeno 4 settimane). Poi basta una volta a settimana con i giorni nuovi. I file si leggono sul tuo computer; i dati restano nei dati del locale, cifrati.`],
   'vlh-help': [`Come leggere la VLH`, `Postazioni da aprire ora per ora secondo le tabelle VLH. I GC si possono correggere a mano (sfondo giallo). Le postazioni <u><i>sottolineate</i></u> si aprono in quell'ora. In rosso le ore con meno persone in turno di quelle consigliate.<br><br>I nomi sono una proposta presa dal lineare, area per area: chi è in MFY va solo in Production, chi è in OA solo al Front Counter (alle patatine anche chi è in MFY, al servizio al tavolo anche sala e hospitality), chi è al McCafé solo al McCafé.<br><br>Puoi trascinare un nome in un'altra casella della stessa ora (se è occupata le due persone si scambiano) o nella riga «Liberi» per toglierlo; i nomi spostati a mano sono in blu. In stampa puoi correggerli a penna.`],
   'dash-vendite': [`Vendite rispetto all'anno scorso`, `<b>Cosa mostra</b>: per ogni giorno, quanto ha venduto il locale rispetto allo <b>stesso giorno della settimana dell'anno scorso</b> (52 settimane prima: lunedì con lunedì). Il numero grande è la variazione della settimana intera.<br><br><b>Come si legge</b>: barra <b style="color:#2a78d6">blu</b> verso l'alto = sopra l'anno scorso; barra <b style="color:#e34948">rossa</b> verso il basso = sotto. I giorni già passati usano le <b>vendite vere</b>; quelli futuri le <b>previsioni</b> (barre chiare tratteggiate). Passa il mouse su una barra per vedere gli euro.<br><br><b>A cosa serve</b>: capire se il locale cresce o cala e in quali giorni; è il numero da portare in riunione. Se un giorno previsto è molto diverso dall'anno scorso, controlla gli eventi in Previsioni (un evento sbagliato sposta anche le ore dei turni).<br><br>Le vendite vere arrivano con le previsioni automatiche (aggiornate ogni giorno da SmartBusiness).`],
   'dash-ore': [`Ore pianificate e ore previste`, `<b>Cosa mostra</b>: per ogni giorno, le <b>ore messe in turno</b> (barre blu: crew, hospitality e doppi, senza manager) e le <b>Ore totali previste</b> (lineetta nera), cioè le ore che servono secondo la previsione delle vendite. Il numero grande è quante ore sei sopra (+) o sotto (−) la previsione nella settimana.<br><br><b>Come si legge</b>: barra più alta della lineetta = più ore del necessario; barra più bassa = meno ore del previsto.<br><br><b>A cosa serve</b>: controllare il costo del lavoro prima di pubblicare i turni. Troppe ore in un giorno tranquillo = soldi spesi; troppo poche in un giorno forte = rischio di restare scoperti nei rush.`],
@@ -1709,6 +1716,8 @@ async function applyAutoForecasts(data) {
   if (!data || data.tipo !== 'previsioni-turni' || !data.giorni) throw new Error('Questo non è un file di previsioni automatiche.');
   if (TurniCloud.loggedIn()) await cloudPull(); // parte dai dati online più recenti
   state.forecasts = state.forecasts || {};
+  // archivio SmartBusiness del locale (dal pulsante "Carica i file SmartBusiness" o dal Mac): serve ai prossimi calcoli
+  if (data.archivio) state.sbArch = data.archivio;
   const ratio = chRatio();
   // settimane con turni già fatti: i numeri già presenti restano fermi (si aggiornano solo GC SmartBusiness e quote per canale)
   const planned = new Set(state.shifts.map((s) => T.mondayOf(s.day)));
@@ -1748,6 +1757,40 @@ function importAutoForecasts(input) {
   file.text().then((t) => applyAutoForecasts(JSON.parse(t)))
     .then((r) => alert(`Previsioni caricate per ${r.giorni} giorni.` + (r.bloccati ? ` ${r.bloccati} giorni di settimane con i turni già fatti sono rimasti fermi.` : '') + (r.manuali ? ` ${r.manuali} valori scritti a mano sono rimasti com'erano.` : '')))
     .catch((e) => alert('Non è stato possibile caricare il file: ' + e.message));
+}
+/**
+ * Report SmartBusiness caricati dall'app: si uniscono all'archivio del locale e l'app ricalcola le previsioni
+ * (come fa il Mac con smartbusiness.py e previsioni.py). Vedi turni-sb.js.
+ */
+async function importSbFiles(input) {
+  const files = [...(input.files || [])]; input.value = '';
+  if (!files.length) return;
+  showModal(`<h3>Leggo i file SmartBusiness…</h3><p class="muted" id="sb-prog"></p>`);
+  const arch = JSON.parse(JSON.stringify(state.sbArch || { giorni: {}, prev: {} })), res = [];
+  for (const [i, f] of files.entries()) {
+    const pr = document.getElementById('sb-prog'); if (pr) pr.textContent = `File ${i + 1} di ${files.length}: ${f.name}`;
+    try { res.push({ file: f.name, ...TurniSB.unisci(arch, await ImportaPersonale.leggiFile(await f.arrayBuffer())) }); }
+    catch (e) { res.push({ file: f.name, tipo: null }); }
+  }
+  TurniSB.pota(arch);
+  const json = TurniSB.crea(arch);
+  let r = null;
+  try {
+    if (json) { json.archivio = arch; r = await applyAutoForecasts(json); }
+    else { state.sbArch = arch; save(); render(); }
+  } catch (e) { return showModal(`<h3>Previsioni non aggiornate</h3><p>${esc(e.message)}</p><div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button></div>`); }
+  const NOMI = { tutti: 'Vendite (Tutti)', mccafe: 'McCafé', front: 'Front', chiosco: 'Chiosco', mcdelivery: 'McDelivery', drive: 'Drive' };
+  const dt = (iso) => (iso ? T.itDate(T.toDay(iso)) : '—');
+  const rows = res.map((x) => `<tr><td class="small">${esc(x.file)}</td><td>${x.tipo === 'fasce' ? `Fasce orarie · ${esc(NOMI[x.cdc] || x.cdc)}` : x.tipo === 'previsioni' ? 'Report Controllo VLH' : '<span style="color:var(--err-ink)">non riconosciuto</span>'}</td>
+    <td class="small">${x.tipo ? `${dt(x.dal)} – ${dt(x.al)}` : ''}</td></tr>`).join('');
+  const st = TurniSB.stato(arch);
+  showModal(`<h3>File SmartBusiness caricati</h3>
+    <table class="list"><thead><tr><th>File</th><th>Report</th><th>Periodo</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="small" style="margin-top:10px">Nell'app ora ci sono: ${['tutti', 'mccafe', 'front', 'chiosco', 'drive'].filter((k) => st[k]).map((k) => `${NOMI[k]} fino al <b>${dt(st[k])}</b>`).join(', ') || 'nessuna vendita'}${st.previsioni ? `; previsioni SmartBusiness fino al <b>${dt(st.previsioni)}</b>` : ''}.</p>
+    ${json ? `<div class="notice info">Previsioni ricalcolate per ${r.giorni} giorni.${r.bloccati ? ` ${r.bloccati} giorni di settimane con i turni già fatti sono rimasti fermi.` : ''}${r.manuali ? ` ${r.manuali} valori scritti a mano sono rimasti com'erano.` : ''}</div>`
+      : `<div class="notice warn">Per calcolare le previsioni servono almeno ${TurniSB.MIN_GIORNI} giorni di vendite (Fasce orarie con CDC = Tutti): ora ce ne sono ${st.giorniTutti}. Scarica un periodo più lungo, l'ideale è un anno.</div>`}
+    <div class="actions"><button class="btn primary" onclick="closeModal()">Chiudi</button></div>`);
+  const md = document.querySelector('#modal .modal'); if (md) { md.style.maxWidth = '760px'; md.style.width = '96vw'; }
 }
 /** Vendite e GC del giorno divise per canale, con le quote medie delle ultime 4 settimane (d.canali = { chiosco: { s, g } ... }). */
 const CANALI = { chiosco: 'Kiosk', mccafe: 'McCafé', front: 'Front', mcdelivery: 'McDelivery', drive: 'Drive', altro: 'Altro' };
@@ -2060,6 +2103,7 @@ function renderPrevisioni() {
   <div class="toolbar">
     <button class="btn" onclick="moveWeek(-1)">◀</button><div class="week">${T.weekLabel(ui.ws)}</div><button class="btn" onclick="moveWeek(1)">▶</button>
     <div class="spacer"></div>
+    <label class="btn primary" title="Report Excel scaricati da SmartBusiness">Carica i file SmartBusiness<input type="file" multiple accept=".xlsx,.xls" style="display:none" onchange="importSbFiles(this)"></label> ${ib('sb-file')}
     <label class="btn" title="Carica il file previsioni-app.json">📥 Carica previsioni automatiche<input type="file" accept=".json,application/json" style="display:none" onchange="importAutoForecasts(this)"></label>
     <button class="btn" onclick="copyFcPrev()">Copia dalla settimana precedente</button>
     <button class="btn" onclick="clearFc()">Svuota la settimana</button>
