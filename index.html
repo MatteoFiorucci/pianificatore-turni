@@ -2547,23 +2547,23 @@ function renderStore() {
 // ================= PERSONALE DA EXCEL =================
 function askImportStaff(msg) {
   showModal(`<h3>Carica il personale da Excel</h3>
-    <p>Carica un <b>riepilogo orari della settimana</b>: un foglio per Manager, Hospitality e Crew (più i Doppi, se ci sono), con i nomi a sinistra e i giorni da lunedì a domenica, come nel file che esporta questa app.</p>
+    <p>Carica il <b>file degli orari della settimana</b> (.xls o .xlsx): un foglio per Manager, Hospitality e Crew (più i Doppi, se ci sono), con i nomi a sinistra e i giorni da lunedì a domenica. Se il file ha anche gli <b>elenchi del personale con le ore</b> (es. fogli "Elenco CREW"), si usano le ore di contratto.</p>
     <p class="small muted">Non hai un file così? <button class="link" onclick="Riepilogo.modello()">Scarica il modello vuoto</button>, scrivi nomi e orari di una settimana tipo (es. <i>7:30 14:30</i> o <i>RIPOSO</i>) e caricalo. Il file resta sul tuo computer: non viene mandato da nessuna parte.</p>
     ${msg ? `<div class="notice err">${esc(msg)}</div>` : ''}
-    <input type="file" id="imp-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="readImportStaff(this.files[0])">
+    <input type="file" id="imp-file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="readImportStaff(this.files[0])">
     <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button></div>`);
 }
 async function readImportStaff(file) {
   if (!file) return;
   let list;
-  try { list = ImportaPersonale.persone(await ImportaPersonale.leggiExcel(await file.arrayBuffer())); }
+  try { list = ImportaPersonale.persone(await ImportaPersonale.leggiFile(await file.arrayBuffer())); }
   catch (e) { return askImportStaff(e.message || 'Non riesco a leggere il file.'); }
   if (!list.length) return askImportStaff('Nel file non ho trovato persone: servono i giorni (lunedì…domenica) in una riga e i nomi nella colonna a sinistra.');
   const g = { ...MGR_DEF, ...(state.config.mgr || {}) };
   const known = new Set([...state.employees, ...(state.managers || [])].map((e) => ImportaPersonale.norm(T.fullName(e))));
   const r30 = (m) => Math.round(m / 30) * 30;
   ui.imp = list.map((p) => ({ ...p, on: !known.has(p.key), known: known.has(p.key),
-    minutes: r30(p.type === 'MANAGER' ? p.minutes - p.long * g.breakMin : p.minutes) }));
+    minutes: p.contratto ? p.minutes : r30(p.type === 'MANAGER' ? p.minutes - p.long * g.breakMin : p.minutes) }));
   showImportStaff();
 }
 function showImportStaff() {
@@ -2580,7 +2580,7 @@ function showImportStaff() {
       <td>${p.doppi ? p.doppi : ''}</td><td class="small" style="color:var(--warn-ink)">${warn}</td></tr>`; }).join('');
   const n = L.filter((p) => p.on).length;
   showModal(`<h3>Controlla il personale trovato</h3>
-    <p class="small muted" style="margin-top:0">Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): correggile con le ore del contratto. Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. Formazione, riposi fissi e date si impostano dopo, in Persone.</p>
+    <p class="small muted" style="margin-top:0">${ui.imp.some((p) => p.contratto) ? 'Le <b>ore</b> sono quelle di contratto scritte negli elenchi del file.' : 'Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): correggile con le ore del contratto.'} Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. Formazione, riposi fissi e date si impostano dopo, in Persone.</p>
     <div style="max-height:55vh;overflow:auto"><table class="list"><thead><tr><th></th><th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Ore</th><th>Doppi</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="actions"><button class="btn" onclick="ui.imp=null;closeModal()">Annulla</button><button class="btn primary" ${n ? '' : 'disabled'} onclick="doImportStaff()">Aggiungi ${n} ${n === 1 ? 'persona' : 'persone'}</button></div>`);
 }
