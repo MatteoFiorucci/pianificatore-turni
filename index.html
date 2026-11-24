@@ -1215,7 +1215,7 @@ function renderMgrTurni() {
   const rows = team.map((m) => {
     // ore lavorate: nei turni lunghi la pausa timbrata non conta
     const tgt = MGR().targetOf(state, m, ws), w = list.filter((x) => x.managerId === m.id).reduce((t, x) => t + MGR().workOf(x.end - x.start, state), 0);
-    return `<tr><td class="name"><b>${esc(T.fullName(m))}</b><div class="small muted">${m.role === 'SHIFT' ? 'Shift' : 'RDM'}${m.area ? ' · ' + esc(m.area) : ''}</div></td>${days.map((d) => {
+    return `<tr><td class="name"><b>${esc(T.fullName(m))}</b><div class="small muted">${mgrRoleTxt(m)}${m.area ? ' · ' + esc(m.area) : ''}</div></td>${days.map((d) => {
       const x = list.find((y) => y.managerId === m.id && y.day === d), ab = (state.absences || []).find((a) => a.employeeId === m.id && d >= a.from && d <= a.to);
       const pr = probs.filter((p) => p.managerId === m.id && p.day === d), sev = pr.some((p) => p.sev === 'ERROR') ? 'err' : pr.length ? 'warn' : '';
       const inner = x ? `<div>${T.fmtTime(x.start)} ${T.fmtTime(x.end)}</div><div class="st">${MROLE[mRoleOf(x)]}</div>` : ab ? `<span class="abs" style="background:${T.absenceInfo(ab.type).color};color:${T.absenceInfo(ab.type).ink};padding:2px 6px;border-radius:4px">${T.absenceInfo(ab.type).label.toUpperCase()}</span>` : '<span class="rest">RIPOSO</span>';
@@ -1256,7 +1256,7 @@ function mgrTeamCard() {
     ${team.map((m) => `<tr>
       <td><input type="text" value="${esc(m.lastName || '')}" style="width:120px" onchange="mgrSet(${m.id},'lastName',this.value)"></td>
       <td><input type="text" value="${esc(m.firstName || '')}" style="width:110px" onchange="mgrSet(${m.id},'firstName',this.value)"></td>
-      <td><select onchange="mgrSet(${m.id},'role',this.value)"><option value="RDM" ${m.role !== 'SHIFT' ? 'selected' : ''}>RDM</option><option value="SHIFT" ${m.role === 'SHIFT' ? 'selected' : ''}>Shift</option></select></td>
+      <td><select onchange="mgrSet(${m.id},'role',this.value)" style="${m.role ? '' : 'background:var(--warn)'}">${m.role ? '' : '<option value="" selected>— scegli —</option>'}<option value="RDM" ${m.role === 'RDM' ? 'selected' : ''}>RDM</option><option value="SHIFT" ${m.role === 'SHIFT' ? 'selected' : ''}>Shift</option></select></td>
       <td><input type="text" value="${esc(m.area || '')}" placeholder="es. Servizio" style="width:100px" onchange="mgrSet(${m.id},'area',this.value)"></td>
       <td><input type="text" value="${T.hoursText(m.weeklyMinutes || 2400)}" style="width:60px" onchange="mgrSet(${m.id},'weeklyMinutes',T.parseHours(this.value))"></td>
       <td><div class="row" style="gap:3px;flex-wrap:wrap">${dayChk(m, 'orderDays', 'Fa l\'ordine')}</div></td>
@@ -1286,7 +1286,7 @@ function newManager() {
   setTimeout(() => { const inp = [...document.querySelectorAll('details input[type=text]')].filter((x) => x.getAttribute('onchange')?.includes("'lastName'")); const last = inp[inp.length - 1]; if (last) { last.scrollIntoView({ block: 'center' }); last.focus(); } }, 50);
 }
 function mgrAdd() { state.managers = state.managers || []; state.managers.push({ id: newId(), lastName: '', firstName: '', role: 'RDM', area: '', weeklyMinutes: 2400, orderDays: [], flexDays: [], active: true }); ui.mgrTeamOpen = true; save(); render(); }
-function mgrSet(id, f, v) { const m = mgrById(id); if (!m) return; if (f === 'weeklyMinutes' && !(v > 0)) return render(); if (f === 'role' && v === 'SHIFT' && (m.weeklyMinutes || 2400) === 2400) m.weeklyMinutes = 2160; m[f] = typeof v === 'string' ? v.trim() : v; save(); render(); }
+function mgrSet(id, f, v) { const m = mgrById(id); if (!m) return; if ((f === 'role' || f === 'weeklyMinutes') && m.daControllare && (f === 'role' ? v : m.role)) delete m.daControllare; if (f === 'weeklyMinutes' && !(v > 0)) return render(); if (f === 'role' && v === 'SHIFT' && (m.weeklyMinutes || 2400) === 2400) m.weeklyMinutes = 2160; m[f] = typeof v === 'string' ? v.trim() : v; save(); render(); }
 function mgrToggleDay(id, f, d) { const m = mgrById(id); const l = new Set(m[f] || []); l.has(d) ? l.delete(d) : l.add(d); m[f] = [...l].sort(); save(); render(); }
 function mgrToggleDeliv(d) { const l = new Set(state.config.mgrDelivery || [2, 5]); l.has(d) ? l.delete(d) : l.add(d); state.config.mgrDelivery = [...l].sort(); save(); render(); }
 function mgrDel(id) { const m = mgrById(id); if (!confirm(`Eliminare ${T.fullName(m) || 'questo manager'} e i suoi turni?`)) return; state.managers = state.managers.filter((x) => x.id !== id); state.mgrShifts = (state.mgrShifts || []).filter((x) => x.managerId !== id); save(); render(); }
@@ -1343,7 +1343,7 @@ function openMgrDay(id, day) {
   const m = mgrById(id), x = (state.mgrShifts || []).find((y) => y.managerId === id && y.day === day);
   ui.mdraft = { id, day, start: x ? x.start : 450, end: x ? x.end : 870, role: x ? mRoleOf(x) : 'A', has: !!x };
   const probs = MGR().check(state, T.mondayOf(day)).filter((p) => p.managerId === id && p.day === day);
-  showModal(`<h3>${esc(T.fullName(m))}</h3><div class="muted">${T.longDate(day)} · ${m.role === 'SHIFT' ? 'Shift' : 'RDM'}</div>
+  showModal(`<h3>${esc(T.fullName(m))}</h3><div class="muted">${T.longDate(day)} · ${mgrRoleTxt(m)}</div>
     ${probs.map((p) => `<div class="notice ${p.sev === 'ERROR' ? 'err' : 'warn'}" style="margin-top:8px">${esc(p.msg)}</div>`).join('')}
     <div class="form" style="margin-top:12px"><div class="row">
       <label class="f">Dalle${dayTimeSel(ui.mdraft.start, 'ui.mdraft.start=+this.value')}</label>
@@ -2039,7 +2039,7 @@ function renderPersonale() {
       return `<tr class="clickable ${sel ? 'sel' : ''}" onclick="${onclick}">
         ${ui.deleteMode ? `<td style="width:36px"><input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleSel(${e.id})"></td>` : ''}
         <td><b>${esc(T.fullName(e))}</b></td>
-        <td>${e.fixedShift ? `<span class="pill on">Fisso ${T.fmtTime(e.fixedShift.start)}–${T.fmtTime(e.fixedShift.end)}</span>` : T.fmtDur(e.weeklyMinutes)}</td>
+        <td>${e.fixedShift ? `<span class="pill on">Fisso ${T.fmtTime(e.fixedShift.start)}–${T.fmtTime(e.fixedShift.end)}</span>` : T.fmtDur(e.weeklyMinutes)}${e.daControllare ? ' <span class="pill" style="background:var(--warn)">da controllare</span>' : ''}</td>
         <td>${e.restDays.length ? e.restDays.slice().sort().map((d) => T.DOW_SHORT[d]).join(', ') : '<span class="muted">nessuno</span>'}</td>
         <td>${e.type === 'CREW' ? (e.trainings.length ? e.trainings.map((s) => `<span class="pill on">${T.STATIONS[s].label}</span>`).join('') : '<span class="muted small">non inserita</span>') : '—'}</td>
         <td>${e.active ? 'Sì' : '<b style="color:var(--err-ink)">No</b>'}${e.trainee ? ' <span class="pill" style="background:var(--warn)">🎓 in formazione</span>' : ''}${e.startDate != null && e.startDate > T.todayDay() ? ` <span class="pill" style="background:#e8eefc;color:var(--rest)">entra il ${T.itDate(e.startDate)}</span>` : ''}${e.endDate != null ? ` <span class="pill" style="background:${e.endDate < T.todayDay() ? '#eee;color:#666' : 'var(--warn);color:var(--warn-ink)'}">${e.endDate < T.todayDay() ? 'uscito/a il' : 'esce il'} ${T.itDate(e.endDate)}</span>` : ''}</td>
@@ -2049,7 +2049,7 @@ function renderPersonale() {
     const team = sortByName((state.managers || []).filter((m) => m.active !== false));
     if (!team.length || ui.deleteMode) return '';
     return `<tr class="group"><td colspan="6">Manager (${team.length}) <span class="small muted">· clicca per le condizioni (ruolo, ore, giorni d'ordine…)</span></td></tr>` + team.map((m) => `<tr class="clickable" onclick="openMgrTeam()">
-        <td><b>${esc(T.fullName(m) || 'Nuovo manager')}</b></td><td>${T.fmtDur(m.weeklyMinutes || 2400)}</td><td>${m.role === 'SHIFT' ? 'Shift' : 'RDM'}</td><td>—</td><td>Sì</td></tr>`).join('');
+        <td><b>${esc(T.fullName(m) || 'Nuovo manager')}</b></td><td>${T.fmtDur(m.weeklyMinutes || 2400)}${m.daControllare ? ' <span class="pill" style="background:var(--warn)">da controllare</span>' : ''}</td><td>${m.role ? mgrRoleTxt(m) : '<span class="pill" style="background:var(--warn)">Ruolo da scegliere</span>'}</td><td>—</td><td>Sì</td></tr>`).join('');
   })();
   return `
   <div class="toolbar">
@@ -2061,6 +2061,7 @@ function renderPersonale() {
     <button class="btn primary" onclick="editEmployee(null)">+ Nuovo dipendente</button>`}
   </div>
   ${ui.deleteMode ? '<div class="notice warn" style="margin-bottom:12px">Seleziona chi se n\'è andato o non è stato riconfermato, poi premi <b>Elimina</b>. Se è solo una pausa, meglio aprire la persona e togliere "Attivo".</div>' : ''}
+  ${importCheckNotice()}
   ${state.employees.length ? '' : '<div class="notice info" style="margin-bottom:12px">Nessun dipendente. Aggiungili con <b>+ Nuovo dipendente</b>, oppure, se hai un file esportato da un altro dispositivo, caricalo da <b>Regole → Dati → Importa dati</b>.</div>'}
   <div class="card">
     <table class="list"><thead><tr>${ui.deleteMode ? '<th></th>' : ''}<th>Nome</th><th>Ore / orario</th><th>Riposi fissi</th><th>Formazione</th><th>Attivo</th></tr></thead><tbody>${groups}</tbody></table>
@@ -2150,7 +2151,7 @@ function saveEmployee(id) {
     if (fe <= fs) { err.style.display = 'block'; err.textContent = "L'orario fisso deve finire dopo l'inizio."; return; }
     data.fixedShift = { start: fs, end: fe };
   }
-  if (id) Object.assign(empById(id), data);
+  if (id) { Object.assign(empById(id), data); delete empById(id).daControllare; }
   else state.employees.push({ id: newId(), trainings: [], doubleDays: 0, ...data });
   save(); closeModal(); render();
   // turni già messi dopo l'ultimo giorno di lavoro: si possono togliere subito
@@ -2183,6 +2184,8 @@ function renderFormazione() {
   ${renderAffiancamenti()}`;
 }
 const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+/** Ruolo del manager per i testi: dopo l'importazione da Excel resta da scegliere. */
+const mgrRoleTxt = (m) => (m.role === 'SHIFT' ? 'Shift' : m.role === 'RDM' ? 'RDM' : 'Ruolo da scegliere');
 function setTrainee(id, on) { const e = empById(id); e.trainee = on; if (!on) e.traineeUntil = null; save(); render(); }
 function setTraineeUntil(id, v) { empById(id).traineeUntil = v ? T.toDay(v) : null; save(); render(); }
 /** Sezione Formazione: piani di affiancamento in apertura (MFY, McCafé) e chiusura (McCafé). */
@@ -2545,6 +2548,17 @@ function renderStore() {
   <div class="card section">${reqRuleBox()}</div>`;
 }
 // ================= PERSONALE DA EXCEL =================
+/** Persone caricate da Excel e non ancora controllate: ore di contratto (crew e hospitality), ruolo (manager). */
+function importCheckNotice() {
+  if (ui.deleteMode) return '';
+  const emps = state.employees.filter((e) => e.daControllare), mgrs = (state.managers || []).filter((m) => m.active !== false && (!m.role || m.daControllare));
+  if (!emps.length && !mgrs.length) return '';
+  return `<div class="notice warn" style="margin-bottom:12px"><b>Da controllare dopo il caricamento da Excel</b>
+    ${emps.length ? `<div style="margin-top:4px">${emps.length} tra crew e hospitality: apri ognuno (clic sul nome), controlla <b>ore di contratto</b>, riposi fissi e date, poi premi <b>Salva</b>.</div>` : ''}
+    ${mgrs.length ? `<div style="margin-top:4px">${mgrs.length} manager: scegli il <b>ruolo</b> (RDM o Shift) e controlla le <b>ore</b> in <button class="link" onclick="openMgrTeam()">Squadra manager</button>.</div>` : ''}
+    <div class="small" style="margin-top:4px">La postazione di ognuno si segna in <button class="link" onclick="go('formazione')">Formazione</button>.</div></div>`;
+}
+
 function askImportStaff(msg) {
   showModal(`<h3>Carica il personale da Excel</h3>
     <p>Carica il <b>file degli orari della settimana</b> (.xls o .xlsx): un foglio per Manager, Hospitality e Crew (più i Doppi, se ci sono), con i nomi a sinistra e i giorni da lunedì a domenica. Se il file ha anche gli <b>elenchi del personale con le ore</b> (es. fogli "Elenco CREW"), si usano le ore di contratto.</p>
@@ -2571,18 +2585,20 @@ function showImportStaff() {
   const idx = L.map((_, i) => i).sort((a, b) => ord[L[a].type] - ord[L[b].type] || L[a].key.localeCompare(L[b].key));
   const types = { CREW: 'Crew', HOSPITALITY: 'Hospitality', MANAGER: 'Manager' };
   const rows = idx.map((i) => { const p = L[i];
-    const warn = p.known ? 'già presente' : p.absent ? 'assente in settimana: controlla le ore' : p.minutes < 480 ? 'poche ore: controlla' : '';
+    const warn = p.known ? 'già presente' : p.type === 'MANAGER' && !p.role ? 'scegli il ruolo (anche dopo)' : p.absent ? 'assente in settimana: controlla le ore' : p.minutes < 480 ? 'poche ore: controlla' : '';
     return `<tr style="${p.on ? '' : 'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${p.on ? 'checked' : ''} onchange="ui.imp[${i}].on=this.checked;showImportStaff()"></td>
-      <td><input type="text" value="${esc(p.lastName)}" style="width:130px" onchange="ui.imp[${i}].lastName=this.value.trim()"></td>
-      <td><input type="text" value="${esc(p.firstName)}" style="width:130px" onchange="ui.imp[${i}].firstName=this.value.trim()"></td>
-      <td><select onchange="ui.imp[${i}].type=this.value">${Object.entries(types).map(([k, l]) => `<option value="${k}" ${p.type === k ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+      <td><input type="text" value="${esc(p.lastName)}" style="width:120px" onchange="ui.imp[${i}].lastName=this.value.trim()"></td>
+      <td><input type="text" value="${esc(p.firstName)}" style="width:120px" onchange="ui.imp[${i}].firstName=this.value.trim()"></td>
+      <td style="white-space:nowrap"><select onchange="ui.imp[${i}].type=this.value;showImportStaff()">${Object.entries(types).map(([k, l]) => `<option value="${k}" ${p.type === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+        ${p.type === 'MANAGER' ? `<select style="margin-left:4px" onchange="ui.imp[${i}].role=this.value;showImportStaff()" style="${p.role ? '' : 'background:var(--warn)'}"><option value="" ${p.role ? '' : 'selected'}>scegli…</option><option value="RDM" ${p.role === 'RDM' ? 'selected' : ''}>RDM</option><option value="SHIFT" ${p.role === 'SHIFT' ? 'selected' : ''}>Shift</option></select>` : ''}</td>
       <td><input type="text" value="${T.hoursText(p.minutes)}" style="width:60px" onchange="const v=T.parseHours(this.value);if(v!=null)ui.imp[${i}].minutes=v"></td>
       <td>${p.doppi ? p.doppi : ''}</td><td class="small" style="color:var(--warn-ink)">${warn}</td></tr>`; }).join('');
   const n = L.filter((p) => p.on).length;
   showModal(`<h3>Controlla il personale trovato</h3>
-    <p class="small muted" style="margin-top:0">${ui.imp.some((p) => p.contratto) ? 'Le <b>ore</b> sono quelle di contratto scritte negli elenchi del file.' : 'Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): correggile con le ore del contratto.'} Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. Formazione, riposi fissi e date si impostano dopo, in Persone.</p>
+    <p class="small muted" style="margin-top:0">${ui.imp.some((p) => p.contratto) ? 'Le <b>ore</b> sono quelle di contratto scritte negli elenchi del file: controllale.' : 'Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): <b>correggile con le ore del contratto</b>.'} Per i manager scegli il <b>ruolo</b> (RDM o Shift): si può fare anche dopo. Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. Formazione, riposi fissi e date si impostano dopo, in Persone.</p>
     <div style="max-height:55vh;overflow:auto"><table class="list"><thead><tr><th></th><th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Ore</th><th>Doppi</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="actions"><button class="btn" onclick="ui.imp=null;closeModal()">Annulla</button><button class="btn primary" ${n ? '' : 'disabled'} onclick="doImportStaff()">Aggiungi ${n} ${n === 1 ? 'persona' : 'persone'}</button></div>`);
+  const md = document.querySelector('#modal .modal'); if (md) { md.style.maxWidth = '1000px'; md.style.width = '96vw'; }
 }
 function doImportStaff() {
   // valori scritti ma non ancora confermati (campo ancora attivo)
@@ -2590,13 +2606,18 @@ function doImportStaff() {
   const L = (ui.imp || []).filter((p) => p.on && p.lastName);
   state.managers = state.managers || [];
   for (const p of L) {
-    if (p.type === 'MANAGER') state.managers.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, role: 'RDM', area: '', weeklyMinutes: p.minutes || 2400, orderDays: [], flexDays: [], active: true });
-    else state.employees.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, type: p.type, weeklyMinutes: p.minutes, restDays: [], trainings: [], active: true, fixedShift: null, doubleDays: p.doppi || 0 });
+    // "daControllare": avviso in Persone finché non si apre la scheda (crew, hospitality) o non si sceglie il ruolo (manager)
+    if (p.type === 'MANAGER') state.managers.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, role: p.role || '', area: '', weeklyMinutes: p.minutes || 2400, orderDays: [], flexDays: [], active: true, daControllare: true });
+    else state.employees.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, type: p.type, weeklyMinutes: p.minutes, restDays: [], trainings: [], active: true, fixedShift: null, doubleDays: p.doppi || 0, daControllare: true });
   }
   ui.imp = null; save(); closeModal(); go('personale');
   showModal(`<h3>Personale aggiunto</h3><p>Ho aggiunto <b>${L.length}</b> ${L.length === 1 ? 'persona' : 'persone'}.</p>
-    <p>Ora segna in <b>Formazione</b> le postazioni in cui ognuno è formato e, se servono, i riposi fissi in <b>Persone</b>. Poi in <b>Turni</b> premi <b>Genera turni</b>.</p>
-    <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="closeModal();go('formazione')">Vai alla Formazione</button></div>`);
+    <div class="notice warn"><b>Prima di generare i turni controlla:</b><ul style="margin:6px 0 0 18px;padding:0">
+      <li><b>ore di contratto</b> di crew e hospitality (apri ognuno in Persone e premi Salva);</li>
+      <li><b>ruolo</b> (RDM o Shift) e <b>ore</b> dei manager (Squadra manager);</li>
+      <li>le <b>postazioni</b> in cui ognuno è formato (Formazione) e, se servono, i riposi fissi.</li></ul>
+      <div class="small" style="margin-top:6px">In Persone trovi l'avviso "da controllare" finché non hai fatto.</div></div>
+    <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="closeModal();go('personale')">Inizia dai controlli</button></div>`);
 }
 // ================= CONFIGURAZIONE GUIDATA (locale nuovo) =================
 // Quattro passi alla prima apertura di un locale nuovo: orari, postazioni, persone nei picchi, personale.
