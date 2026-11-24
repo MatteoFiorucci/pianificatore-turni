@@ -472,6 +472,7 @@
 <script src="turni-cloud.js?v=202611212122"></script>
 <script src="turni-cripto.js?v=202611212122"></script>
 <script src="riepilogo.js?v=202611212122"></script>
+<script src="importa-personale.js?v=202611212122"></script>
 <script src="lineare-ufficiale.js?v=202611212122"></script>
 <script>
 'use strict';
@@ -2055,6 +2056,7 @@ function renderPersonale() {
     <h2 style="margin:0">Personale (${state.employees.length})</h2>
     <div class="spacer"></div>
     ${ui.deleteMode ? '' : `<button class="btn" style="color:var(--err-ink)" onclick="ui.deleteMode=true;render()">🗑 Elimina persone</button>
+    <button class="btn" onclick="askImportStaff()">Carica da Excel</button>
     <button class="btn" onclick="newManager()">+ Nuovo manager</button>
     <button class="btn primary" onclick="editEmployee(null)">+ Nuovo dipendente</button>`}
   </div>
@@ -2421,14 +2423,21 @@ function setStation(i, k, v) {
   if (k === 'active' && !v && state.coverage.some((r) => r.station === x.id && (r.min || []).some((n) => n > 0))) {
     if (!confirm(`Ci sono fasce di copertura per ${x.label} (Regole). Spegnendo la postazione non verranno più coperte. Continuare?`)) { render(); return; }
   }
-  x[k] = v; save(); render();
+  x[k] = v;
+  if (k === 'active' && v) stationCoverage(x);
+  save(); render();
+}
+/** Postazione accesa: se non ha ancora una fascia, si aggiunge "Postazione X" (almeno 1 persona dopo l'apertura e fino alle 21, consiglio). */
+function stationCoverage(x) {
+  if (x.id === 'HOSPITALITY' || state.coverage.some((r) => r.station === x.id)) return;
+  state.coverage.push({ id: 'p' + newId(), name: 'Postazione ' + (x.short || x.label), start: 630, end: 1260, min: [1, 1, 1, 1, 1, 1, 1], station: x.id, soft: true });
 }
 function addStation() {
   const name = (prompt('Nome della nuova postazione (es. Drive 2, Kiosk, Pulizie):') || '').trim();
   if (!name) return;
   const id = 'P' + newId();
   storeStations().push({ id, label: name, short: name.slice(0, 4).toUpperCase(), color: '#5b8c5a', active: true, custom: true });
-  save(); render();
+  stationCoverage(storeStations().at(-1)); save(); render();
 }
 function delStation(i) {
   const l = storeStations(), x = l[i];
@@ -2535,6 +2544,60 @@ function renderStore() {
   <h3>📩 Richieste del personale</h3>
   <div class="card section">${reqRuleBox()}</div>`;
 }
+// ================= PERSONALE DA EXCEL =================
+function askImportStaff(msg) {
+  showModal(`<h3>Carica il personale da Excel</h3>
+    <p>Carica un <b>riepilogo orari della settimana</b>: un foglio per Manager, Hospitality e Crew (più i Doppi, se ci sono), con i nomi a sinistra e i giorni da lunedì a domenica, come nel file che esporta questa app.</p>
+    <p class="small muted">Non hai un file così? <button class="link" onclick="Riepilogo.modello()">Scarica il modello vuoto</button>, scrivi nomi e orari di una settimana tipo (es. <i>7:30 14:30</i> o <i>RIPOSO</i>) e caricalo. Il file resta sul tuo computer: non viene mandato da nessuna parte.</p>
+    ${msg ? `<div class="notice err">${esc(msg)}</div>` : ''}
+    <input type="file" id="imp-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="readImportStaff(this.files[0])">
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button></div>`);
+}
+async function readImportStaff(file) {
+  if (!file) return;
+  let list;
+  try { list = ImportaPersonale.persone(await ImportaPersonale.leggiExcel(await file.arrayBuffer())); }
+  catch (e) { return askImportStaff(e.message || 'Non riesco a leggere il file.'); }
+  if (!list.length) return askImportStaff('Nel file non ho trovato persone: servono i giorni (lunedì…domenica) in una riga e i nomi nella colonna a sinistra.');
+  const g = { ...MGR_DEF, ...(state.config.mgr || {}) };
+  const known = new Set([...state.employees, ...(state.managers || [])].map((e) => ImportaPersonale.norm(T.fullName(e))));
+  const r30 = (m) => Math.round(m / 30) * 30;
+  ui.imp = list.map((p) => ({ ...p, on: !known.has(p.key), known: known.has(p.key),
+    minutes: r30(p.type === 'MANAGER' ? p.minutes - p.long * g.breakMin : p.minutes) }));
+  showImportStaff();
+}
+function showImportStaff() {
+  const L = ui.imp, ord = { MANAGER: 0, HOSPITALITY: 1, CREW: 2 };
+  const idx = L.map((_, i) => i).sort((a, b) => ord[L[a].type] - ord[L[b].type] || L[a].key.localeCompare(L[b].key));
+  const types = { CREW: 'Crew', HOSPITALITY: 'Hospitality', MANAGER: 'Manager' };
+  const rows = idx.map((i) => { const p = L[i];
+    const warn = p.known ? 'già presente' : p.absent ? 'assente in settimana: controlla le ore' : p.minutes < 480 ? 'poche ore: controlla' : '';
+    return `<tr style="${p.on ? '' : 'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${p.on ? 'checked' : ''} onchange="ui.imp[${i}].on=this.checked;showImportStaff()"></td>
+      <td><input type="text" value="${esc(p.lastName)}" style="width:130px" onchange="ui.imp[${i}].lastName=this.value.trim()"></td>
+      <td><input type="text" value="${esc(p.firstName)}" style="width:130px" onchange="ui.imp[${i}].firstName=this.value.trim()"></td>
+      <td><select onchange="ui.imp[${i}].type=this.value">${Object.entries(types).map(([k, l]) => `<option value="${k}" ${p.type === k ? 'selected' : ''}>${l}</option>`).join('')}</select></td>
+      <td><input type="text" value="${T.hoursText(p.minutes)}" style="width:60px" onchange="const v=T.parseHours(this.value);if(v!=null)ui.imp[${i}].minutes=v"></td>
+      <td>${p.doppi ? p.doppi : ''}</td><td class="small" style="color:var(--warn-ink)">${warn}</td></tr>`; }).join('');
+  const n = L.filter((p) => p.on).length;
+  showModal(`<h3>Controlla il personale trovato</h3>
+    <p class="small muted" style="margin-top:0">Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): correggile con le ore del contratto. Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. Formazione, riposi fissi e date si impostano dopo, in Persone.</p>
+    <div style="max-height:55vh;overflow:auto"><table class="list"><thead><tr><th></th><th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Ore</th><th>Doppi</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="actions"><button class="btn" onclick="ui.imp=null;closeModal()">Annulla</button><button class="btn primary" ${n ? '' : 'disabled'} onclick="doImportStaff()">Aggiungi ${n} ${n === 1 ? 'persona' : 'persone'}</button></div>`);
+}
+function doImportStaff() {
+  // valori scritti ma non ancora confermati (campo ancora attivo)
+  if (document.activeElement && document.activeElement.onchange) document.activeElement.onchange();
+  const L = (ui.imp || []).filter((p) => p.on && p.lastName);
+  state.managers = state.managers || [];
+  for (const p of L) {
+    if (p.type === 'MANAGER') state.managers.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, role: 'RDM', area: '', weeklyMinutes: p.minutes || 2400, orderDays: [], flexDays: [], active: true });
+    else state.employees.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, type: p.type, weeklyMinutes: p.minutes, restDays: [], trainings: [], active: true, fixedShift: null, doubleDays: p.doppi || 0 });
+  }
+  ui.imp = null; save(); closeModal(); go('personale');
+  showModal(`<h3>Personale aggiunto</h3><p>Ho aggiunto <b>${L.length}</b> ${L.length === 1 ? 'persona' : 'persone'}.</p>
+    <p>Ora segna in <b>Formazione</b> le postazioni in cui ognuno è formato e, se servono, i riposi fissi in <b>Persone</b>. Poi in <b>Turni</b> premi <b>Genera turni</b>.</p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="closeModal();go('formazione')">Vai alla Formazione</button></div>`);
+}
 // ================= CONFIGURAZIONE GUIDATA (locale nuovo) =================
 // Quattro passi alla prima apertura di un locale nuovo: orari, postazioni, persone nei picchi, personale.
 // Tutto resta modificabile dopo in Impostazioni → Store / Regole.
@@ -2557,12 +2620,13 @@ function openSetup(n = 0) {
   if (n === 0) {
     const h = (d) => ({ open: c.open ?? 450, close: c.close ?? 1290, ...((c.hours || {})[d] || {}) });
     const rows = [1, 2, 3, 4, 5, 6, 7].map((d) => `<tr><td><b>${T.DOW_LONG[d]}</b></td>
-      <td>${dayTimeSel(h(d).open, `setupHour(${d},'open',+this.value)`)} – ${dayTimeSel(h(d).close, `setupHour(${d},'close',+this.value)`)}</td></tr>`).join('');
+      <td>${h(d).h24 ? '<span class="muted">aperto 24 ore su 24</span>' : `${dayTimeSel(h(d).open, `setupHour(${d},'open',+this.value)`)} – ${dayTimeSel(h(d).close, `setupHour(${d},'close',+this.value)`)}`}</td>
+      <td><label class="tg ${h(d).h24 ? 'on' : ''}"><input type="checkbox" ${h(d).h24 ? 'checked' : ''} onchange="setupHour(${d},'h24',this.checked)">24h</label></td></tr>`).join('');
     body = `<label class="f">Nome del locale<input type="text" id="setup-nome" value="${esc(c.storeName || '')}" maxlength="80"></label>
       <p class="small muted" style="margin:12px 0 6px">Orari di apertura al pubblico. Cambiane uno e premi <b>Copia il lunedì su tutti</b> se sono uguali ogni giorno.</p>
       <table class="list"><tbody>${rows}</tbody></table>
       <div style="margin-top:6px"><button class="link" onclick="setupCopyMonday()">Copia il lunedì su tutti i giorni</button></div>
-      <p class="small muted" style="margin-bottom:0">Aperture 24 ore: Impostazioni → Store.</p>`;
+      <p class="small muted" style="margin-bottom:0">Aperto giorno e notte? Spunta <b>24h</b>: al passo 3 aggiungi i picchi della notte.</p>`;
   } else if (n === 1) {
     const rows = storeStations().map((x, i) => `<label class="tg ${x.active !== false ? 'on' : ''}" style="margin:3px"><input type="checkbox" ${x.active !== false ? 'checked' : ''} onchange="setupStation(${i},this.checked)">${esc(x.label)}</label>`).join('');
     body = `<p class="small muted" style="margin-top:0">Quali postazioni ci sono nel tuo locale? Togli quelle che non hai.</p>
@@ -2570,20 +2634,25 @@ function openSetup(n = 0) {
       <div class="row" style="margin-top:10px;gap:6px"><input type="text" id="setup-st" placeholder="Altra postazione (es. Drive 2)" style="flex:1"><button class="btn" onclick="setupAddStation()">+ Aggiungi</button></div>
       <p class="small muted" style="margin-bottom:0">Nomi, sigle e colori: Impostazioni → Store.</p>`;
   } else if (n === 2) {
-    const cov = (id) => state.coverage.find((r) => r.id === id);
-    const val = (id, d) => { const r = cov(id); return r && r.min ? r.min[d] : 0; };
-    const inp = (id, from, to) => `<input type="number" min="0" max="40" value="${Math.max(...[0, 1, 2, 3, 4, 5, 6].slice(from, to + 1).map((d) => val(id, d)))}" style="width:60px" onchange="setupPeak('${id}',${from},${to},this.value)">`;
+    const val = (r, d) => (r.min ? r.min[d] : 0);
+    const inp = (r, from, to) => `<input type="number" min="0" max="40" value="${Math.max(...[0, 1, 2, 3, 4, 5, 6].slice(from, to + 1).map((d) => val(r, d)))}" style="width:50px" onchange="setupPeak('${r.id}',${from},${to},this.value)">`;
+    const peaks = state.coverage.filter((r) => r.id === 'c9' || r.id === 'c10' || r.peak);
+    const rows = peaks.map((r) => `<tr>
+      <td>${r.peak ? `<input type="text" value="${esc(r.name)}" style="width:105px" onchange="setupPeakName('${r.id}',this.value)">` : `<b>${esc(r.id === 'c9' ? 'Picco pranzo' : 'Picco cena')}</b>`}</td>
+      <td style="white-space:nowrap">${dayTimeSel(r.start, `setupPeakTime('${r.id}','start',+this.value)`)} – ${dayTimeSel(r.end, `setupPeakTime('${r.id}','end',+this.value)`)}</td>
+      <td>${inp(r, 0, 3)}</td><td>${inp(r, 4, 6)}</td>
+      <td>${r.peak ? `<button class="link" style="color:var(--err-ink);font-size:18px" title="Togli questo picco" aria-label="Togli questo picco" onclick="setupDelPeak('${r.id}')">×</button>` : ''}</td></tr>`).join('');
     const g = { ...MGR_DEF, ...(c.mgr || {}) };
-    body = `<p class="small muted" style="margin-top:0">Quante persone (crew, senza manager) servono come minimo nel momento più pieno?</p>
-      <table class="list"><thead><tr><th></th><th>Lun–gio</th><th>Ven–dom</th></tr></thead><tbody>
-        <tr><td><b>Picco pranzo</b> <span class="muted small">12:30–14</span></td><td>${inp('c9', 0, 3)}</td><td>${inp('c9', 4, 6)}</td></tr>
-        <tr><td><b>Picco cena</b> <span class="muted small">19–20:30</span></td><td>${inp('c10', 0, 3)}</td><td>${inp('c10', 4, 6)}</td></tr>
-      </tbody></table>
+    body = `<p class="small muted" style="margin-top:0">I momenti più pieni della giornata: orario e quante persone (crew, senza manager) servono come minimo. Cambia gli orari se i tuoi picchi sono diversi.</p>
+      <table class="list" style="width:100%"><thead><tr><th></th><th>Dalle – alle</th><th style="white-space:nowrap">Lun–gio</th><th style="white-space:nowrap">Ven–dom</th><th></th></tr></thead><tbody>${rows}</tbody></table>
+      <div style="margin-top:6px"><button class="link" onclick="setupAddPeak()">+ Aggiungi un picco</button> <span class="small muted">(es. colazione, merenda, notte nei locali aperti 24 ore)</span></div>
       <label class="f" style="margin-top:10px">Manager minimi ogni giorno<input type="number" min="1" max="6" value="${g.minPerDay}" style="width:70px" onchange="state.config.mgr={...MGR_DEF,...(state.config.mgr||{}),minPerDay:Math.max(1,+this.value||2)};save()"></label>
       <p class="small muted" style="margin-bottom:0">Le altre fasce (apertura, chiusura, pomeriggio) partono da valori tipici: le trovi e le cambi in Impostazioni → Regole.</p>`;
   } else {
-    body = `<p style="margin-top:0">Ultimo passo: inserisci le persone del locale (crew, hospitality e manager) con contratto, giorni di riposo e postazioni in cui sono formate.</p>
-      <p class="small muted">Le trovi in <b>Persone</b>. Quando ci sono, in <b>Turni</b> premi <b>Genera turni</b> e il programma prepara la settimana.</p>`;
+    body = `<p style="margin-top:0">Ultimo passo: le persone del locale (crew, hospitality e manager).</p>
+      <p><b>Il modo più veloce:</b> carica un file Excel con gli orari di una settimana (nomi a sinistra, giorni in alto). L'app crea tutte le persone con ruolo e ore.</p>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="state.config.setupDone=true;save();askImportStaff()">Carica da Excel</button><button class="btn" onclick="Riepilogo.modello()">Scarica il modello vuoto</button></div>
+      <p class="small muted">Oppure premi <b>Fine</b> e aggiungile una per una in <b>Persone</b>. Quando ci sono, in <b>Turni</b> premi <b>Genera turni</b>.</p>`;
   }
   showModal(setupHead(n) + body + setupNav(n));
 }
@@ -2606,14 +2675,14 @@ function setupHour(d, k, v) {
 function setupCopyMonday() {
   setupSaveName();
   const c = state.config, m = { open: c.open ?? 450, close: c.close ?? 1290, ...((c.hours || {})[1] || {}) };
-  c.hours = {}; for (let d = 1; d <= 7; d++) c.hours[d] = { open: m.open, close: m.close };
+  c.hours = {}; for (let d = 1; d <= 7; d++) c.hours[d] = { open: m.open, close: m.close, h24: !!m.h24 };
   c.open = m.open; c.close = m.close; save(); openSetup(0);
 }
-function setupStation(i, on) { storeStations()[i].active = on; save(); openSetup(1); }
+function setupStation(i, on) { const x = storeStations()[i]; x.active = on; if (on) stationCoverage(x); save(); openSetup(1); }
 function setupAddStation() {
   const name = (document.getElementById('setup-st').value || '').trim(); if (!name) return;
   storeStations().push({ id: 'P' + newId(), label: name, short: name.slice(0, 4).toUpperCase(), color: '#5b8c5a', active: true, custom: true });
-  save(); openSetup(1);
+  stationCoverage(storeStations().at(-1)); save(); openSetup(1);
 }
 function setupPeak(id, from, to, v) {
   const r = state.coverage.find((x) => x.id === id); if (!r) return;
@@ -2621,6 +2690,23 @@ function setupPeak(id, from, to, v) {
   r.min = [...(r.min || [0, 0, 0, 0, 0, 0, 0])]; for (let d = from; d <= to; d++) r.min[d] = n;
   save();
 }
+function setupPeakTime(id, k, v) {
+  const r = state.coverage.find((x) => x.id === id); if (!r) return;
+  const nr = { start: r.start, end: r.end, [k]: v };
+  if (nr.end <= nr.start) { alert("L'orario di fine deve essere dopo l'inizio."); return openSetup(2); }
+  r.start = nr.start; r.end = nr.end;
+  // il motore usa il picco di pranzo e di cena anche per gli ingressi "prima del picco" e per i doppi
+  if (id === 'c9') state.config.lunchPeak = [r.start, r.end];
+  if (id === 'c10') state.config.dinnerPeak = [r.start, r.end];
+  save(); openSetup(2);
+}
+function setupPeakName(id, v) { const r = state.coverage.find((x) => x.id === id); if (r && v.trim()) { r.name = v.trim(); save(); } }
+function setupAddPeak() {
+  const h24 = Object.values(state.config.hours || {}).some((h) => h && h.h24);
+  state.coverage.push({ id: 'pk' + newId(), name: h24 ? 'Picco notte' : 'Picco', start: h24 ? 0 : 960, end: h24 ? 120 : 1050, min: [2, 2, 2, 2, 2, 2, 2], station: null, peak: true, night: h24 || undefined });
+  save(); openSetup(2);
+}
+function setupDelPeak(id) { state.coverage = state.coverage.filter((x) => x.id !== id); save(); openSetup(2); }
 function finishSetup() { state.config.setupDone = true; save(); closeModal(); go('personale'); }
 /** Home di un locale appena creato: i passi per partire. */
 function setupCard() {
