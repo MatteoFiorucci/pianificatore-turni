@@ -24,12 +24,12 @@
       if (!/\.(xml|rels)$/.test(name)) continue;
       const start = off + 30 + v.getUint16(off + 26, true) + v.getUint16(off + 28, true);
       const data = u8.subarray(start, start + size);
-      if (method === 0) out[name] = dec.decode(data);
-      else if (method === 8) {
+      // si decomprime solo quando serve (i file grandi hanno fogli che non leggiamo)
+      out[name] = async () => {
+        if (method === 0) return dec.decode(data);
         if (typeof DecompressionStream === 'undefined') throw new Error('Questo browser è troppo vecchio per leggere il file: usa Chrome o Safari aggiornati.');
-        const s = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-        out[name] = await new Response(s).text();
-      }
+        return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+      };
     }
     return out;
   }
@@ -37,19 +37,21 @@
   const tags = (node, name) => [...node.getElementsByTagNameNS('*', name)];
   const colIndex = (ref) => { const m = /^([A-Z]+)/.exec(ref || ''); let n = 0; for (const ch of m ? m[1] : 'A') n = n * 26 + ch.charCodeAt(0) - 64; return n - 1; };
 
-  /** Fogli del file: [{ name, rows: [[testo, …], …] }] */
-  async function leggiExcel(buf) {
-    const f = await unzip(buf);
+  /** Fogli del file: [{ name, rows: [[testo, …], …] }]. filtro(nome) = quali fogli leggere (tutti se manca). */
+  async function leggiExcel(buf, filtro) {
+    const z = await unzip(buf), f = {};
+    for (const k of ['xl/workbook.xml', 'xl/sharedStrings.xml', 'xl/_rels/workbook.xml.rels']) if (z[k]) f[k] = await z[k]();
     if (!f['xl/workbook.xml']) throw new Error('Il file non è un Excel (.xlsx) valido.');
     const shared = f['xl/sharedStrings.xml'] ? tags(xml(f['xl/sharedStrings.xml']), 'si').map((si) => tags(si, 't').map((t) => t.textContent).join('')) : [];
     const rels = {};
     if (f['xl/_rels/workbook.xml.rels']) for (const r of tags(xml(f['xl/_rels/workbook.xml.rels']), 'Relationship')) rels[r.getAttribute('Id')] = r.getAttribute('Target');
     const sheets = [];
     for (const s of tags(xml(f['xl/workbook.xml']), 'sheet')) {
+      if (filtro && !filtro(s.getAttribute('name') || '')) continue;
       const rid = s.getAttribute('r:id') || s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
       let target = rels[rid] || '';
       target = target.startsWith('/') ? target.slice(1) : 'xl/' + target.replace(/^\.\//, '');
-      const doc = f[target]; if (!doc) continue;
+      const doc = z[target] ? await z[target]() : null; if (!doc) continue;
       const rows = [];
       for (const r of tags(xml(doc), 'row')) {
         const ri = (+r.getAttribute('r') || rows.length + 1) - 1, row = rows[ri] = rows[ri] || [];
@@ -102,7 +104,7 @@
     return out;
   }
   /** Fogli di un file .xls: stessa forma di leggiExcel. Si leggono testi e numeri (anche i risultati delle formule). */
-  function leggiXls(buf) {
+  function leggiXls(buf, filtro) {
     const wb = oleStream(buf, ['Workbook', 'Book']), v = new DataView(wb.buffer, wb.byteOffset, wb.byteLength);
     const recs = []; // [tipo, inizio, lunghezza]
     for (let p = 0; p + 4 <= wb.length;) { const t = v.getUint16(p, true), l = v.getUint16(p + 2, true); recs.push([t, p + 4, l]); p += 4 + l; }
@@ -166,13 +168,13 @@
         } else put(r, c, num(v.getFloat64(o + 6, true)));
       }
     }
-    return sheets.map((s) => ({ name: s.name, rows: Array.from(s.rows, (r) => Array.from(r || [], (x) => x || '')) }));
+    return sheets.filter((s) => !filtro || filtro(s.name)).map((s) => ({ name: s.name, rows: Array.from(s.rows, (r) => Array.from(r || [], (x) => x || '')) }));
   }
   /** .xlsx oppure .xls, riconosciuti dal contenuto */
-  async function leggiFile(buf) {
+  async function leggiFile(buf, filtro) {
     const b = new Uint8Array(buf, 0, 4);
-    if (b[0] === 0xd0 && b[1] === 0xcf) return leggiXls(buf);
-    return leggiExcel(buf);
+    if (b[0] === 0xd0 && b[1] === 0xcf) return leggiXls(buf, filtro);
+    return leggiExcel(buf, filtro);
   }
 
   // ---------- dal foglio alle persone ----------

@@ -545,9 +545,10 @@
     return { gc: Math.round((fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / share) };
   }
   // postazione del lineare che copre una posizione VLH (le patatine possono farle OA o MFY: contano solo nel totale)
-  const VLH_STATIONS = [['CUCINA', 'Production'], ['FRONT', 'Front Counter'], ['MCCAFE', 'McCafé'], ['SERVIZIO', 'Table Server']];
+  const VLH_STATIONS = [['CUCINA', 'Production'], ['FRONT', 'Front Counter'], ['MCCAFE', 'McCafé'], ['SERVIZIO', 'Table Server'], ['DRIVE', 'Drive']];
   function vlhStationOf(code, area) {
     if (area === 'MC') return 'MCCAFE';
+    if (area === 'DT') return 'DRIVE';
     if (/^F\d/.test(code)) return null;
     if (area === 'PR') return 'CUCINA';
     if (code[0] === 'T') return 'SERVIZIO';

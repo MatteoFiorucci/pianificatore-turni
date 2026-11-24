@@ -281,6 +281,7 @@
   table.vlh tr.area td { font-weight: 800; font-size: 17px; padding: 2px 8px; }
   table.vlh tr.area.FC td, table.vlh td.bar.FC { background: #f59b94; } table.vlh tr.area.PR td, table.vlh td.bar.PR { background: #94b6de; }
   table.vlh tr.area.MC td, table.vlh td.bar.MC { background: #c8262c; color: #fff; }
+  table.vlh tr.area.DT td, table.vlh td.bar.DT { background: #f2c94c; }
   table.vlh tr.slot td { height: 46px; } table.vlh tr.sec td { height: 12px; font-size: 9px; padding: 0 4px; }
   table.vlh td.rn { text-align: right; vertical-align: bottom; font-weight: 700; font-size: 11px; }
   table.vlh .pos { font-size: 9.5px; line-height: 1.1; color: #222; } table.vlh .pos.new { text-decoration: underline; font-weight: 700; font-style: italic; }
@@ -1512,11 +1513,57 @@ function setVlhFixed(day, h, changes) {
   save(); render();
 }
 function clearVlhNomi(day) { if (state.vlhNomi) delete state.vlhNomi[T.toIso(day)]; save(); render(); }
-function importVlh(input) {
-  const f = input.files && input.files[0]; if (!f) return;
-  f.text().then((t) => { const d = JSON.parse(t); if (!d.giorni) throw new Error('formato'); state.vlh = d; save(); render(); })
-    .catch(() => alert('File non valido: serve il file delle tabelle VLH.'));
+/**
+ * Tabelle VLH: si caricano i file VLH aziendali (uno per giorno: LUN.xlsm … DOM.xlsm, foglio "Custom VLH Tables Format B").
+ * Si possono caricare anche solo alcuni giorni: gli altri restano come erano. Va bene anche il vecchio file .json.
+ */
+async function importVlh(input) {
+  const files = [...(input.files || [])]; if (!files.length) return;
+  if (files.length === 1 && /\.json$/i.test(files[0].name)) {
+    try { const d = JSON.parse(await files[0].text()); if (!d.giorni) throw new Error('formato'); state.vlh = d; save(); render(); }
+    catch (e) { alert('File non valido: serve il file delle tabelle VLH.'); }
+    return;
+  }
+  showModal(`<h3>Leggo le tabelle VLH…</h3><p class="muted" id="vlh-prog">File 1 di ${files.length}</p>`);
+  const lette = [], errori = [];
+  for (const [i, f] of files.entries()) {
+    const pr = document.getElementById('vlh-prog'); if (pr) pr.textContent = `File ${i + 1} di ${files.length}: ${f.name}`;
+    try {
+      const sh = await ImportaPersonale.leggiFile(await f.arrayBuffer(), (n) => /vlh tables format b|^vlh customization$/i.test(n.trim()));
+      const x = VLH().daFogli(sh, f.name);
+      if (x) lette.push({ ...x, file: f.name }); else errori.push(f.name);
+    } catch (e) { errori.push(f.name); }
+  }
+  ui.vlhImp = { lette, errori };
+  showVlhImport();
 }
+function showVlhImport() {
+  const { lette, errori } = ui.vlhImp, V = VLH();
+  const dup = (g) => lette.filter((x) => x.giorno === g).length > 1;
+  const rows = lette.map((x, i) => `<tr><td><select onchange="ui.vlhImp.lette[${i}].giorno=+this.value||null;showVlhImport()" style="${x.giorno && !dup(x.giorno) ? '' : 'background:var(--warn)'}">
+      <option value="">giorno?</option>${[1, 2, 3, 4, 5, 6, 7].map((d) => `<option value="${d}" ${x.giorno === d ? 'selected' : ''}>${T.DOW_LONG[d]}</option>`).join('')}</select></td>
+      <td class="small">${esc(x.file)}</td><td class="small">${x.data ? T.itDate(T.toDay(x.data)) : '—'}</td>
+      <td class="small">${Object.entries(x.parti).map(([p, l]) => `${V.PART_TXT[p]} ${l.length}`).join(' · ')}</td></tr>`).join('');
+  const prova = V.componi(lette.filter((x) => x.giorno), state.vlh);
+  const giorni = new Set(lette.map((x) => x.giorno).filter(Boolean));
+  const mancano = [1, 2, 3, 4, 5, 6, 7].filter((d) => !giorni.has(d));
+  const ok = lette.length && lette.every((x) => x.giorno && !dup(x.giorno));
+  showModal(`<h3>Tabelle VLH trovate</h3>
+    ${lette.length ? `<table class="list"><thead><tr><th>Giorno</th><th>File</th><th>Creata il</th><th>Postazioni per fascia</th></tr></thead><tbody>${rows}</tbody></table>` : ''}
+    ${errori.length ? `<div class="notice err" style="margin-top:8px">Non sono tabelle VLH (manca il foglio "Custom VLH Tables Format B"): ${errori.map(esc).join(', ')}</div>` : ''}
+    ${lette.length && mancano.length ? `<div class="notice warn" style="margin-top:8px">Mancano: ${mancano.map((d) => T.DOW_LONG[d]).join(', ')}. ${state.vlh && state.vlh.giorni ? 'Per quei giorni restano le tabelle di prima.' : 'Per quei giorni i turni useranno le fasce di Regole.'}</div>` : ''}
+    ${prova.nuove.length ? `<div class="notice info" style="margin-top:8px">Postazioni nuove (non presenti nella VLH standard), con l'area del lineare che le copre:
+      ${prova.nuove.map((n) => `<div style="margin-top:4px"><b>${esc(n.name)}</b> → ${({ FC: 'OA (front)', PR: 'MFY (cucina)', MC: 'McCafé', DT: 'Drive' })[n.area]}</div>`).join('')}
+      ${prova.nuove.some((n) => n.area === 'DT') && !storeStations().some((x) => x.id === 'DRIVE' && x.active !== false) ? '<div style="margin-top:6px">Per le postazioni del Drive accendi la postazione <b>Drive</b> in Impostazioni → Store.</div>' : ''}</div>` : ''}
+    <div class="actions"><button class="btn" onclick="ui.vlhImp=null;closeModal()">Annulla</button>${ok ? `<button class="btn primary" onclick="doVlhImport()">Usa queste tabelle</button>` : ''}</div>`);
+  const md = document.querySelector('#modal .modal'); if (md) { md.style.maxWidth = '820px'; md.style.width = '96vw'; }
+}
+function doVlhImport() {
+  const v = VLH().componi(ui.vlhImp.lette.filter((x) => x.giorno), state.vlh);
+  delete v.nuove; state.vlh = v; ui.vlhImp = null; save(); closeModal(); render();
+}
+/** Pulsante per caricare (o aggiornare) le tabelle VLH. */
+const vlhUploadBtn = (txt) => `<label class="btn">${txt}<input type="file" multiple accept=".xlsm,.xlsx,.xls,.json" style="display:none" onchange="importVlh(this)"></label>`;
 /** Riquadro della pagina VLH: interruttore "turni in base alla VLH" e ore richieste dalla VLH nel giorno. */
 function vlhGenNote(day) {
   const on = state.config.vlhGen !== false;
@@ -1547,11 +1594,13 @@ function renderVLH() {
     <label class="small"><input type="checkbox" ${ui.vlhNomi !== false ? 'checked' : ''} onchange="ui.vlhNomi=this.checked;render()"> Proponi i nomi</label>
     <div class="spacer"></div>
 
+    ${state.vlh && state.vlh.giorni ? vlhUploadBtn('Aggiorna VLH') : ''}
     <button class="btn primary" onclick="window.print()">🖨 Stampa</button>
   </div>`;
   if (!state.vlh || !state.vlh.giorni) {
-    return nav + `<div class="card"><h3>Tabelle VLH non caricate</h3><p>Carica il file con le tabelle delle postazioni (una per giorno della settimana).</p>
-      <input type="file" accept=".json" onchange="importVlh(this)"></div>`;
+    return nav + `<div class="card"><h3>Tabelle VLH non caricate</h3>
+      <p>Carica i <b>file VLH del locale</b>, uno per giorno della settimana (es. LUN.xlsm, MART.xlsm … DOM.xlsm): selezionali tutti insieme. L'app legge le postazioni e da quanti clienti si aprono (foglio "Custom VLH Tables Format B"). I file restano sul tuo computer.</p>
+      ${vlhUploadBtn('Carica i file VLH')}</div>`;
   }
   const ctx = T.makeCtx(state, T.mondayOf(day));
   const shifts = ctx.shifts.filter((s) => s.day === day && ctx.byId.has(s.employeeId));
