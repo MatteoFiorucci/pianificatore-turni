@@ -2046,8 +2046,11 @@ function renderPersonale() {
       </tr>`;
     }).join('');
   }).join('') + (() => {
-    const team = sortByName((state.managers || []).filter((m) => m.active !== false));
-    if (!team.length || ui.deleteMode) return '';
+    const team = sortByName((state.managers || []).filter((m) => ui.deleteMode || m.active !== false));
+    if (!team.length) return '';
+    if (ui.deleteMode) return `<tr class="group"><td colspan="7">Manager (${team.length})</td></tr>` + team.map((m) => { const k = 'm' + m.id, sel = ui.selected.has(k);
+      return `<tr class="clickable ${sel ? 'sel' : ''}" onclick="toggleSel('${k}')"><td style="width:36px"><input type="checkbox" ${sel ? 'checked' : ''} onclick="event.stopPropagation();toggleSel('${k}')"></td>
+        <td><b>${esc(T.fullName(m) || 'Nuovo manager')}</b></td><td>${T.fmtDur(m.weeklyMinutes || 2400)}</td><td>${m.role ? mgrRoleTxt(m) : '—'}</td><td>—</td><td>${m.active !== false ? 'Sì' : 'No'}</td></tr>`; }).join('');
     return `<tr class="group"><td colspan="6">Manager (${team.length}) <span class="small muted">· clicca per le condizioni (ruolo, ore, giorni d'ordine…)</span></td></tr>` + team.map((m) => `<tr class="clickable" onclick="openMgrTeam()">
         <td><b>${esc(T.fullName(m) || 'Nuovo manager')}</b></td><td>${T.fmtDur(m.weeklyMinutes || 2400)}${m.daControllare ? ' <span class="pill" style="background:var(--warn)">da controllare</span>' : ''}</td><td>${m.role ? mgrRoleTxt(m) : '<span class="pill" style="background:var(--warn)">Ruolo da scegliere</span>'}</td><td>—</td><td>Sì</td></tr>`).join('');
   })();
@@ -2071,7 +2074,7 @@ function renderPersonale() {
 }
 function toggleSel(id) { ui.selected.has(id) ? ui.selected.delete(id) : ui.selected.add(id); render(); }
 function askDelete() {
-  const names = state.employees.filter((e) => ui.selected.has(e.id)).map(T.fullName);
+  const names = [...state.employees.filter((e) => ui.selected.has(e.id)).map(T.fullName), ...(state.managers || []).filter((m) => ui.selected.has('m' + m.id)).map((m) => (T.fullName(m) || 'Nuovo manager') + ' (manager)')];
   showModal(`<h3>Eliminare ${names.length} ${names.length === 1 ? 'persona' : 'persone'}?</h3><ul>${names.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
     <p class="muted small">Verranno cancellati anche i loro turni e le loro ferie. Non si può annullare.</p>
     <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="deleteSelected()">Elimina</button></div>`);
@@ -2081,6 +2084,13 @@ function deleteSelected() {
   state.employees = state.employees.filter((e) => !ids.has(e.id));
   state.shifts = state.shifts.filter((s) => !ids.has(s.employeeId));
   state.absences = state.absences.filter((a) => !ids.has(a.employeeId));
+  // manager selezionati: via anche i loro turni, le assenze e l'accesso all'app
+  const mids = new Set((state.managers || []).filter((m) => ids.has('m' + m.id)).map((m) => m.id));
+  if (mids.size) {
+    state.managers = state.managers.filter((m) => !mids.has(m.id));
+    state.mgrShifts = (state.mgrShifts || []).filter((x) => !mids.has(x.managerId));
+    state.absences = state.absences.filter((a) => !mids.has(a.employeeId)); // le assenze dei manager usano lo stesso campo
+  }
   ui.selected = new Set(); ui.deleteMode = false;
   save(); closeModal(); render();
 }
