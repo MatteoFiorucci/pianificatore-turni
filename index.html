@@ -1502,9 +1502,20 @@ function renderGiornaliero() {
 
 // ================= VLH (posizionamento del turno) =================
 const VLH = () => window.TurniVLH;
-const VLH_SHEETS = [[8, 9, 10, 11, 12, 13, 14, 15], [15, 16, 17, 18, 19, 20, 21, 22]];
+const VLH_SHEETS_STD = [[8, 9, 10, 11, 12, 13, 14, 15], [15, 16, 17, 18, 19, 20, 21, 22]];
+/**
+ * Fogli VLH del giorno (ore per foglio): di solito pranzo 8–15 e cena 15–22; se il locale apre prima delle 7:00
+ * o chiude dopo le 22:30 (o è aperto 24 ore) le ore si allargano e si dividono in fogli da 8 ore.
+ */
+function vlhSheetsFor(day) {
+  const h = T.dayHours(state.config, day);
+  const a = h.h24 ? 0 : h.open <= 420 ? Math.floor(h.open / 60) : 8, b = h.h24 ? 23 : h.close > 1350 ? Math.min(23, Math.ceil(h.close / 60) - 1) : 22;
+  if (a === 8 && b === 22) return VLH_SHEETS_STD;
+  const out = []; for (let x = a; x <= b; x += 8) out.push(Array.from({ length: Math.min(8, b - x + 1) }, (_, i) => x + i));
+  return out;
+}
 /** Foglio mostrato: 0 pranzo, 1 cena, 2 tutte e due. All'inizio: oggi dopo le 15 la cena, altrimenti il pranzo. */
-const vlhSheet = () => ui.vlhSheet ?? (ui.day === T.todayDay() && new Date().getHours() >= 15 ? 1 : 0);
+const vlhSheet = () => { const n = vlhSheetsFor(ui.day).length; return Math.min(ui.vlhSheet ?? (ui.day === T.todayDay() && new Date().getHours() >= 15 ? 1 : 0), n); };
 /** GC previsti nell'ora h: valore scritto a mano, altrimenti dalla fonte scelta (nostra previsione o SmartBusiness). */
 function vlhGC(day, h) { return T.vlhHourGC(state, day, h); }
 function setVlhGC(day, h, v) {
@@ -1602,7 +1613,9 @@ function renderVLH() {
     <input type="date" value="${T.toIso(day)}" onchange="if(this.value){ui.day=T.toDay(this.value);render()}">
     <span class="small muted">GC orari da</span>
     <div class="seg"><button class="${(state.config.vlhFonte || 'nostra') === 'nostra' ? 'on' : ''}" onclick="state.config.vlhFonte='nostra';save();render()">Nostra previsione</button><button class="${state.config.vlhFonte === 'sb' ? 'on' : ''}" onclick="state.config.vlhFonte='sb';save();render()">SmartBusiness</button></div>
-    <div class="seg">${[['Pranzo 8–15', 0], ['Cena 15–22', 1], ['Tutte e due', 2]].map(([t, k]) => `<button class="${vlhSheet() === k ? 'on' : ''}" onclick="ui.vlhSheet=${k};render()">${t}</button>`).join('')}</div>
+    <div class="seg">${(() => { const sh = vlhSheetsFor(day), std = sh === VLH_SHEETS_STD;
+      const opts = sh.map((hs, k) => [std ? (k ? 'Cena 15–22' : 'Pranzo 8–15') : `${hs[0]}–${hs[hs.length - 1] + 1}`, k]).concat([[sh.length === 2 ? 'Tutte e due' : 'Tutte', sh.length]]);
+      return opts.map(([t, k]) => `<button class="${vlhSheet() === k ? 'on' : ''}" onclick="ui.vlhSheet=${k};render()">${t}</button>`).join(''); })()}</div>
     <label class="small"><input type="checkbox" ${ui.vlhNomi !== false ? 'checked' : ''} onchange="ui.vlhNomi=this.checked;render()"> Proponi i nomi</label>
     <div class="spacer"></div>
 
@@ -1620,7 +1633,7 @@ function renderVLH() {
   // in turno nell'ora h: crew e hospitality (doppi compresi) presenti almeno mezz'ora
   const people = (h) => shifts.filter((s) => Math.min(s.end, (h + 1) * 60) - Math.max(s.start, h * 60) >= 30)
     .map((s) => ({ id: s.employeeId, station: s.station, trainings: ctx.byId.get(s.employeeId).trainings || [], name: ctx.byId.get(s.employeeId).lastName || T.fullName(ctx.byId.get(s.employeeId)) }));
-  const allHours = [...new Set(VLH_SHEETS.flat())];
+  const SHEETS = vlhSheetsFor(day), allHours = [...new Set(SHEETS.flat())];
   const info = {}; for (const h of allHours) { const g = vlhGC(day, h); info[h] = { ...g, r: V.forHour(state.vlh, dow, h, g.gc || 0) }; }
   // postazioni da riempire: quelle aperte + le prossime 3 in cui hai messo qualcuno a mano (quelle non si riempiono da sole)
   const toFill = (h) => (info[h].r ? [...info[h].r.open, ...info[h].r.next.filter((p) => vlhFixed(day, h)[p.code])] : []);
@@ -1668,7 +1681,7 @@ function renderVLH() {
     return `<table class="vlh"><colgroup><col style="width:14px"><col style="width:46px">${hours.map(() => '<col>').join('')}</colgroup>${head}${areas}${foot}</table>`;
   };
   return nav + genNote + `<p class="hint no-print">Tabelle VLH del ${esc(state.vlh.versione || '')} (${T.DOW_LONG[dow].toLowerCase()}) ${ib('vlh-help')}${anyMan ? ` · <a href="#" onclick="clearVlhGC(${day});return false">GC: torna alla previsione</a>` : ''}${anyMoved ? ` · <a href="#" onclick="clearVlhNomi(${day});return false">nomi: torna alla proposta automatica</a>` : ''}</p>
-    ${VLH_SHEETS.filter((hs, k) => vlhSheet() === 2 || vlhSheet() === k).map((hs) => `<div class="card vlhsheet"><div class="vlhscroll">${sheet(hs)}</div></div>`).join('')}`;
+    ${SHEETS.filter((hs, k) => vlhSheet() === SHEETS.length || vlhSheet() === k).map((hs) => `<div class="card vlhsheet"><div class="vlhscroll">${sheet(hs)}</div></div>`).join('')}`;
 }
 
 // ================= PREVISIONI =================
@@ -2522,12 +2535,30 @@ const DAY_TIMES = []; for (let m = 0; m <= 1440; m += 15) DAY_TIMES.push(m);
 const dayTimeSel = (v, on) => `<select onchange="${on}">${DAY_TIMES.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${t === 1440 ? '24:00' : T.fmtTime(t)}</option>`).join('')}</select>`;
 const MGR_DEF = { short: [180, 300], long: [390, 510], breakFrom: 390, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
 function storeStations() { if (!Array.isArray(state.config.stations) || !state.config.stations.length) state.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x })); return state.config.stations; }
+/**
+ * Cambiano gli orari generali del locale (quelli del lunedì): le fasce di copertura legate all'apertura e alla chiusura
+ * si spostano con loro (squadre di apertura e chiusura, fasce che partono all'apertura o arrivano fino alla chiusura),
+ * così un locale che apre alle 7:00 e chiude alle 23:00 non resta con le fasce di un 7:30–21:30.
+ */
+function shiftBandsForHours(o0, c0, o1, c1) {
+  const dO = o1 - o0, dC = c1 - c0;
+  if (!dO && !dC) return;
+  for (const r of state.coverage || []) {
+    if (r.night || r.peak || r.vlh) continue;
+    const isOpen = r.opening || r.exact === 'start', isClose = r.closing || r.exact === true;
+    if (isOpen) { r.start += dO; r.end += dO; continue; }
+    if (isClose) { r.start += dC; r.end += dC; continue; }
+    if (r.start === o0) r.start += dO;
+    if (r.end >= c0 - 30) r.end = Math.min(1440, r.end + dC);
+    if (r.end <= r.start) r.end = r.start + 30;
+  }
+}
 function setHour(d, k, v) {
   const c = state.config; c.hours = c.hours || {};
   const h = c.hours[d] = { open: c.open ?? 450, close: c.close ?? 1290, ...(c.hours[d] || {}), [k]: v };
   if (!h.h24 && h.close <= h.open) { alert("La chiusura deve essere dopo l'apertura."); render(); return; }
   // orario "generale" (testi, richieste): quello del lunedì
-  if (d === 1 && !h.h24) { c.open = h.open; c.close = h.close; }
+  if (d === 1 && !h.h24) { shiftBandsForHours(c.open ?? 450, c.close ?? 1290, h.open, h.close); c.open = h.open; c.close = h.close; }
   save(); render();
 }
 function setStation(i, k, v) {
@@ -2661,10 +2692,16 @@ function renderStore() {
 function importCheckNotice() {
   if (ui.deleteMode) return '';
   const emps = state.employees.filter((e) => e.daControllare), mgrs = (state.managers || []).filter((m) => m.active !== false && (!m.role || m.daControllare));
-  if (!emps.length && !mgrs.length) return '';
-  return `<div class="notice warn" style="margin-bottom:12px"><b>Da controllare dopo il caricamento da Excel</b>
+  // locale con apertura e chiusura (non 24 ore) ma nessuno segnato per aprire o chiudere
+  const apre = [1, 2, 3, 4, 5, 6, 7].some((d) => !((state.config.hours || {})[d] || {}).h24);
+  const noOpen = apre && state.employees.length && !state.employees.some((e) => (e.openings || []).length || (e.closings || []).length);
+  const noRest = state.employees.filter((e) => e.active && !e.fixedShift && !(e.restDays || []).length);
+  if (!emps.length && !mgrs.length && !noOpen && !noRest.length) return '';
+  return `<div class="notice warn" style="margin-bottom:12px"><b>${emps.length || mgrs.length ? 'Da controllare dopo il caricamento da Excel' : 'Da completare'}</b>
     ${emps.length ? `<div style="margin-top:4px">${emps.length} tra crew e hospitality: apri ognuno (clic sul nome), controlla <b>ore di contratto</b>, riposi fissi e date, poi premi <b>Salva</b>.</div>` : ''}
     ${mgrs.length ? `<div style="margin-top:4px">${mgrs.length} manager: scegli il <b>ruolo</b> (RDM o Shift) e controlla le <b>ore</b> in <button class="link" onclick="openMgrTeam()">Squadra manager</button>.</div>` : ''}
+    ${noRest.length ? `<div style="margin-top:4px">${noRest.length} ${noRest.length === 1 ? 'persona non ha' : 'persone non hanno'} <b>riposi fissi</b>: lavorerebbero tutti i giorni. Aprile e segna i giorni di riposo.</div>` : ''}
+    ${noOpen ? `<div style="margin-top:4px">Nessuno è segnato per <b>aprire o chiudere</b>: segna chi può farlo in <button class="link" onclick="go('aperture')">Aperture e chiusure</button>, altrimenti le squadre di apertura e chiusura restano scoperte.</div>` : ''}
     <div class="small" style="margin-top:4px">La postazione di ognuno si segna in <button class="link" onclick="go('formazione')">Formazione</button>.</div></div>`;
 }
 
@@ -2689,23 +2726,25 @@ async function readImportStaff(file) {
     minutes: p.contratto ? p.minutes : r30(p.type === 'MANAGER' ? p.minutes - p.long * g.breakMin : p.minutes) }));
   showImportStaff();
 }
+function impRest(i, d, on) { const p = ui.imp[i], l = new Set(p.rest || []); on ? l.add(d) : l.delete(d); p.rest = [...l].sort(); showImportStaff(); }
 function showImportStaff() {
   const L = ui.imp, ord = { MANAGER: 0, HOSPITALITY: 1, CREW: 2 };
   const idx = L.map((_, i) => i).sort((a, b) => ord[L[a].type] - ord[L[b].type] || L[a].key.localeCompare(L[b].key));
   const types = { CREW: 'Crew', HOSPITALITY: 'Hospitality', MANAGER: 'Manager' };
   const rows = idx.map((i) => { const p = L[i];
-    const warn = p.known ? 'già presente' : p.type === 'MANAGER' && !p.role ? 'scegli il ruolo (anche dopo)' : p.absent ? 'assente in settimana: controlla le ore' : p.minutes < 480 ? 'poche ore: controlla' : '';
+    const warn = p.known ? 'già presente' : p.type === 'MANAGER' && !p.role ? 'scegli il ruolo (anche dopo)' : p.type !== 'MANAGER' && !(p.rest || []).length ? 'nessun riposo: lavorerebbe tutti i giorni' : p.absent ? 'assente in settimana: controlla le ore' : p.minutes < 480 ? 'poche ore: controlla' : '';
     return `<tr style="${p.on ? '' : 'opacity:.5'}"><td style="text-align:center"><input type="checkbox" ${p.on ? 'checked' : ''} onchange="ui.imp[${i}].on=this.checked;showImportStaff()"></td>
       <td><input type="text" value="${esc(p.lastName)}" style="width:120px" onchange="ui.imp[${i}].lastName=this.value.trim()"></td>
       <td><input type="text" value="${esc(p.firstName)}" style="width:120px" onchange="ui.imp[${i}].firstName=this.value.trim()"></td>
       <td style="white-space:nowrap"><select onchange="ui.imp[${i}].type=this.value;showImportStaff()">${Object.entries(types).map(([k, l]) => `<option value="${k}" ${p.type === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
         ${p.type === 'MANAGER' ? `<select style="margin-left:4px" onchange="ui.imp[${i}].role=this.value;showImportStaff()" style="${p.role ? '' : 'background:var(--warn)'}"><option value="" ${p.role ? '' : 'selected'}>scegli…</option><option value="RDM" ${p.role === 'RDM' ? 'selected' : ''}>RDM</option><option value="SHIFT" ${p.role === 'SHIFT' ? 'selected' : ''}>Shift</option></select>` : ''}</td>
       <td><input type="text" value="${T.hoursText(p.minutes)}" style="width:60px" onchange="const v=T.parseHours(this.value);if(v!=null)ui.imp[${i}].minutes=v"></td>
+      <td style="white-space:nowrap">${p.type === 'MANAGER' ? '<span class="muted small">—</span>' : [1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="tg ${(p.rest || []).includes(d) ? 'on' : ''}" style="padding:2px 5px;font-size:11px"><input type="checkbox" ${(p.rest || []).includes(d) ? 'checked' : ''} onchange="impRest(${i},${d},this.checked)">${T.DOW_SHORT[d].slice(0, 2)}</label>`).join('')}</td>
       <td>${p.doppi ? p.doppi : ''}</td><td class="small" style="color:var(--warn-ink)">${warn}</td></tr>`; }).join('');
   const n = L.filter((p) => p.on).length;
   showModal(`<h3>Controlla il personale trovato</h3>
-    <p class="small muted" style="margin-top:0">${ui.imp.some((p) => p.contratto) ? 'Le <b>ore</b> sono quelle di contratto scritte negli elenchi del file: controllale.' : 'Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): <b>correggile con le ore del contratto</b>.'} Per i manager scegli il <b>ruolo</b> (RDM o Shift): si può fare anche dopo. Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. Formazione, riposi fissi e date si impostano dopo, in Persone.</p>
-    <div style="max-height:55vh;overflow:auto"><table class="list"><thead><tr><th></th><th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Ore</th><th>Doppi</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="small muted" style="margin-top:0">${ui.imp.some((p) => p.contratto) ? 'Le <b>ore</b> sono quelle di contratto scritte negli elenchi del file: controllale.' : 'Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): <b>correggile con le ore del contratto</b>.'} Per i manager scegli il <b>ruolo</b> (RDM o Shift): si può fare anche dopo. Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. I <b>riposi fissi</b> sono i giorni con RIPOSO nel file: ognuno lavora in tutti gli altri giorni, quindi controllali (di solito si mettono in settimana). Formazione e date si impostano dopo, in Persone.</p>
+    <div style="max-height:55vh;overflow:auto"><table class="list"><thead><tr><th></th><th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Ore</th><th>Riposi fissi</th><th>Doppi</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="actions"><button class="btn" onclick="ui.imp=null;closeModal()">Annulla</button><button class="btn primary" ${n ? '' : 'disabled'} onclick="doImportStaff()">Aggiungi ${n} ${n === 1 ? 'persona' : 'persone'}</button></div>`);
   const md = document.querySelector('#modal .modal'); if (md) { md.style.maxWidth = '1000px'; md.style.width = '96vw'; }
 }
@@ -2717,14 +2756,15 @@ function doImportStaff() {
   for (const p of L) {
     // "daControllare": avviso in Persone finché non si apre la scheda (crew, hospitality) o non si sceglie il ruolo (manager)
     if (p.type === 'MANAGER') state.managers.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, role: p.role || '', area: '', weeklyMinutes: p.minutes || 2400, orderDays: [], flexDays: [], active: true, daControllare: true });
-    else state.employees.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, type: p.type, weeklyMinutes: p.minutes, restDays: [], trainings: [], active: true, fixedShift: null, doubleDays: p.doppi || 0, daControllare: true });
+    else state.employees.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, type: p.type, weeklyMinutes: p.minutes, restDays: [...new Set(p.rest || [])].sort(), trainings: [], active: true, fixedShift: null, doubleDays: p.doppi || 0, daControllare: true });
   }
   ui.imp = null; save(); closeModal(); go('personale');
   showModal(`<h3>Personale aggiunto</h3><p>Ho aggiunto <b>${L.length}</b> ${L.length === 1 ? 'persona' : 'persone'}.</p>
     <div class="notice warn"><b>Prima di generare i turni controlla:</b><ul style="margin:6px 0 0 18px;padding:0">
       <li><b>ore di contratto</b> di crew e hospitality (apri ognuno in Persone e premi Salva);</li>
       <li><b>ruolo</b> (RDM o Shift) e <b>ore</b> dei manager (Squadra manager);</li>
-      <li>le <b>postazioni</b> in cui ognuno è formato (Formazione) e, se servono, i riposi fissi.</li></ul>
+      <li>le <b>postazioni</b> in cui ognuno è formato (Formazione) e, se servono, i riposi fissi;</li>
+      <li>chi può <b>aprire e chiudere</b> il locale (Aperture e chiusure).</li></ul>
       <div class="small" style="margin-top:6px">In Persone trovi l'avviso "da controllare" finché non hai fatto.</div></div>
     <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="closeModal();go('personale')">Inizia dai controlli</button></div>`);
 }
@@ -2806,13 +2846,14 @@ function setupHour(d, k, v) {
   const c = state.config; c.hours = c.hours || {};
   const h = c.hours[d] = { open: c.open ?? 450, close: c.close ?? 1290, ...(c.hours[d] || {}), [k]: v };
   if (!h.h24 && h.close <= h.open) alert("La chiusura deve essere dopo l'apertura.");
-  else { if (d === 1) { c.open = h.open; c.close = h.close; } save(); }
+  else { if (d === 1 && !h.h24) { shiftBandsForHours(c.open ?? 450, c.close ?? 1290, h.open, h.close); c.open = h.open; c.close = h.close; } save(); }
   openSetup(0);
 }
 function setupCopyMonday() {
   setupSaveName();
   const c = state.config, m = { open: c.open ?? 450, close: c.close ?? 1290, ...((c.hours || {})[1] || {}) };
   c.hours = {}; for (let d = 1; d <= 7; d++) c.hours[d] = { open: m.open, close: m.close, h24: !!m.h24 };
+  if (!m.h24) shiftBandsForHours(c.open ?? 450, c.close ?? 1290, m.open, m.close);
   c.open = m.open; c.close = m.close; save(); openSetup(0);
 }
 function setupStation(i, on) { const x = storeStations()[i]; x.active = on; if (on) stationCoverage(x); save(); openSetup(1); }
