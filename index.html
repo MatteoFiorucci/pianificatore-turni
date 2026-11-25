@@ -649,7 +649,7 @@ function render() {
     const list = items.filter(([k]) => !compactOn() || COMPACT_VIEWS.includes(k));
     if (!list.length) return '';
     return (g ? `<div class="grp">${g}</div>` : '') + list.map(([k, l]) => `<button class="${ui.view === k || (k === 'personale' && isPeople(ui.view)) || groupOf(ui.view) === k ? 'active' : ''}" onclick="go('${k}')"><span class="ic">${icon(k)}</span>${l}${k === 'richieste' && pending ? ` <span class="badge">${pending}</span>` : ''}</button>`).join('');
-  }).join('');
+  }).join('') + (compactOn() ? '' : `<button class="tourbtn" onclick="startTour()"><span class="ic">${icon('info')}</span>Tour dell'app</button>`);
   const views = { home: renderHome, turni: renderTurni, giornaliero: renderGiornaliero, vlh: renderVLH, previsioni: renderPrevisioni, personale: renderPersonale, formazione: renderFormazione, aperture: renderAperture, doppi: renderDoppi, ferie: renderFerie, richieste: renderRichieste, regole: renderRegole, store: renderStore };
   const viewHtml = { html: views[ui.view]() };
   document.getElementById('app').innerHTML =
@@ -2835,6 +2835,58 @@ function doImportStaff() {
       <div class="small" style="margin-top:6px">In Persone trovi l'avviso "da controllare" finché non hai fatto.</div></div>
     <div class="actions"><button class="btn" onclick="closeModal()">Chiudi</button><button class="btn primary" onclick="closeModal();go('personale')">Inizia dai controlli</button></div>`);
 }
+// ================= TOUR DELL'APP =================
+// Guida passo per passo sopra le pagine vere: apre la pagina, mette in evidenza la parte giusta e spiega a cosa serve.
+const tq = (sel) => document.querySelector(sel);
+const tBtn = (txt) => [...document.querySelectorAll('#app button, #app label.btn')].find((b) => b.textContent.includes(txt));
+const tNav = (k) => tq(`#nav button[onclick="go('${k}')"]`);
+const TOUR = [
+  { v: 'home', el: () => tq('#app .homegrid > .card'), t: 'Home', x: 'Qui vedi subito come sono messe questa settimana e la prossima: turni fatti, errori da sistemare, richieste da decidere e previsioni.' },
+  { v: 'personale', el: () => tq('#app .toolbar'), t: 'Persone', x: 'Il personale: ore di contratto, riposi fissi, date di inizio e fine. Con <b>Carica da Excel</b> si inseriscono tutti insieme dagli orari di qualche settimana.' },
+  { v: 'formazione', el: () => tq('#app table.list'), t: 'Formazione', x: 'Spunta le postazioni in cui ognuno è formato: il generatore mette le persone solo dove sanno lavorare.' },
+  { v: 'aperture', el: () => tq('#app table.list'), t: 'Aperture e chiusure', x: 'Segna chi può aprire e chiudere ogni postazione: le squadre di apertura e chiusura si fanno solo con queste persone.' },
+  { v: 'previsioni', el: () => tBtn('Carica i file SmartBusiness') || tq('#app table.list'), t: 'Previsioni', x: 'Clienti, vendite e <b>ore totali</b> di ogni giorno: scrivili a mano oppure carica i report di SmartBusiness (la ⓘ accanto spiega come scaricarli). Le ore totali dicono al generatore quante ore di crew usare.' },
+  { v: 'vlh', el: () => tq('#app .vlhsheet') || tBtn('Carica i file VLH'), t: 'VLH', x: 'Le postazioni da aprire ora per ora secondo i clienti previsti. Si caricano i file VLH del locale (uno per giorno) e il generatore crea i turni per coprirle.' },
+  { v: 'turni', el: () => tBtn('Genera turni'), t: 'Genera turni', x: 'Prepara la settimana: prima i manager, poi crew e hospitality, rispettando contratti, riposi, richieste accettate e regole del locale.' },
+  { v: 'turni', el: () => tq('#app table.grid') || tq('#app .card'), t: 'La settimana', x: 'Ogni riga è una persona, ogni colonna un giorno: clicca una casella per cambiare o aggiungere un turno. I controlli segnalano errori (rosso) e avvisi (giallo); <b>Risolvi problemi</b> prova a sistemarli da solo.' },
+  { v: 'giornaliero', el: () => tq('#app .toolbar'), t: 'Lineare del giorno', x: 'Il giorno ora per ora. Con <b>Modifica trascinando</b> sposti e allunghi i turni con il mouse. Da qui si stampa.' },
+  { v: 'richieste', el: () => tq('#app .card') || tq('#app'), t: 'Richieste e app del personale', x: 'Le richieste dei dipendenti da accettare o rifiutare: quelle accettate il generatore le rispetta sempre. Qui crei gli accessi all\'app del personale e pubblichi la settimana.' },
+  { v: 'store', el: () => tNav('regole') || tq('#app'), t: 'Impostazioni', x: '<b>Regole</b>: fasce di copertura, picchi e squadre. <b>Store</b>: orari, postazioni, regole del locale e dei manager (delivery, Carpigiani).' },
+  { v: 'home', el: () => tq('#nav .tourbtn'), t: 'Fine', x: 'Il tour si può rivedere quando vuoi da qui. Buon lavoro!' },
+];
+function startTour(i = 0) { closeModal(); ui.tour = i; showTour(); }
+function endTour() { ui.tour = null; const o = document.getElementById('tour'); if (o) o.remove(); if (!state.config.tourDone) { state.config.tourDone = true; save(); } render(); }
+function showTour() {
+  const n = ui.tour; if (n == null) return;
+  const st = TOUR[n];
+  if (ui.view !== st.v) go(st.v);
+  let o = document.getElementById('tour'); if (o) o.remove();
+  setTimeout(() => {
+    const el = st.el();
+    if (el) el.scrollIntoView({ block: 'center', behavior: 'instant' });
+    setTimeout(() => {
+      const r = el ? el.getBoundingClientRect() : { top: window.innerHeight / 2 - 40, left: window.innerWidth / 2 - 160, width: 320, height: 80 };
+      const pad = 6, top = Math.max(4, r.top - pad), left = Math.max(4, r.left - pad), w = Math.min(window.innerWidth - 8, r.width + pad * 2), h = Math.min(window.innerHeight - 8, r.height + pad * 2);
+      const tw = Math.min(340, window.innerWidth - 24), big = h > window.innerHeight * 0.5;
+      const below = top + h + 200 < window.innerHeight, above = top > 210;
+      // parte evidenziata grande: il fumetto sta in basso a destra (non la copre), altrimenti sotto o sopra
+      const tl = big || (!below && !above) ? window.innerWidth - tw - 16 : Math.min(Math.max(12, left), window.innerWidth - tw - 12);
+      const tt = big || (!below && !above) ? window.innerHeight - 220 : below ? top + h + 10 : top - 10 - 190;
+      o = document.createElement('div'); o.id = 'tour';
+      const dim = (css) => `<div style="position:fixed;${css};background:rgba(0,0,0,.5);z-index:9998"></div>`;
+      o.innerHTML = dim(`top:0;left:0;right:0;height:${top}px`) + dim(`top:${top + h}px;left:0;right:0;bottom:0`) + dim(`top:${top}px;left:0;width:${left}px;height:${h}px`) + dim(`top:${top}px;left:${left + w}px;right:0;height:${h}px`)
+        + `<div style="position:fixed;top:${top}px;left:${left}px;width:${w}px;height:${h}px;z-index:9998"></div>
+        <div style="position:fixed;top:${top}px;left:${left}px;width:${w}px;height:${h}px;border-radius:12px;z-index:9999;pointer-events:none;outline:3px solid #ffbc0d"></div>
+        <div class="card" style="position:fixed;top:${tt}px;left:${tl}px;width:${tw}px;z-index:10000;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.3)">
+          <div class="small muted">${n + 1} di ${TOUR.length}</div><h3 style="margin:2px 0 6px">${st.t}</h3><div class="small" style="line-height:1.45">${st.x}</div>
+          <div class="actions" style="margin-top:10px;justify-content:space-between"><button class="link" onclick="endTour()">Esci</button>
+            <span>${n ? `<button class="btn" onclick="ui.tour--;showTour()">‹ Indietro</button> ` : ''}<button class="btn primary" onclick="${n === TOUR.length - 1 ? 'endTour()' : 'ui.tour++;showTour()'}">${n === TOUR.length - 1 ? 'Fine' : 'Avanti ›'}</button></span></div></div>`;
+      document.body.appendChild(o);
+    }, 120);
+  }, 60);
+}
+window.addEventListener('resize', () => { if (ui.tour != null) showTour(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && ui.tour != null) endTour(); });
 // ================= CONFIGURAZIONE GUIDATA (locale nuovo) =================
 // Quattro passi alla prima apertura di un locale nuovo: orari, postazioni, persone nei picchi, personale.
 // Tutto resta modificabile dopo in Impostazioni → Store / Regole.
@@ -2990,6 +3042,9 @@ function setupDelPeak(id) { state.coverage = state.coverage.filter((x) => x.id !
 function finishSetup() { state.config.setupDone = true; save(); closeModal(); go('personale'); }
 /** Home di un locale appena creato: i passi per partire. */
 function setupCard() {
+  if (!needsSetup() && state.config.setupDone && !state.config.tourDone) return `<div class="card hcard" style="margin-bottom:16px"><div class="hk">Primi passi</div><div class="hw">Fai il tour dell'app</div>
+    <p class="small muted" style="margin:0 0 10px">Due minuti per vedere dove sono le cose: persone, previsioni, VLH, turni, richieste e impostazioni.</p>
+    <div class="hact"><button class="btn primary" onclick="startTour()">Inizia il tour</button><button class="btn" onclick="state.config.tourDone=true;save();render()">No, grazie</button></div></div>`;
   if (!needsSetup()) return '';
   return `<div class="card hcard" style="margin-bottom:16px"><div class="hk">Primi passi</div><div class="hw">Configura il tuo locale</div>
     <p class="small muted" style="margin:0 0 10px">Sei passi veloci: orari, postazioni, persone nei picchi, apertura e chiusura, manager, personale. Potrai cambiare tutto anche dopo.</p>
