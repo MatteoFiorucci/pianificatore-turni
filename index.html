@@ -1705,6 +1705,19 @@ function fcOf(ws) {
   return { days: DAYS7.map((k) => ({ ...(T.forecastDay(f, k) || {}) })) };
 }
 const parseNum = (v) => (v === '' || v == null ? null : Math.max(0, +String(v).replace(',', '.')) || null);
+/**
+ * Ridisegna la pagina dopo un valore scritto, senza perdere il campo su cui l'utente ha appena cliccato
+ * (es. scrive le vendite e clicca sui GC: il campo dei GC resta attivo e quello che scrive non va perso).
+ */
+function renderKeepFocus() {
+  setTimeout(() => {
+    const a = document.activeElement, key = a && a.getAttribute && a.getAttribute('onchange');
+    render();
+    if (!key) return;
+    const n = [...document.querySelectorAll('#app [onchange]')].find((x) => x.getAttribute('onchange') === key);
+    if (n) { n.focus(); if (n.select) n.select(); }
+  }, 0);
+}
 function setFc(k, field, v) {
   state.forecasts = state.forecasts || {};
   const f = fcOf(ui.ws), d = f.days[k];
@@ -1713,7 +1726,7 @@ function setFc(k, field, v) {
   if (field === 'crewHours') d.senzaManager = true; // scritte come Ore totali senza manager (dal 31/10/2026)
   // GC cambiati a mano: anche la stima delle Ore totali si ricalcola (se non era stata scritta a mano)
   if (field === 'gc' && chWasAuto && d.gc) { d.crewHours = Math.round(d.gc * chRatio()); d.auto.crewHours = d.crewHours; }
-  state.forecasts[ui.ws] = f; save(); render();
+  state.forecasts[ui.ws] = f; save(); renderKeepFocus();
 }
 /**
  * Ore totali (senza manager) per cliente, imparate dai giorni in cui il manager ha scritto a mano Ore totali e GC
