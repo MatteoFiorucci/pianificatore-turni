@@ -2873,7 +2873,7 @@ function showTour() {
       const tl = big || (!below && !above) ? window.innerWidth - tw - 16 : Math.min(Math.max(12, left), window.innerWidth - tw - 12);
       const tt = big || (!below && !above) ? window.innerHeight - 220 : below ? top + h + 10 : top - 10 - 190;
       o = document.createElement('div'); o.id = 'tour';
-      const dim = (css) => `<div style="position:fixed;${css};background:rgba(0,0,0,.5);z-index:9998"></div>`;
+      const dim = (css) => `<div style="position:fixed;${css};background:rgba(0,0,0,.3);z-index:9998"></div>`;
       o.innerHTML = dim(`top:0;left:0;right:0;height:${top}px`) + dim(`top:${top + h}px;left:0;right:0;bottom:0`) + dim(`top:${top}px;left:0;width:${left}px;height:${h}px`) + dim(`top:${top}px;left:${left + w}px;right:0;height:${h}px`)
         + `<div style="position:fixed;top:${top}px;left:${left}px;width:${w}px;height:${h}px;z-index:9998"></div>
         <div style="position:fixed;top:${top}px;left:${left}px;width:${w}px;height:${h}px;border-radius:12px;z-index:9999;pointer-events:none;outline:3px solid #ffbc0d"></div>
