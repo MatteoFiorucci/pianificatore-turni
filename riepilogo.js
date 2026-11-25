@@ -190,8 +190,8 @@
 <printOptions horizontalCentered="1"/><pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>
 <pageSetup paperSize="9" orientation="portrait" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   }
-  function xlsx(ws) {
-    const tt = tabelle(ws).filter((t) => scelta === 'TUTTE' || t.key === scelta), h = intestazione(ws);
+  function xlsx(ws, vuote) {
+    const tt = vuote ? SEZIONI.map(([key, title]) => ({ key, title, rows: [] })) : tabelle(ws).filter((t) => scelta === 'TUTTE' || t.key === scelta), h = intestazione(ws);
     const names = tt.map((t) => t.title.replace(/^ORARI /, 'Orari ').replace(/ (\w)(\w+)$/, (m, a, b) => ' ' + a + b.toLowerCase()));
     const files = [
       ['[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${tt.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`],
@@ -210,5 +210,12 @@
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   }
-  window.Riepilogo = { tabelle, apri, stampa, excel, xlsx, scegli: (k, ws) => { scelta = k; apri(ws); } };
+  /** Modello vuoto (stesse 4 tabelle) da compilare e ricaricare in Persone → Carica da Excel. */
+  function modello() {
+    const ws = T.mondayOf(T.todayDay()), a = document.createElement('a');
+    a.href = URL.createObjectURL(xlsx(ws, true)); a.download = 'Modello personale.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+  window.Riepilogo = { tabelle, apri, stampa, excel, xlsx, modello, scegli: (k, ws) => { scelta = k; apri(ws); } };
 })();

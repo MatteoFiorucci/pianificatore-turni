@@ -524,6 +524,12 @@
 
   // ---------- VLH → fabbisogno ora per ora ----------
   /**
+   * Curva tipica dei clienti nella giornata (quota di ogni ora, dalle 5:00 alle 4:00): colazione leggera, picco a pranzo
+   * (12–14) e a cena (19–21). Si usa solo se il locale non ha la sua curva dai dati SmartBusiness; conta solo la parte
+   * delle ore in cui il locale è aperto.
+   */
+  const CURVA_TIPICA = [0.005, 0.01, 0.025, 0.035, 0.035, 0.04, 0.065, 0.11, 0.105, 0.06, 0.04, 0.04, 0.05, 0.075, 0.1, 0.09, 0.055, 0.03, 0.015, 0.008, 0.004, 0.003, 0.002, 0.002];
+  /**
    * Clienti (GC) previsti in un'ora, come nella sezione VLH: valore scritto a mano, oppure previsione di SmartBusiness,
    * oppure la nostra previsione del giorno distribuita con il profilo orario. { gc: numero | null, man?: true }
    */
@@ -535,7 +541,8 @@
       return { gc: v != null ? v : null };
     }
     const fd = forecastDay((state.forecasts || {})[mondayOf(day)], dow(day) - 1);
-    const prof = ((state.autoForecast || {}).profiloOrario || {})[String(dow(day))];
+    // curva del locale (dai dati SmartBusiness), altrimenti la curva tipica (chi scrive a mano solo i clienti del giorno)
+    const prof = ((state.autoForecast || {}).profiloOrario || {})[String(dow(day))] || state.config.curvaOraria || CURVA_TIPICA;
     if (!fd || !fd.gc || !prof) return { gc: null };
     const clo = closureOf(state.eventi, day);
     const shut = (x) => clo && (clo.full || (x * 60 < clo.to && (x + 1) * 60 > clo.from));
@@ -545,9 +552,10 @@
     return { gc: Math.round((fd.gc * (prof[(h - 5 + 24) % 24] || 0)) / share) };
   }
   // postazione del lineare che copre una posizione VLH (le patatine possono farle OA o MFY: contano solo nel totale)
-  const VLH_STATIONS = [['CUCINA', 'Production'], ['FRONT', 'Front Counter'], ['MCCAFE', 'McCafé'], ['SERVIZIO', 'Table Server']];
+  const VLH_STATIONS = [['CUCINA', 'Production'], ['FRONT', 'Front Counter'], ['MCCAFE', 'McCafé'], ['SERVIZIO', 'Table Server'], ['DRIVE', 'Drive']];
   function vlhStationOf(code, area) {
     if (area === 'MC') return 'MCCAFE';
+    if (area === 'DT') return 'DRIVE';
     if (/^F\d/.test(code)) return null;
     if (area === 'PR') return 'CUCINA';
     if (code[0] === 'T') return 'SERVIZIO';
@@ -598,7 +606,7 @@
     }
     const total = sum();
     for (const x of Object.values(hours)) {
-      x.need = { CUCINA: 0, FRONT: 0, MCCAFE: 0, SERVIZIO: 0 };
+      x.need = Object.fromEntries(VLH_STATIONS.map(([st]) => [st, 0])); // anche il Drive
       x.crew = 0;
       for (const p of x.open) {
         const st = vlhStationOf(p.code, p.area);
@@ -1437,8 +1445,17 @@
     /** Turno normale: uno al giorno, entro il massimo, e le ore rimaste devono poter coprire tutti gli altri giorni. */
     // niente turni che finiscono negli ultimi minuti prima della chiusura (es. 21:15): o si chiude alle 21:30 o si esce prima
     const lateEnd = (b, d) => b > CL(d) - (cfg.closeGrace ?? 30) && b < CL(d);
+    /**
+     * Giorni di lavoro alla settimana: al massimo cfg.maxGiorni, se il locale lo imposta. Di solito non serve: si lavora
+     * in tutti i giorni senza riposo fisso (regola "Giorni lavorati"), quindi senza impostazione non limita nulla.
+     */
+    function tooManyDays(e, day) {
+      if (e.fixedShift || dayMain(e.id, day).length) return false;
+      return cfg.maxGiorni != null && ctx.days.filter((d) => d !== day && dayMain(e.id, d).length).length >= cfg.maxGiorni;
+    }
     function canPlace(e, cand, replacing = null) {
       if (replacing && (replacing.aff || replacing.tut)) return false; // affiancamenti e formati accanto restano come sono
+      if (!cand.doppio && tooManyDays(e, cand.day)) return false;
       if (!e.fixedShift && avoided(cand.start, cand.end)) return false; // orario da evitare (es. 13:00–18:00)
       if (!e.fixedShift && (leavesLunchRush(cfg, cand) || leavesDinnerRush(cfg, cand))) return false; // si resta fino alla fine del rush (pranzo 14:15, cena 21:00)
       if (!e.fixedShift && !cand.aff && !roundTimeOk(cfg, cand)) return false; // orari all'ora intera (13–16, non 13:30–16:30)
@@ -1539,7 +1556,7 @@
     const tplTop = { CREW: Math.max(1, ...tplOf('CREW').map((x) => x[2])), HOSPITALITY: Math.max(1, ...tplOf('HOSPITALITY').map((x) => x[2])) };
     const tplFreq = (type, a, b) => { const t = tplOf(type).find((x) => x[0] === a && x[1] === b); return t ? t[2] / tplTop[type] : 0; };
     const band = (a) => (a < 630 ? 0 : a < 780 ? 1 : a < 1020 ? 2 : 3);
-    const habit = (e, a) => { const h = hist.habits && hist.habits[e.lastName]; return h ? h[band(a)] : 0.25; };
+    // niente abitudini delle singole persone (chi ha un vincolo lo ha come richiesta accettata): valore uguale per tutti
     /** Penalità se la persona inizia alla stessa ora il giorno prima/dopo, o se un collega dello stesso ruolo fa lo stesso identico turno. */
     function variety(e, d, a, b) {
       let p = 0;
@@ -1570,7 +1587,7 @@
       const diff = (h[other] + cur[other] * 2) - (h[side] + cur[side] * 2);
       return Math.max(-2, Math.min(2, diff * 0.5));
     }
-    const natural = (e, d, a, b) => tplFreq(e.type, a, b) + (e.type === 'HOSPITALITY' && cfg.hospRotation !== false ? sideTurn(e, d, a, b) * 1.5 : habit(e, a) * 1.5) - variety(e, d, a, b) * 1.2 - longPenalty(e, d, a, b) + handover(e, d, a, b) + rnd() * 0.6;
+    const natural = (e, d, a, b) => tplFreq(e.type, a, b) + (e.type === 'HOSPITALITY' && cfg.hospRotation !== false ? sideTurn(e, d, a, b) * 1.5 : 0.375) - variety(e, d, a, b) * 1.2 - longPenalty(e, d, a, b) + handover(e, d, a, b) + rnd() * 0.6;
     /**
      * Sceglie turno e persona insieme: tra le finestre che chiudono quasi più buchi possibile (≥ 80% della migliore)
      * preferisce chi ha più ore da fare e l'orario più naturale per lui/lei.
@@ -2065,6 +2082,7 @@
     function canPlaceTeam(e, cand, replacing = null) {
       if (replacing && (replacing.aff || replacing.tut)) return false;
       if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand)) return false;
+      if (tooManyDays(e, cand.day)) return false; // almeno un giorno libero alla settimana
       if (isTrainee(e, cand.day) || dur(cand) <= 0) return false;
       if (!e.fixedShift && shortOffPeak(cfg, cand)) return false;
       if (!cand.doppio && cand.start <= OP(cand.day) && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false;
@@ -2189,6 +2207,7 @@
     let staggering = false; // giro finale "non tutti insieme": anche i quarti d'ora durante i rush
     function canPlaceHours(e, cand, rep = null) {
       if (rep && (rep.aff || rep.tut || isDouble(rep))) return false;
+      if (!rep && tooManyDays(e, cand.day)) return false; // almeno un giorno libero: si allungano gli altri turni
       if (cand.start < OP(cand.day) || cand.end > CL(cand.day) || lateEnd(cand.end, cand.day)) return false;
       if (avoided(cand.start, cand.end) || leavesLunchRush(cfg, cand) || leavesDinnerRush(cfg, cand) || !roundTimeOk(cfg, cand, staggering) || mcOver(cand, rep)) return false;
       if (!isAvail(ctx, e, cand.day) || !fitsLimit(ctx, cand) || inClosure(cand) || shortOffPeak(cfg, cand)) return false;

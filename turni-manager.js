@@ -9,7 +9,8 @@
  *                     D delivery (secondo manager alle 7:30), C2 secondo in chiusura, X rinforzo, M2 secondo in apertura,
  *                     F orario flessibile (circa 9:00–16:30)
  * state.config.mgrDelivery = [2, 5]   giorni con la delivery (secondo manager alle 7:30)
- * state.config.carpiStart = 'AAAA-MM-GG'   un martedì di smontaggio della Carpigiani (poi ogni 2 settimane)
+ * state.config.carpiStart = 'AAAA-MM-GG'   un giorno di smontaggio della Carpigiani (rimontaggio il giorno dopo);
+ *                     state.config.carpiOgni = 2   ogni quante settimane
  */
 (function (root) {
   'use strict';
@@ -40,20 +41,22 @@
    */
   /** Durata massima di un ruolo: l'apertura corta finisce in tempo per lo stacco prima della notte (mezzanotte). */
   const capOf = (r) => (r === 'AS' ? Math.max(SHORT[0], 1440 - REST12 - (CFG.open ?? 450)) : Infinity);
+  /** Durata minima di un ruolo: la notte (da mezzanotte) arriva almeno all'apertura del mattino, senza buchi. */
+  const minOf = (r) => (r === 'N' ? (CFG.open ?? 450) : 0);
   function fitLensPlain(roles, target) { return fitLens(roles, target, true); }
   function fitLens(roles, target, plain = false) {
     // target = ore lavorate (contratto): la pausa dei turni lunghi non conta
-    const lens = roles.map((r) => PREF[r] || 420);
+    const lens = roles.map((r) => Math.max(PREF[r] || 420, minOf(r)));
     let diff = target - lens.reduce((a, b) => a + workOf(b), 0);
     for (let guard = 0; diff !== 0 && guard < 400; guard++) {
       // resto sotto la mezz'ora: lo prende un turno che resta nelle durate consentite
       if (Math.abs(diff) < 30) {
-        const i = lens.findIndex((l) => lenOk(l + diff) && workOf(l + diff) - workOf(l) === diff);
+        const i = lens.findIndex((l, k) => lenOk(l + diff) && l + diff >= minOf(roles[k]) && workOf(l + diff) - workOf(l) === diff);
         if (i >= 0) { lens[i] += diff; diff = 0; }
         break;
       }
       const up = diff > 0;
-      const opts = lens.map((l, i) => ({ i, to: up ? lenUp(l) : lenDown(l) })).filter((o) => o.to != null && o.to <= capOf(roles[o.i]))
+      const opts = lens.map((l, i) => ({ i, to: up ? lenUp(l) : lenDown(l) })).filter((o) => o.to != null && o.to <= capOf(roles[o.i]) && o.to >= minOf(roles[o.i]))
         .map((o) => ({ ...o, d: workOf(o.to) - workOf(lens[o.i]), jump: (lens[o.i] >= LONG[0]) !== (o.to >= LONG[0]) }))
         .filter((o) => Math.abs(o.d) <= Math.abs(diff) || !o.jump);
       if (!opts.length) break;
@@ -77,7 +80,7 @@
       for (const a of allowed.filter((l) => l % 60 === 0)) for (let j = 0; j < lens.length; j++) {
         if (j === i || (WHOLE.has(roles[j]) && lens[j] % 60 === 0)) continue;
         for (const b of allowed) {
-          if (b > capOf(roles[j]) || (WHOLE.has(roles[j]) && b % 60)) continue;
+          if (b > capOf(roles[j]) || b < minOf(roles[j]) || (WHOLE.has(roles[j]) && b % 60)) continue;
           if (workOf(a) - workOf(lens[i]) + workOf(b) - workOf(lens[j]) !== 0) continue;
           cand.push({ j, a, b, cost: Math.abs(a - lens[i]) + Math.abs(b - lens[j]) });
         }
@@ -104,21 +107,30 @@
   /** La Carpigiani si smonta il martedì delle settimane "pari" rispetto alla data indicata (ogni 2 settimane). */
   function carpiWeek(state, ws) {
     const c = state.config.carpiStart; if (!c) return false;
-    const w0 = T.mondayOf(T.toDay(c));
-    return (((ws - w0) / 7) % 2 + 2) % 2 === 0;
+    const w0 = T.mondayOf(T.toDay(c)), ogni = state.config.carpiOgni || 2;
+    return (((ws - w0) / 7) % ogni + ogni) % ogni === 0;
+  }
+  /** Giorni (1 = lunedì) di smontaggio (quello della data indicata) e di rimontaggio (il giorno dopo) della Carpigiani. */
+  function carpiDays(state) {
+    const c = state.config.carpiStart, sm = c ? T.dow(T.toDay(c)) : 2;
+    return { sm, rm: Math.min(7, sm + 1) };
   }
 
   /** Orario di un turno del ruolo r con durata len. */
   function timesFor(r, len, k, maxStart = 1440, side = null, day = 0) {
     const h24 = T.dayHours(CFG, day).h24, op = h24 ? (CFG.open ?? 450) : OPEN(day), cl = CLOSE(day);
     switch (r) {
-      case 'N': return [0, len];
+      case 'N': return [0, Math.max(len, op)]; // fino all'apertura: nessun buco tra la notte e chi apre
       case 'AS': return [op, Math.min(op + len, 1440 - REST12)];
       case 'A': return [op, op + len];
       case 'C': return [cl - len, cl];
       case 'C2': return [Math.max(840, cl - 30 - len), Math.max(840, cl - 30 - len) + len];
       case 'X': return [cl - 30 - len, cl - 30];
-      case 'D': case 'M2': return [op, op + len];
+      case 'D': { // delivery: in turno all'ora della consegna (se è dopo l'apertura entra a quell'ora)
+        const at = (CFG.mgrDeliveryAt || {})[T.dow(day)];
+        return at != null && at > op ? [at, at + len] : [op, op + len];
+      }
+      case 'M2': return [op, op + len];
       case 'F': return [540, 540 + len];
       default: {
         // centrale: copre il pomeriggio (fino alle 18) e il rush dove manca il secondo manager:
@@ -140,7 +152,8 @@
   /** Quanti manager servono come minimo nel giorno k (0 = lunedì). */
   function needOn(state, ws, k) {
     const d = k + 1, carpi = carpiWeek(state, ws);
-    return (loadCfg(state).minPerDay ?? 2) + (T.dayHours(state.config, ws + k).h24 ? 1 : 0) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
+    const cd = carpiDays(state);
+    return (loadCfg(state).minPerDay ?? 2) + (T.dayHours(state.config, ws + k).h24 ? 1 : 0) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === cd.sm || d === cd.rm) ? 1 : 0);
   }
   let REST_DAYS = [1, 2, 3, 4]; // il riposo dei manager è da lunedì a giovedì
   const MGR_DEFAULT = { short: [180, 300], long: [390, 510], breakFrom: 390, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
@@ -159,9 +172,9 @@
     // giorno 24h: c'è anche il manager della notte (da mezzanotte), poi apertura all'orario normale e chiusura a mezzanotte
     const base = T.dayHours(state.config, ws + k).h24 ? ['N', 'A', 'C'] : ['A', 'C'];
     const extra = [];
-    if (carpi && d === 2) extra.push('C2');
+    if (carpi && d === carpiDays(state).sm) extra.push('C2');
     if (deliv) extra.push('D');
-    if (carpi && d === 3) extra.push('M2');
+    if (carpi && d === carpiDays(state).rm && carpiDays(state).rm !== carpiDays(state).sm) extra.push('M2');
     // i primi due manager in più come sempre (centrale; nel weekend centrale e rinforzo serale);
     // dal terzo in poi a giro tra seconda apertura, centrale e sera, così non finiscono tutti sullo stesso turno
     const cycle = ['M2', 'CEN', 'X'];
@@ -287,6 +300,8 @@
               if (prev && prev.end != null && prev.k === k - 1 && isMorning(r) && 1440 - prev.end + OPEN(d) < REST12) return false;
               // notte (da mezzanotte): solo chi il giorno prima non ha lavorato o ha fatto anche lui la notte (stacco di 12 ore)
               if (r === 'N' && prev && prev.k === k - 1 && prev.role !== 'N' && prev.role !== 'AS') return false;
+              // notte dopo un giorno di riposo: servono 36 ore dalla fine dell'ultimo turno → solo dopo un'apertura corta o una notte
+              if (r === 'N' && prev && prev.k === k - 2 && prev.role !== 'N' && prev.role !== 'AS') return false;
               // chi ieri ha fatto l'apertura corta oggi fa la notte
               if (prev && prev.k === k - 1 && prev.role === 'AS' && free.includes('N') && r !== 'N') return false;
               // l'apertura corta la fa solo chi domani lavora (farà la notte)
@@ -295,7 +310,9 @@
               return true;
             };
             const choices = free.filter(okRole);
-            if (!choices.length) { sc += 50; asg.push([m, free.shift() || 'CEN']); continue; }
+            // nessun ruolo compatibile (stacco di 12/36 ore, ordine…): resta a casa quel giorno e il buco viene segnalato,
+            // invece di un turno che viola lo stacco (succede quando i manager sono pochi, es. locale aperto 24 ore)
+            if (!choices.length) { sc += 50; continue; }
             // preferenze: centrale settimanale, rimontaggio Carpigiani, rotazione del weekend, varietà
             const w = (r) => {
               let v = rnd() * 0.8;
@@ -307,7 +324,7 @@
               if (prev && prev.role === r && prev.k === k - 1) v += 0.6;
               // domenica sera: meglio di no per chi il lunedì dopo ha l'orario flessibile o (settimana Carpigiani) l'ordine
               // del mercoledì, altrimenti il lunedì non ha un turno valido (stacco di 12 ore)
-              if (k === 6 && isEvening(r) && ((m.flexDays || []).includes(1) || (carpiWeek(state, ws + 7) && (m.orderDays || []).includes(3)))) v += 3;
+              if (k === 6 && isEvening(r) && ((m.flexDays || []).includes(1) || (carpiWeek(state, ws + 7) && (m.orderDays || []).includes(carpiDays(state).rm)))) v += 3;
               if (r === 'A') v += 0.5 * plan.filter((x) => x.m === m && x.role === 'A').length;
               if (r === 'C') v += 0.5 * plan.filter((x) => x.m === m && x.role === 'C').length;
               return v;
@@ -339,6 +356,9 @@
           const opensNext = plan.some((y) => y.m === m && y.k === x.k + 1 && isMorning(y.role));
           const side = opensNext ? 'pranzo' : dayRoles.some((r) => r === 'D' || r === 'M2' || r === 'F') ? 'cena' : dayRoles.some((r) => r === 'X' || r === 'C2') ? 'pranzo' : null;
           let [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440, side, ws + x.k);
+          // stacco di 12 ore dal turno del giorno prima (es. chiusura a mezzanotte → il centrale entra dalle 12:00)
+          const ieri = shifts.find((y) => y.managerId === m.id && y.day === ws + x.k - 1);
+          if (ieri && !isMorning(x.role)) { const min = ieri.end + REST12 - 1440; if (a < min) { const dl = Math.ceil((min - a) / 60) * 60; a += dl; b = Math.min(b + dl, 1440); } }
           const l = L(m, ws + x.k);
           if (l && !fitsReq(l, { start: a, end: b })) { const f = fitFree(l, a, b); if (f) [a, b] = f; } // si accorcia per rispettare la richiesta
           shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
@@ -416,14 +436,17 @@
       const l = lim.get(s.managerId + '|' + s.day), m = team.find((x) => x.id === s.managerId);
       if (l && m && !fitsReq(l, s)) V('ERROR', `${name(m)}: ${when(s.day)} ha una richiesta accettata (${l.label}), ma il turno è ${T.fmtTime(s.start)}–${T.fmtTime(s.end)}`, m.id, s.day);
     }
+    // nei giorni aperti 24 ore l'apertura "del mattino" (delivery, Carpigiani) è all'orario di apertura del locale
+    const MORNING = (d) => (T.dayHours(CFG, d).h24 ? (CFG.open ?? 450) : OPEN(d));
     for (let k = 0; k < 7; k++) {
       const d = ws + k, dl = list.filter((s) => s.day === d);
       if (!dl.length) continue;
       if (!dl.some((s) => s.start <= OPEN(d))) V('ERROR', `${when(d)}: nessun manager in apertura (${T.fmtTime(OPEN(d))})`, null, d);
       if (!dl.some((s) => s.end >= CLOSE(d))) V('ERROR', `${when(d)}: nessun manager in chiusura (${T.fmtTime(CLOSE(d))})`, null, d);
-      if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= OPEN(d)).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(OPEN(d))}`, null, d);
-      if (carpi && k === 1 && dl.filter((s) => s.end >= CLOSE(d) - 30).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
-      if (carpi && k === 2 && dl.filter((s) => s.start <= OPEN(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(OPEN(d))})`, null, d);
+      { const at = (CFG.mgrDeliveryAt || {})[k + 1], t = at != null && at > MORNING(d) ? at : MORNING(d);
+        if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= t && s.end > t).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(t)}`, null, d); }
+      if (carpi && k === carpiDays(state).sm - 1 && dl.filter((s) => s.end >= CLOSE(d) - 30).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
+      if (carpi && k === carpiDays(state).rm - 1 && carpiDays(state).rm !== carpiDays(state).sm && dl.filter((s) => s.start <= MORNING(d) && s.end > MORNING(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(MORNING(d))})`, null, d);
       // pranzo e cena con 2 manager, quando quel giorno ce ne sono almeno 3
       if (dl.length >= 3) for (const [m, t] of [[LUNCH_CHECK, 'a pranzo (13:00)'], [DINNER_CHECK, 'a cena (20:00)']]) {
         if (dl.filter((s) => s.start <= m && s.end > m).length < 2) V('WARNING', `${when(d)}: un solo manager ${t}`, null, d);
@@ -475,5 +498,5 @@
     return out;
   }
 
-  root.TurniManager = { workOf: (l, state) => { if (state) loadCfg(state); return workOf(l); }, generate, check, weekendStats, carpiWeek, targetOf, ROLE_TXT, kindOf, lenOk };
+  root.TurniManager = { workOf: (l, state) => { if (state) loadCfg(state); return workOf(l); }, generate, check, weekendStats, carpiWeek, carpiDays, targetOf, ROLE_TXT, kindOf, lenOk };
 })(typeof window !== 'undefined' ? window : globalThis);

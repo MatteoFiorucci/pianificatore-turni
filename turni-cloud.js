@@ -249,7 +249,42 @@
   /** Cancella una richiesta (il dipendente la vedrà come "cancellata dal manager"). */
   const deleteRequest = (rid) => api(storeUrl(`/richieste/${rid}`), { method: 'DELETE' });
 
+  // ---- nuovi locali: registrazione con codice invito ----
+  const docsBase = () => `projects/${cfg().projectId}/databases/(default)/documents`;
+  /** Il codice invito esiste ed è ancora libero? (lettura pubblica: si legge solo conoscendo il codice) */
+  async function checkInvite(code) {
+    let r;
+    try { r = await fetch(`https://firestore.googleapis.com/v1/${docsBase()}/inviti/${encodeURIComponent(code)}?key=${cfg().apiKey}`, { cache: 'no-store' }); }
+    catch (e) { throw new CloudError('OFFLINE', 'Nessuna connessione a internet'); }
+    if (r.status === 404 || r.status === 403) return false;
+    const j = await r.json().catch(() => ({}));
+    return !!(j.fields && j.fields.usato && j.fields.usato.booleanValue === false);
+  }
+  /**
+   * Crea l'account del nuovo locale e usa il codice invito (in un solo passaggio: il codice risulta usato da questo locale
+   * e il locale risulta registrato). Se il codice non va bene, l'account appena creato viene tolto.
+   */
+  async function signUp(email, password, code, nome) {
+    if (!configured()) throw new CloudError('NOT_CONFIGURED', 'Il salvataggio online non è ancora configurato.');
+    if (!(await checkInvite(code))) throw new CloudError('INVITE', 'Codice invito non valido o già usato.');
+    let j;
+    try { j = await post(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${cfg().apiKey}`, { email, password, returnSecureToken: true }); }
+    catch (e) { if (/EMAIL_EXISTS/.test(e.code)) e.message = 'Questo nome utente è già usato da un altro locale: scegline un altro.'; if (/WEAK_PASSWORD/.test(e.code)) e.message = 'Password troppo corta: almeno 6 caratteri.'; throw e; }
+    const now = new Date().toISOString(), b = docsBase();
+    const body = { writes: [
+      { update: { name: `${b}/inviti/${code}`, fields: { usato: { booleanValue: true }, usatoDa: { stringValue: j.localId }, usatoIl: { stringValue: now }, locale: { stringValue: String(nome || '').slice(0, 80) } } },
+        updateMask: { fieldPaths: ['usato', 'usatoDa', 'usatoIl', 'locale'] }, currentDocument: { exists: true } },
+      { update: { name: `${b}/locali/${j.localId}`, fields: { codice: { stringValue: code }, creato: { stringValue: now }, nome: { stringValue: String(nome || '').slice(0, 80) } } }, currentDocument: { exists: false } }] };
+    const r = await fetch(`https://firestore.googleapis.com/v1/${b}:commit`, { method: 'POST', headers: { Authorization: 'Bearer ' + j.idToken, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).catch(() => null);
+    if (!r || !r.ok) {
+      // codice non accettato: si toglie l'account appena creato, così il nome utente resta libero
+      await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${cfg().apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: j.idToken }) }).catch(() => null);
+      throw new CloudError('INVITE', 'Il codice invito non è stato accettato (forse è appena stato usato): chiedine un altro.');
+    }
+    return login(email, password);
+  }
   root.TurniCloud = {
+    checkInvite, signUp,
     PROVA, configured, loggedIn, session, login, logout, push, pull, deviceName,
     uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, listAccess, accessExists, setOrario, deleteOrario, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
