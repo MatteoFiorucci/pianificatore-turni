@@ -40,20 +40,22 @@
    */
   /** Durata massima di un ruolo: l'apertura corta finisce in tempo per lo stacco prima della notte (mezzanotte). */
   const capOf = (r) => (r === 'AS' ? Math.max(SHORT[0], 1440 - REST12 - (CFG.open ?? 450)) : Infinity);
+  /** Durata minima di un ruolo: la notte (da mezzanotte) arriva almeno all'apertura del mattino, senza buchi. */
+  const minOf = (r) => (r === 'N' ? (CFG.open ?? 450) : 0);
   function fitLensPlain(roles, target) { return fitLens(roles, target, true); }
   function fitLens(roles, target, plain = false) {
     // target = ore lavorate (contratto): la pausa dei turni lunghi non conta
-    const lens = roles.map((r) => PREF[r] || 420);
+    const lens = roles.map((r) => Math.max(PREF[r] || 420, minOf(r)));
     let diff = target - lens.reduce((a, b) => a + workOf(b), 0);
     for (let guard = 0; diff !== 0 && guard < 400; guard++) {
       // resto sotto la mezz'ora: lo prende un turno che resta nelle durate consentite
       if (Math.abs(diff) < 30) {
-        const i = lens.findIndex((l) => lenOk(l + diff) && workOf(l + diff) - workOf(l) === diff);
+        const i = lens.findIndex((l, k) => lenOk(l + diff) && l + diff >= minOf(roles[k]) && workOf(l + diff) - workOf(l) === diff);
         if (i >= 0) { lens[i] += diff; diff = 0; }
         break;
       }
       const up = diff > 0;
-      const opts = lens.map((l, i) => ({ i, to: up ? lenUp(l) : lenDown(l) })).filter((o) => o.to != null && o.to <= capOf(roles[o.i]))
+      const opts = lens.map((l, i) => ({ i, to: up ? lenUp(l) : lenDown(l) })).filter((o) => o.to != null && o.to <= capOf(roles[o.i]) && o.to >= minOf(roles[o.i]))
         .map((o) => ({ ...o, d: workOf(o.to) - workOf(lens[o.i]), jump: (lens[o.i] >= LONG[0]) !== (o.to >= LONG[0]) }))
         .filter((o) => Math.abs(o.d) <= Math.abs(diff) || !o.jump);
       if (!opts.length) break;
@@ -77,7 +79,7 @@
       for (const a of allowed.filter((l) => l % 60 === 0)) for (let j = 0; j < lens.length; j++) {
         if (j === i || (WHOLE.has(roles[j]) && lens[j] % 60 === 0)) continue;
         for (const b of allowed) {
-          if (b > capOf(roles[j]) || (WHOLE.has(roles[j]) && b % 60)) continue;
+          if (b > capOf(roles[j]) || b < minOf(roles[j]) || (WHOLE.has(roles[j]) && b % 60)) continue;
           if (workOf(a) - workOf(lens[i]) + workOf(b) - workOf(lens[j]) !== 0) continue;
           cand.push({ j, a, b, cost: Math.abs(a - lens[i]) + Math.abs(b - lens[j]) });
         }
@@ -112,7 +114,7 @@
   function timesFor(r, len, k, maxStart = 1440, side = null, day = 0) {
     const h24 = T.dayHours(CFG, day).h24, op = h24 ? (CFG.open ?? 450) : OPEN(day), cl = CLOSE(day);
     switch (r) {
-      case 'N': return [0, len];
+      case 'N': return [0, Math.max(len, op)]; // fino all'apertura: nessun buco tra la notte e chi apre
       case 'AS': return [op, Math.min(op + len, 1440 - REST12)];
       case 'A': return [op, op + len];
       case 'C': return [cl - len, cl];
@@ -287,6 +289,8 @@
               if (prev && prev.end != null && prev.k === k - 1 && isMorning(r) && 1440 - prev.end + OPEN(d) < REST12) return false;
               // notte (da mezzanotte): solo chi il giorno prima non ha lavorato o ha fatto anche lui la notte (stacco di 12 ore)
               if (r === 'N' && prev && prev.k === k - 1 && prev.role !== 'N' && prev.role !== 'AS') return false;
+              // notte dopo un giorno di riposo: servono 36 ore dalla fine dell'ultimo turno → solo dopo un'apertura corta o una notte
+              if (r === 'N' && prev && prev.k === k - 2 && prev.role !== 'N' && prev.role !== 'AS') return false;
               // chi ieri ha fatto l'apertura corta oggi fa la notte
               if (prev && prev.k === k - 1 && prev.role === 'AS' && free.includes('N') && r !== 'N') return false;
               // l'apertura corta la fa solo chi domani lavora (farà la notte)
@@ -295,7 +299,9 @@
               return true;
             };
             const choices = free.filter(okRole);
-            if (!choices.length) { sc += 50; asg.push([m, free.shift() || 'CEN']); continue; }
+            // nessun ruolo compatibile (stacco di 12/36 ore, ordine…): resta a casa quel giorno e il buco viene segnalato,
+            // invece di un turno che viola lo stacco (succede quando i manager sono pochi, es. locale aperto 24 ore)
+            if (!choices.length) { sc += 50; continue; }
             // preferenze: centrale settimanale, rimontaggio Carpigiani, rotazione del weekend, varietà
             const w = (r) => {
               let v = rnd() * 0.8;
@@ -339,6 +345,9 @@
           const opensNext = plan.some((y) => y.m === m && y.k === x.k + 1 && isMorning(y.role));
           const side = opensNext ? 'pranzo' : dayRoles.some((r) => r === 'D' || r === 'M2' || r === 'F') ? 'cena' : dayRoles.some((r) => r === 'X' || r === 'C2') ? 'pranzo' : null;
           let [a, b] = timesFor(x.role, lens[i], x.k + m.id, (m.orderDays || []).includes(x.k + 1) ? ORDER_BY : 1440, side, ws + x.k);
+          // stacco di 12 ore dal turno del giorno prima (es. chiusura a mezzanotte → il centrale entra dalle 12:00)
+          const ieri = shifts.find((y) => y.managerId === m.id && y.day === ws + x.k - 1);
+          if (ieri && !isMorning(x.role)) { const min = ieri.end + REST12 - 1440; if (a < min) { const dl = Math.ceil((min - a) / 60) * 60; a += dl; b = Math.min(b + dl, 1440); } }
           const l = L(m, ws + x.k);
           if (l && !fitsReq(l, { start: a, end: b })) { const f = fitFree(l, a, b); if (f) [a, b] = f; } // si accorcia per rispettare la richiesta
           shifts.push({ managerId: m.id, day: ws + x.k, start: a, end: b, role: x.role }); });
@@ -416,14 +425,16 @@
       const l = lim.get(s.managerId + '|' + s.day), m = team.find((x) => x.id === s.managerId);
       if (l && m && !fitsReq(l, s)) V('ERROR', `${name(m)}: ${when(s.day)} ha una richiesta accettata (${l.label}), ma il turno è ${T.fmtTime(s.start)}–${T.fmtTime(s.end)}`, m.id, s.day);
     }
+    // nei giorni aperti 24 ore l'apertura "del mattino" (delivery, Carpigiani) è all'orario di apertura del locale
+    const MORNING = (d) => (T.dayHours(CFG, d).h24 ? (CFG.open ?? 450) : OPEN(d));
     for (let k = 0; k < 7; k++) {
       const d = ws + k, dl = list.filter((s) => s.day === d);
       if (!dl.length) continue;
       if (!dl.some((s) => s.start <= OPEN(d))) V('ERROR', `${when(d)}: nessun manager in apertura (${T.fmtTime(OPEN(d))})`, null, d);
       if (!dl.some((s) => s.end >= CLOSE(d))) V('ERROR', `${when(d)}: nessun manager in chiusura (${T.fmtTime(CLOSE(d))})`, null, d);
-      if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= OPEN(d)).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(OPEN(d))}`, null, d);
+      if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= MORNING(d) && s.end > MORNING(d)).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(MORNING(d))}`, null, d);
       if (carpi && k === 1 && dl.filter((s) => s.end >= CLOSE(d) - 30).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
-      if (carpi && k === 2 && dl.filter((s) => s.start <= OPEN(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(OPEN(d))})`, null, d);
+      if (carpi && k === 2 && dl.filter((s) => s.start <= MORNING(d) && s.end > MORNING(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(MORNING(d))})`, null, d);
       // pranzo e cena con 2 manager, quando quel giorno ce ne sono almeno 3
       if (dl.length >= 3) for (const [m, t] of [[LUNCH_CHECK, 'a pranzo (13:00)'], [DINNER_CHECK, 'a cena (20:00)']]) {
         if (dl.filter((s) => s.start <= m && s.end > m).length < 2) V('WARNING', `${when(d)}: un solo manager ${t}`, null, d);
