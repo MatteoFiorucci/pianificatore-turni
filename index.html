@@ -1254,7 +1254,7 @@ function renderMgrTurni() {
     <button class="btn primary" onclick="genMgr()" ${team.length ? '' : 'disabled'}>${icon('genera', 16)} Genera turni manager</button>
     ${moreMenu([['📄 Riepilogo (stampa, PDF, Excel)', 'Riepilogo.apri(ui.ws)'], ['🗑 Svuota la settimana dei manager', 'clearMgrWeek()', true]])}
   </div>
-  ${team.length && !state.config.carpiStart ? `<div class="notice warn" style="margin-bottom:10px">🍦 Per segnare la Carpigiani nei giorni giusti indica <b>un martedì di smontaggio</b> (poi ogni 2 settimane): <input type="date" onchange="if(this.value){state.config.carpiStart=this.value;save();render()}" style="margin-left:6px"></div>` : ''}
+  ${team.length && !state.config.carpiStart && state.config.carpi !== false ? `<div class="notice warn" style="margin-bottom:10px">🍦 Se il locale ha la Carpigiani, indica <b>un giorno di smontaggio</b> (il rimontaggio è il giorno dopo; la frequenza si sceglie in Squadra manager): <input type="date" onchange="if(this.value){state.config.carpiStart=this.value;save();render()}" style="margin-left:6px"> <button class="link" onclick="state.config.carpi=false;save();render()">Non abbiamo la Carpigiani</button></div>` : ''}
   ${team.length ? `<div class="layout ${ui.checks ? 'drawer' : 'nochecks'}"><div class="card gridwrap"><table class="grid"><thead>${head}</thead><tbody>${cov}${rows}</tbody></table></div>
     <aside class="card problems"><h3 style="margin-top:0;display:flex;justify-content:space-between;align-items:center">Controlli manager <button class="btn xclose" title="Chiudi i controlli" onclick="ui.checks=false;render()">✕</button></h3>${probHtml}
       <h3>Weekend nelle ultime 4 settimane ${ib('mgr-weekend')}</h3><ul class="small" style="padding-left:18px">${wk}</ul></aside></div>`
@@ -1280,7 +1280,8 @@ function mgrTeamCard() {
     <div style="margin-top:8px"><button class="btn" onclick="mgrAdd()">+ Aggiungi manager</button></div>
     <div class="form" style="margin-top:14px"><div class="row">
       <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Delivery (consegna merci): giorni e orario, a quell'ora servono 2 manager</span>${deliveryEditor('render()')}</div>
-      <label class="f">Un martedì di smontaggio Carpigiani (poi ogni 2 settimane)<input type="date" value="${c.carpiStart || ''}" onchange="state.config.carpiStart=this.value||null;save();render()"></label>
+      <label class="f">Smontaggio Carpigiani: una data (il rimontaggio è il giorno dopo)<input type="date" value="${c.carpiStart || ''}" onchange="state.config.carpiStart=this.value||null;save();render()"></label>
+      <label class="f">Ogni<select onchange="state.config.carpiOgni=+this.value;save();render()">${[1, 2, 3, 4].map((n) => `<option value="${n}" ${(c.carpiOgni || 2) === n ? 'selected' : ''}>${n === 1 ? 'settimana' : n + ' settimane'}</option>`).join('')}</select></label>
     </div></div>
     <p class="small muted" style="margin-bottom:0">Stacchi, durate dei turni, giorni di riposo e manager minimi al giorno si impostano nella sezione <a href="#" onclick="go('store');return false">Store</a>. Carpigiani: il giorno dello smontaggio 2 manager la sera e il giorno del rimontaggio 2 in apertura. Ogni giorno un manager in apertura e uno in chiusura; il fine settimana a rotazione tra aperture, centrali e cene.</p>
   </details>`;
@@ -1955,8 +1956,8 @@ function opsTags(d) {
   const deliv = state.config.mgrDelivery || [2, 5], M = window.TurniManager, carpi = M && M.carpiWeek(state, T.mondayOf(d));
   const dAt = (state.config.mgrDeliveryAt || {})[T.dow(d)];
   return (deliv.includes(T.dow(d)) ? `<span class="evtag">🚚 delivery${dAt != null ? ' ' + T.fmtTime(dAt) : ''}</span>` : '')
-    + (carpi && T.dow(d) === 2 ? '<span class="evtag" title="Smontaggio della Carpigiani: 2 manager la sera">🍦 Carpigiani smontaggio</span>' : '')
-    + (carpi && T.dow(d) === 3 ? '<span class="evtag" title="Rimontaggio della Carpigiani: 2 manager in apertura">🍦 Carpigiani rimontaggio</span>' : '');
+    + (carpi && T.dow(d) === M.carpiDays(state).sm ? '<span class="evtag" title="Smontaggio della Carpigiani: 2 manager la sera">🍦 Carpigiani smontaggio</span>' : '')
+    + (carpi && T.dow(d) === M.carpiDays(state).rm && M.carpiDays(state).rm !== M.carpiDays(state).sm ? '<span class="evtag" title="Rimontaggio della Carpigiani: 2 manager in apertura">🍦 Carpigiani rimontaggio</span>' : '');
 }
 const dayTags = (d) => { const t = opsTags(d) + evTags(d); return t ? `<div>${t}</div>` : ''; };
 function evTags(day) {
@@ -2785,7 +2786,7 @@ function doImportStaff() {
 // ================= CONFIGURAZIONE GUIDATA (locale nuovo) =================
 // Quattro passi alla prima apertura di un locale nuovo: orari, postazioni, persone nei picchi, personale.
 // Tutto resta modificabile dopo in Impostazioni → Store / Regole.
-const SETUP_STEPS = ['Il locale', 'Postazioni', 'Persone nei picchi', 'Il personale'];
+const SETUP_STEPS = ['Il locale', 'Postazioni', 'Persone nei picchi', 'Apertura e chiusura', 'Il personale'];
 /**
  * Locale nuovo: niente regole ereditate dal primo locale (delivery dei manager il martedì e il venerdì,
  * stima delle ore totali dai clienti): ogni locale le imposta o le impara dai suoi dati.
@@ -2838,6 +2839,19 @@ function openSetup(n = 0) {
       <div class="f" style="margin-top:10px"><span class="small" style="font-weight:600;color:var(--muted)">Consegna merci (delivery): giorni e orario, a quell'ora servono 2 manager</span>${deliveryEditor('openSetup(2)')}</div>
       <label class="f" style="margin-top:10px">Manager minimi ogni giorno<input type="number" min="1" max="6" value="${g.minPerDay}" style="width:70px" onchange="state.config.mgr={...MGR_DEF,...(state.config.mgr||{}),minPerDay:Math.max(1,+this.value||2)};save()"></label>
       <p class="small muted" style="margin-bottom:0">Le altre fasce (apertura, chiusura, pomeriggio) partono da valori tipici: le trovi e le cambi in Impostazioni → Regole.</p>`;
+  } else if (n === 3) {
+    const all24 = [1, 2, 3, 4, 5, 6, 7].every((d) => ((c.hours || {})[d] || {}).h24);
+    if (all24) body = `<p style="margin-top:0">Il locale è aperto 24 ore su 24: non ci sono squadre di apertura e chiusura. Di notte valgono i minimi di Impostazioni → Store.</p>`;
+    else {
+      const sts = storeStations().filter((x) => x.active !== false && x.id !== 'HOSPITALITY');
+      const val = (st, kind, from, to) => { const r = teamRow(st, kind); return r ? Math.max(...[0, 1, 2, 3, 4, 5, 6].slice(from, to + 1).map((d) => (r.min || [])[d] || 0)) : 0; };
+      const inp = (st, kind, from, to) => `<input type="number" min="0" max="10" value="${val(st, kind, from, to)}" style="width:48px" onchange="setupTeam('${st}','${kind}',${from},${to},this.value)">`;
+      const rows = sts.map((x) => `<tr><td><b>${esc(x.label)}</b></td><td>${inp(x.id, 'open', 0, 3)}</td><td>${inp(x.id, 'open', 4, 6)}</td><td>${inp(x.id, 'close', 0, 3)}</td><td>${inp(x.id, 'close', 4, 6)}</td></tr>`).join('');
+      body = `<p class="small muted" style="margin-top:0">Quante persone di ogni postazione <b>aprono</b> il locale (all'apertura entrano solo loro) e quante <b>chiudono</b> (restano fino alla chiusura). 0 = nessuno.</p>
+        <table class="list" style="width:100%"><thead><tr><th></th><th colspan="2" style="text-align:center">Apertura</th><th colspan="2" style="text-align:center">Chiusura</th></tr>
+          <tr><th></th><th>Lun–gio</th><th>Ven–dom</th><th>Lun–gio</th><th>Ven–dom</th></tr></thead><tbody>${rows}</tbody></table>
+        <p class="small muted" style="margin-bottom:0">Chi può aprire e chiudere ogni postazione si segna dopo, in Persone → Aperture e chiusure. Durata delle squadre: 3 ore (si cambia in Impostazioni → Regole).</p>`;
+    }
   } else {
     body = `<p style="margin-top:0">Ultimo passo: le persone del locale (crew, hospitality e manager).</p>
       <p><b>Il modo più veloce:</b> carica un file Excel con gli orari di una settimana (nomi a sinistra, giorni in alto). L'app crea tutte le persone con ruolo e ore.</p>
@@ -2891,6 +2905,20 @@ function setupPeakTime(id, k, v) {
   if (id === 'c10') state.config.dinnerPeak = [r.start, r.end];
   save(); openSetup(2);
 }
+/** Fascia della squadra di apertura ('open') o chiusura ('close') di una postazione. */
+const teamRow = (st, kind) => (state.coverage || []).find((r) => r.station === st && (kind === 'open' ? r.opening : r.closing));
+function setupTeam(st, kind, from, to, v) {
+  const n = Math.max(0, Math.min(10, Math.round(+v || 0))), c = state.config;
+  let r = teamRow(st, kind);
+  if (!r && n) {
+    const label = (storeStations().find((x) => x.id === st) || {}).label || st, o = c.open ?? 450, cl = c.close ?? 1290;
+    r = kind === 'open' ? { id: 'ap' + newId(), name: 'Apertura ' + label, start: o, end: o + 180, min: [0, 0, 0, 0, 0, 0, 0], station: st, opening: true, exact: 'start' }
+      : { id: 'ch' + newId(), name: 'Chiusura ' + label, start: cl - 180, end: cl, min: [0, 0, 0, 0, 0, 0, 0], station: st, closing: true, exact: true };
+    state.coverage.push(r);
+  }
+  if (r) { r.min = [...(r.min || [0, 0, 0, 0, 0, 0, 0])]; for (let d = from; d <= to; d++) r.min[d] = n; }
+  save();
+}
 function setupDelivery(d, on) { const l = new Set(state.config.mgrDelivery || [2, 5]); on ? l.add(d) : l.delete(d); state.config.mgrDelivery = [...l].sort(); save(); openSetup(2); }
 function setupPeakName(id, v) { const r = state.coverage.find((x) => x.id === id); if (r && v.trim()) { r.name = v.trim(); save(); } }
 function setupAddPeak() {
@@ -2904,7 +2932,7 @@ function finishSetup() { state.config.setupDone = true; save(); closeModal(); go
 function setupCard() {
   if (!needsSetup()) return '';
   return `<div class="card hcard" style="margin-bottom:16px"><div class="hk">Primi passi</div><div class="hw">Configura il tuo locale</div>
-    <p class="small muted" style="margin:0 0 10px">Quattro passi veloci: orari, postazioni, persone nei picchi e personale. Potrai cambiare tutto anche dopo.</p>
+    <p class="small muted" style="margin:0 0 10px">Cinque passi veloci: orari, postazioni, persone nei picchi, apertura e chiusura, personale. Potrai cambiare tutto anche dopo.</p>
     <div class="hact"><button class="btn primary" onclick="openSetup(0)">Inizia</button></div></div>`;
 }
 // ================= SALVATAGGIO ONLINE =================

@@ -9,7 +9,8 @@
  *                     D delivery (secondo manager alle 7:30), C2 secondo in chiusura, X rinforzo, M2 secondo in apertura,
  *                     F orario flessibile (circa 9:00–16:30)
  * state.config.mgrDelivery = [2, 5]   giorni con la delivery (secondo manager alle 7:30)
- * state.config.carpiStart = 'AAAA-MM-GG'   un martedì di smontaggio della Carpigiani (poi ogni 2 settimane)
+ * state.config.carpiStart = 'AAAA-MM-GG'   un giorno di smontaggio della Carpigiani (rimontaggio il giorno dopo);
+ *                     state.config.carpiOgni = 2   ogni quante settimane
  */
 (function (root) {
   'use strict';
@@ -106,8 +107,13 @@
   /** La Carpigiani si smonta il martedì delle settimane "pari" rispetto alla data indicata (ogni 2 settimane). */
   function carpiWeek(state, ws) {
     const c = state.config.carpiStart; if (!c) return false;
-    const w0 = T.mondayOf(T.toDay(c));
-    return (((ws - w0) / 7) % 2 + 2) % 2 === 0;
+    const w0 = T.mondayOf(T.toDay(c)), ogni = state.config.carpiOgni || 2;
+    return (((ws - w0) / 7) % ogni + ogni) % ogni === 0;
+  }
+  /** Giorni (1 = lunedì) di smontaggio (quello della data indicata) e di rimontaggio (il giorno dopo) della Carpigiani. */
+  function carpiDays(state) {
+    const c = state.config.carpiStart, sm = c ? T.dow(T.toDay(c)) : 2;
+    return { sm, rm: Math.min(7, sm + 1) };
   }
 
   /** Orario di un turno del ruolo r con durata len. */
@@ -146,7 +152,8 @@
   /** Quanti manager servono come minimo nel giorno k (0 = lunedì). */
   function needOn(state, ws, k) {
     const d = k + 1, carpi = carpiWeek(state, ws);
-    return (loadCfg(state).minPerDay ?? 2) + (T.dayHours(state.config, ws + k).h24 ? 1 : 0) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === 2 || d === 3) ? 1 : 0);
+    const cd = carpiDays(state);
+    return (loadCfg(state).minPerDay ?? 2) + (T.dayHours(state.config, ws + k).h24 ? 1 : 0) + (deliveryDays(state).includes(d) ? 1 : 0) + (carpi && (d === cd.sm || d === cd.rm) ? 1 : 0);
   }
   let REST_DAYS = [1, 2, 3, 4]; // il riposo dei manager è da lunedì a giovedì
   const MGR_DEFAULT = { short: [180, 300], long: [390, 510], breakFrom: 390, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
@@ -165,9 +172,9 @@
     // giorno 24h: c'è anche il manager della notte (da mezzanotte), poi apertura all'orario normale e chiusura a mezzanotte
     const base = T.dayHours(state.config, ws + k).h24 ? ['N', 'A', 'C'] : ['A', 'C'];
     const extra = [];
-    if (carpi && d === 2) extra.push('C2');
+    if (carpi && d === carpiDays(state).sm) extra.push('C2');
     if (deliv) extra.push('D');
-    if (carpi && d === 3) extra.push('M2');
+    if (carpi && d === carpiDays(state).rm && carpiDays(state).rm !== carpiDays(state).sm) extra.push('M2');
     // i primi due manager in più come sempre (centrale; nel weekend centrale e rinforzo serale);
     // dal terzo in poi a giro tra seconda apertura, centrale e sera, così non finiscono tutti sullo stesso turno
     const cycle = ['M2', 'CEN', 'X'];
@@ -317,7 +324,7 @@
               if (prev && prev.role === r && prev.k === k - 1) v += 0.6;
               // domenica sera: meglio di no per chi il lunedì dopo ha l'orario flessibile o (settimana Carpigiani) l'ordine
               // del mercoledì, altrimenti il lunedì non ha un turno valido (stacco di 12 ore)
-              if (k === 6 && isEvening(r) && ((m.flexDays || []).includes(1) || (carpiWeek(state, ws + 7) && (m.orderDays || []).includes(3)))) v += 3;
+              if (k === 6 && isEvening(r) && ((m.flexDays || []).includes(1) || (carpiWeek(state, ws + 7) && (m.orderDays || []).includes(carpiDays(state).rm)))) v += 3;
               if (r === 'A') v += 0.5 * plan.filter((x) => x.m === m && x.role === 'A').length;
               if (r === 'C') v += 0.5 * plan.filter((x) => x.m === m && x.role === 'C').length;
               return v;
@@ -438,8 +445,8 @@
       if (!dl.some((s) => s.end >= CLOSE(d))) V('ERROR', `${when(d)}: nessun manager in chiusura (${T.fmtTime(CLOSE(d))})`, null, d);
       { const at = (CFG.mgrDeliveryAt || {})[k + 1], t = at != null && at > MORNING(d) ? at : MORNING(d);
         if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= t && s.end > t).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(t)}`, null, d); }
-      if (carpi && k === 1 && dl.filter((s) => s.end >= CLOSE(d) - 30).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
-      if (carpi && k === 2 && dl.filter((s) => s.start <= MORNING(d) && s.end > MORNING(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(MORNING(d))})`, null, d);
+      if (carpi && k === carpiDays(state).sm - 1 && dl.filter((s) => s.end >= CLOSE(d) - 30).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
+      if (carpi && k === carpiDays(state).rm - 1 && carpiDays(state).rm !== carpiDays(state).sm && dl.filter((s) => s.start <= MORNING(d) && s.end > MORNING(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(MORNING(d))})`, null, d);
       // pranzo e cena con 2 manager, quando quel giorno ce ne sono almeno 3
       if (dl.length >= 3) for (const [m, t] of [[LUNCH_CHECK, 'a pranzo (13:00)'], [DINNER_CHECK, 'a cena (20:00)']]) {
         if (dl.filter((s) => s.start <= m && s.end > m).length < 2) V('WARNING', `${when(d)}: un solo manager ${t}`, null, d);
@@ -491,5 +498,5 @@
     return out;
   }
 
-  root.TurniManager = { workOf: (l, state) => { if (state) loadCfg(state); return workOf(l); }, generate, check, weekendStats, carpiWeek, targetOf, ROLE_TXT, kindOf, lenOk };
+  root.TurniManager = { workOf: (l, state) => { if (state) loadCfg(state); return workOf(l); }, generate, check, weekendStats, carpiWeek, carpiDays, targetOf, ROLE_TXT, kindOf, lenOk };
 })(typeof window !== 'undefined' ? window : globalThis);
