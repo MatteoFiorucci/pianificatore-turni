@@ -1556,7 +1556,7 @@
     const tplTop = { CREW: Math.max(1, ...tplOf('CREW').map((x) => x[2])), HOSPITALITY: Math.max(1, ...tplOf('HOSPITALITY').map((x) => x[2])) };
     const tplFreq = (type, a, b) => { const t = tplOf(type).find((x) => x[0] === a && x[1] === b); return t ? t[2] / tplTop[type] : 0; };
     const band = (a) => (a < 630 ? 0 : a < 780 ? 1 : a < 1020 ? 2 : 3);
-    const habit = (e, a) => { const h = hist.habits && hist.habits[e.lastName]; return h ? h[band(a)] : 0.25; };
+    // niente abitudini delle singole persone (chi ha un vincolo lo ha come richiesta accettata): valore uguale per tutti
     /** Penalità se la persona inizia alla stessa ora il giorno prima/dopo, o se un collega dello stesso ruolo fa lo stesso identico turno. */
     function variety(e, d, a, b) {
       let p = 0;
@@ -1587,7 +1587,7 @@
       const diff = (h[other] + cur[other] * 2) - (h[side] + cur[side] * 2);
       return Math.max(-2, Math.min(2, diff * 0.5));
     }
-    const natural = (e, d, a, b) => tplFreq(e.type, a, b) + (e.type === 'HOSPITALITY' && cfg.hospRotation !== false ? sideTurn(e, d, a, b) * 1.5 : habit(e, a) * 1.5) - variety(e, d, a, b) * 1.2 - longPenalty(e, d, a, b) + handover(e, d, a, b) + rnd() * 0.6;
+    const natural = (e, d, a, b) => tplFreq(e.type, a, b) + (e.type === 'HOSPITALITY' && cfg.hospRotation !== false ? sideTurn(e, d, a, b) * 1.5 : 0.375) - variety(e, d, a, b) * 1.2 - longPenalty(e, d, a, b) + handover(e, d, a, b) + rnd() * 0.6;
     /**
      * Sceglie turno e persona insieme: tra le finestre che chiudono quasi più buchi possibile (≥ 80% della migliore)
      * preferisce chi ha più ore da fare e l'orario più naturale per lui/lei.
