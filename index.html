@@ -1279,7 +1279,7 @@ function mgrTeamCard() {
     </tbody></table>
     <div style="margin-top:8px"><button class="btn" onclick="mgrAdd()">+ Aggiungi manager</button></div>
     <div class="form" style="margin-top:14px"><div class="row">
-      <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Giorni con la delivery (secondo manager in apertura)</span><div class="row" style="gap:3px">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="tg ${deliv.includes(d) ? 'on' : ''}"><input type="checkbox" ${deliv.includes(d) ? 'checked' : ''} onchange="mgrToggleDeliv(${d})">${T.DOW_SHORT[d]}</label>`).join('')}</div></div>
+      <div class="f"><span class="small" style="font-weight:600;color:var(--muted)">Delivery (consegna merci): giorni e orario, a quell'ora servono 2 manager</span>${deliveryEditor('render()')}</div>
       <label class="f">Un martedì di smontaggio Carpigiani (poi ogni 2 settimane)<input type="date" value="${c.carpiStart || ''}" onchange="state.config.carpiStart=this.value||null;save();render()"></label>
     </div></div>
     <p class="small muted" style="margin-bottom:0">Stacchi, durate dei turni, giorni di riposo e manager minimi al giorno si impostano nella sezione <a href="#" onclick="go('store');return false">Store</a>. Carpigiani: il giorno dello smontaggio 2 manager la sera e il giorno del rimontaggio 2 in apertura. Ogni giorno un manager in apertura e uno in chiusura; il fine settimana a rotazione tra aperture, centrali e cene.</p>
@@ -1301,6 +1301,19 @@ function newManager() {
 function mgrAdd() { state.managers = state.managers || []; state.managers.push({ id: newId(), lastName: '', firstName: '', role: 'RDM', area: '', weeklyMinutes: 2400, orderDays: [], flexDays: [], active: true }); ui.mgrTeamOpen = true; save(); render(); }
 function mgrSet(id, f, v) { const m = mgrById(id); if (!m) return; if ((f === 'role' || f === 'weeklyMinutes') && m.daControllare && (f === 'role' ? v : m.role)) delete m.daControllare; if (f === 'weeklyMinutes' && !(v > 0)) return render(); if (f === 'role' && v === 'SHIFT' && (m.weeklyMinutes || 2400) === 2400) m.weeklyMinutes = 2160; m[f] = typeof v === 'string' ? v.trim() : v; save(); render(); }
 function mgrToggleDay(id, f, d) { const m = mgrById(id); const l = new Set(m[f] || []); l.has(d) ? l.delete(d) : l.add(d); m[f] = [...l].sort(); save(); render(); }
+/**
+ * Delivery dei manager (consegna merci): giorni e orario di ogni giorno. A quell'ora servono 2 manager.
+ * Orario non scelto = all'apertura. after = cosa ridisegnare dopo il cambio ('render()' oppure 'openSetup(2)').
+ */
+function deliveryEditor(after) {
+  const c = state.config, days = c.mgrDelivery || [2, 5], at = c.mgrDeliveryAt || {};
+  const times = DAY_TIMES.filter((t) => t >= 300 && t <= 1260 && t % 30 === 0);
+  const sel = (d) => `<select onchange="setDeliveryAt(${d},this.value);${after}"><option value="">all'apertura</option>${times.map((t) => `<option value="${t}" ${at[d] === t ? 'selected' : ''}>alle ${T.fmtTime(t)}</option>`).join('')}</select>`;
+  return `<div class="row" style="gap:3px">${[1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="tg ${days.includes(d) ? 'on' : ''}"><input type="checkbox" ${days.includes(d) ? 'checked' : ''} onchange="setDeliveryDay(${d},this.checked);${after}">${T.DOW_SHORT[d]}</label>`).join('')}</div>
+    ${days.length ? `<div class="row" style="gap:10px;flex-wrap:wrap;margin-top:6px">${days.map((d) => `<span class="small">${T.DOW_LONG[d]} ${sel(d)}</span>`).join('')}</div>` : ''}`;
+}
+function setDeliveryDay(d, on) { const l = new Set(state.config.mgrDelivery || [2, 5]); on ? l.add(d) : l.delete(d); state.config.mgrDelivery = [...l].sort(); save(); }
+function setDeliveryAt(d, v) { const a = { ...(state.config.mgrDeliveryAt || {}) }; if (v === '') delete a[d]; else a[d] = +v; state.config.mgrDeliveryAt = a; save(); }
 function mgrToggleDeliv(d) { const l = new Set(state.config.mgrDelivery || [2, 5]); l.has(d) ? l.delete(d) : l.add(d); state.config.mgrDelivery = [...l].sort(); save(); render(); }
 function mgrDel(id) { const m = mgrById(id); if (!confirm(`Eliminare ${T.fullName(m) || 'questo manager'} e i suoi turni?`)) return; state.managers = state.managers.filter((x) => x.id !== id); state.mgrShifts = (state.mgrShifts || []).filter((x) => x.managerId !== id); save(); render(); }
 function genMgr() {
@@ -1940,7 +1953,8 @@ function refreshEvents() {
 /** Etichette operative del giorno: delivery e Carpigiani (smontaggio martedì, rimontaggio mercoledì, ogni 2 settimane). */
 function opsTags(d) {
   const deliv = state.config.mgrDelivery || [2, 5], M = window.TurniManager, carpi = M && M.carpiWeek(state, T.mondayOf(d));
-  return (deliv.includes(T.dow(d)) ? '<span class="evtag">🚚 delivery</span>' : '')
+  const dAt = (state.config.mgrDeliveryAt || {})[T.dow(d)];
+  return (deliv.includes(T.dow(d)) ? `<span class="evtag">🚚 delivery${dAt != null ? ' ' + T.fmtTime(dAt) : ''}</span>` : '')
     + (carpi && T.dow(d) === 2 ? '<span class="evtag" title="Smontaggio della Carpigiani: 2 manager la sera">🍦 Carpigiani smontaggio</span>' : '')
     + (carpi && T.dow(d) === 3 ? '<span class="evtag" title="Rimontaggio della Carpigiani: 2 manager in apertura">🍦 Carpigiani rimontaggio</span>' : '');
 }
@@ -2776,7 +2790,7 @@ const SETUP_STEPS = ['Il locale', 'Postazioni', 'Persone nei picchi', 'Il person
  * Locale nuovo: niente regole ereditate dal primo locale (delivery dei manager il martedì e il venerdì,
  * stima delle ore totali dai clienti): ogni locale le imposta o le impara dai suoi dati.
  */
-function newStoreDefaults(c) { c.mgrDelivery = []; c.oreStimaBase = 0; delete c.carpiStart; return c; }
+function newStoreDefaults(c) { c.mgrDelivery = []; c.oreStimaBase = 0; c.vlhFrom = 0; delete c.carpiStart; return c; } // VLH dall'apertura (Collestrada: dalle 11:00)
 const needsSetup = () => !state.config.setupDone && !(state.employees || []).length;
 function setupHead(n) {
   return `<div class="small muted" style="margin-bottom:4px">Passo ${n + 1} di ${SETUP_STEPS.length}</div>
@@ -2821,8 +2835,7 @@ function openSetup(n = 0) {
     body = `<p class="small muted" style="margin-top:0">I momenti più pieni della giornata: orario e quante persone (crew, senza manager) servono come minimo. I numeri sono solo un esempio: scrivi i tuoi, e cambia gli orari se i tuoi picchi sono diversi.</p>
       <table class="list" style="width:100%"><thead><tr><th></th><th>Dalle – alle</th><th style="white-space:nowrap">Lun–gio</th><th style="white-space:nowrap">Ven–dom</th><th></th></tr></thead><tbody>${rows}</tbody></table>
       <div style="margin-top:6px"><button class="link" onclick="setupAddPeak()">+ Aggiungi un picco</button> <span class="small muted">(es. colazione, merenda, notte nei locali aperti 24 ore)</span></div>
-      <div class="f" style="margin-top:10px"><span class="small" style="font-weight:600;color:var(--muted)">Giorni con la consegna merci (delivery): 2 manager in apertura</span>
-        <div class="row" style="gap:3px">${[1, 2, 3, 4, 5, 6, 7].map((d) => { const on = (c.mgrDelivery || [2, 5]).includes(d); return `<label class="tg ${on ? 'on' : ''}"><input type="checkbox" ${on ? 'checked' : ''} onchange="setupDelivery(${d},this.checked)">${T.DOW_SHORT[d]}</label>`; }).join('')}</div></div>
+      <div class="f" style="margin-top:10px"><span class="small" style="font-weight:600;color:var(--muted)">Consegna merci (delivery): giorni e orario, a quell'ora servono 2 manager</span>${deliveryEditor('openSetup(2)')}</div>
       <label class="f" style="margin-top:10px">Manager minimi ogni giorno<input type="number" min="1" max="6" value="${g.minPerDay}" style="width:70px" onchange="state.config.mgr={...MGR_DEF,...(state.config.mgr||{}),minPerDay:Math.max(1,+this.value||2)};save()"></label>
       <p class="small muted" style="margin-bottom:0">Le altre fasce (apertura, chiusura, pomeriggio) partono da valori tipici: le trovi e le cambi in Impostazioni → Regole.</p>`;
   } else {

@@ -120,7 +120,11 @@
       case 'C': return [cl - len, cl];
       case 'C2': return [Math.max(840, cl - 30 - len), Math.max(840, cl - 30 - len) + len];
       case 'X': return [cl - 30 - len, cl - 30];
-      case 'D': case 'M2': return [op, op + len];
+      case 'D': { // delivery: in turno all'ora della consegna (se è dopo l'apertura entra a quell'ora)
+        const at = (CFG.mgrDeliveryAt || {})[T.dow(day)];
+        return at != null && at > op ? [at, at + len] : [op, op + len];
+      }
+      case 'M2': return [op, op + len];
       case 'F': return [540, 540 + len];
       default: {
         // centrale: copre il pomeriggio (fino alle 18) e il rush dove manca il secondo manager:
@@ -432,7 +436,8 @@
       if (!dl.length) continue;
       if (!dl.some((s) => s.start <= OPEN(d))) V('ERROR', `${when(d)}: nessun manager in apertura (${T.fmtTime(OPEN(d))})`, null, d);
       if (!dl.some((s) => s.end >= CLOSE(d))) V('ERROR', `${when(d)}: nessun manager in chiusura (${T.fmtTime(CLOSE(d))})`, null, d);
-      if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= MORNING(d) && s.end > MORNING(d)).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(MORNING(d))}`, null, d);
+      { const at = (CFG.mgrDeliveryAt || {})[k + 1], t = at != null && at > MORNING(d) ? at : MORNING(d);
+        if (deliveryDays(state).includes(k + 1) && dl.filter((s) => s.start <= t && s.end > t).length < 2) V('ERROR', `${when(d)}: delivery, servono 2 manager alle ${T.fmtTime(t)}`, null, d); }
       if (carpi && k === 1 && dl.filter((s) => s.end >= CLOSE(d) - 30).length < 2) V('ERROR', `${when(d)}: smontaggio Carpigiani, servono 2 manager in chiusura almeno fino alle 21:00`, null, d);
       if (carpi && k === 2 && dl.filter((s) => s.start <= MORNING(d) && s.end > MORNING(d)).length < 2) V('ERROR', `${when(d)}: rimontaggio Carpigiani, servono 2 manager in apertura (${T.fmtTime(MORNING(d))})`, null, d);
       // pranzo e cena con 2 manager, quando quel giorno ce ne sono almeno 3

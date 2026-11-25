@@ -34,8 +34,13 @@
    * hanno fasce proprie solo se il locale le ha nella sua VLH (locali aperti fino a tardi o 24 ore).
    */
   const partOf = (h, g) => (h < 5 && g && g.N ? 'N' : h >= 22 && g && g.E ? 'E' : h < 5 && g && g.E ? 'E' : h <= 10 ? 'B' : h <= 14 ? 'L' : h <= 18 ? 'A' : 'D');
-  /** Postazioni che non sono nell'elenco qui sopra (es. Drive): arrivano con le tabelle del locale (vlh.pos). */
-  function registra(vlh) { if (vlh && vlh.pos) for (const [c, v] of Object.entries(vlh.pos)) if (!POS[c]) POS[c] = v; }
+  // postazioni standard (quelle scritte qui sopra): le altre arrivano con le tabelle di ogni locale
+  const BASE = new Set(Object.keys(POS));
+  /** Postazioni che non sono nell'elenco standard (es. Drive): arrivano con le tabelle del locale (vlh.pos). */
+  function registra(vlh) {
+    for (const c of Object.keys(POS)) if (!BASE.has(c)) delete POS[c]; // niente postazioni di un altro locale
+    if (vlh && vlh.pos) for (const [c, v] of Object.entries(vlh.pos)) if (!BASE.has(c)) POS[c] = v;
+  }
   // area del lineare che può coprire ogni postazione: Production → MFY, Front Counter → OA, McCafé → McCafé.
   // Eccezione: le patatine (Fries) le fa chi sul lineare è in OA oppure in MFY.
   // Il servizio al tavolo (Table Server) lo fa anche chi sul lineare è in sala o hospitality.
@@ -69,7 +74,7 @@
 
   // ---------- tabelle lette dai file VLH aziendali (Cloud VLH Customization Tool, un file per giorno) ----------
   const nk = (t) => String(t || '').toLowerCase().replace(/curbside/g, '').replace(/[^a-z0-9]/g, '');
-  const BY_NAME = () => Object.fromEntries(Object.entries(POS).map(([c, [n]]) => [nk(n), c]));
+  const BY_NAME = () => Object.fromEntries(Object.entries(POS).filter(([c]) => BASE.has(c)).map(([c, [n]]) => [nk(n), c]));
   const PARTS = [['breakfast', 'B'], ['lunch', 'L'], ['afternoon', 'A'], ['dinner', 'D'], ['evening', 'E'], ['latenight', 'N']];
   const GIORNI = [['LUN', 1], ['MAR', 2], ['MER', 3], ['GIO', 4], ['VEN', 5], ['SAB', 6], ['DOM', 7]];
   const areaOf = (name) => { const n = nk(name);

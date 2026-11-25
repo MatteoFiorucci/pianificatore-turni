@@ -606,7 +606,7 @@
     }
     const total = sum();
     for (const x of Object.values(hours)) {
-      x.need = { CUCINA: 0, FRONT: 0, MCCAFE: 0, SERVIZIO: 0 };
+      x.need = Object.fromEntries(VLH_STATIONS.map(([st]) => [st, 0])); // anche il Drive
       x.crew = 0;
       for (const p of x.open) {
         const st = vlhStationOf(p.code, p.area);
