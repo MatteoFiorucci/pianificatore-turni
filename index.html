@@ -3259,14 +3259,24 @@ function loginKeepLocal() {
   if (!confirm('Sostituire i dati online con quelli di questo dispositivo? Quelli online andranno persi.')) return;
   const r = ui.loginDoc; ui.loginDoc = null; closeModal(); TurniCloud.setDirty(true); cloudPush(r.doc.updateTime).then(render);
 }
+/**
+ * Uscita: si chiude l'accesso e i dati del locale vengono tolti da questo dispositivo (restano al sicuro online),
+ * poi compare la pagina di accesso. Così chi usa lo stesso computer dopo non vede orari e persone del locale.
+ */
 function cloudLogout() {
   const s = TurniCloud.session();
-  if (s && s.dirty && !confirm('Ci sono modifiche non ancora salvate online: uscendo restano solo su questo dispositivo. Uscire lo stesso?')) return;
-  if (!(s && s.dirty) && !confirm(APP_MODE ? 'Uscire dall\'area manager? Per rientrare servono nome utente e password.' : 'Uscire dal salvataggio online su questo dispositivo? I dati restano qui, ma non si aggiornano più con gli altri dispositivi.')) return;
+  const msg = s && s.dirty
+    ? 'Ci sono modifiche non ancora salvate online: uscendo andranno perse. Uscire lo stesso?'
+    : 'Uscire? I dati del locale vengono tolti da questo dispositivo (restano online): per rivederli servono di nuovo nome utente e password.';
+  if (!confirm(msg)) return;
   const sc = storeCode();
   TurniCloud.logout(); setSync('off');
   ui.dragEdit = false; hideToast(); // uscendo si spegne la modifica trascinando
-  if (APP_MODE) { ui.locked = true; ui.gateLogin = ''; if (sc) return loadGateLogin(sc); }
+  try { window.localStorage.removeItem(KEY); } catch (e) { /* niente */ }
+  state = TurniData.emptyState(); closeModal();
+  try { if (sc) window.localStorage.setItem('turni-locale', sc); } catch (e) { /* niente */ } // per proporre di nuovo l'accesso a questo locale
+  ui.view = 'home'; ui.locked = true; ui.gateLogin = '';
+  if (sc) return loadGateLogin(sc);
   render();
 }
 function renderCloudBox() {
