@@ -2414,7 +2414,7 @@ function renderAperture() {
   const rows = ['HOSPITALITY', 'CREW'].map((type) => {
     const list = sortByName(people.filter((e) => e.type === type));
     if (!list.length) return '';
-    return `<tr class="group"><td colspan="6">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b>${e.fixedShift ? ' <span class="small muted">(orario fisso)</span>' : ''}${e.trainee ? ' 🎓' : ''}</td>
+    return `<tr class="group"><td colspan="6">${T.TYPES[type]} (${list.length})</td></tr>` + list.map((e) => `<tr><td><b>${esc(T.fullName(e))}</b>${e.fixedShift ? ' <span class="small muted">(orario fisso)</span>' : ''}${e.trainee ? ' 🎓' : ''}${e.storico && (e.storico.apre || e.storico.chiude) ? `<div class="small muted">negli orari caricati: ${[e.storico.apre ? `ha aperto ${e.storico.apre} ${e.storico.apre === 1 ? 'volta' : 'volte'}` : '', e.storico.chiude ? `ha chiuso ${e.storico.chiude} ${e.storico.chiude === 1 ? 'volta' : 'volte'}` : ''].filter(Boolean).join(', ')}</div>` : ''}</td>
       ${OPENINGS_().map((st) => (e.type === 'HOSPITALITY' ? '<td style="text-align:center" class="small muted" title="In apertura ci sono solo i crew della squadra di apertura">—</td>' : box(e, 'openings', st))).join('')}
       ${CLOSINGS_().map((st) => box(e, 'closings', st)).join('')}</tr>`).join('');
   }).join('');
@@ -2725,21 +2725,76 @@ function askImportStaff(msg) {
     <p>Carica il <b>file degli orari della settimana</b> (.xls o .xlsx): un foglio per Manager, Hospitality e Crew (più i Doppi, se ci sono), con i nomi a sinistra e i giorni da lunedì a domenica. Se il file ha anche gli <b>elenchi del personale con le ore</b> (es. fogli "Elenco CREW"), si usano le ore di contratto.</p>
     <p class="small muted">Non hai un file così? <button class="link" onclick="Riepilogo.modello()">Scarica il modello vuoto</button>, scrivi nomi e orari di una settimana tipo (es. <i>7:30 14:30</i> o <i>RIPOSO</i>) e caricalo. Il file resta sul tuo computer: non viene mandato da nessuna parte.</p>
     ${msg ? `<div class="notice err">${esc(msg)}</div>` : ''}
-    <input type="file" id="imp-file" accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="readImportStaff(this.files[0])">
+    <p class="small">Puoi selezionare <b>più file insieme</b>, uno per settimana: con 2–4 settimane l'app impara anche come lavorate (orari più usati, chi fa mattina o sera, riposi, chi apre e chiude).</p>
+    <input type="file" id="imp-file" multiple accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="readImportStaff(this.files)">
     <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button></div>`);
 }
-async function readImportStaff(file) {
-  if (!file) return;
-  let list;
-  try { list = ImportaPersonale.persone(await ImportaPersonale.leggiFile(await file.arrayBuffer())); }
-  catch (e) { return askImportStaff(e.message || 'Non riesco a leggere il file.'); }
-  if (!list.length) return askImportStaff('Nel file non ho trovato persone: servono i giorni (lunedì…domenica) in una riga e i nomi nella colonna a sinistra.');
-  const g = { ...MGR_DEF, ...(state.config.mgr || {}) };
+/** Uno o più file (una settimana ciascuno): persone unite, riposi dalla maggioranza delle settimane, settimane per imparare. */
+async function readImportStaff(files) {
+  files = [...(files || [])].filter(Boolean);
+  if (!files.length) return;
+  const lists = [], weeks = [];
+  try {
+    for (const f of files) {
+      const sh = await ImportaPersonale.leggiFile(await f.arrayBuffer());
+      lists.push(ImportaPersonale.persone(sh));
+      const w = ImportaPersonale.settimana(sh); if (w.righe.length) weeks.push(w);
+    }
+  } catch (e) { return askImportStaff(e.message || 'Non riesco a leggere il file.'); }
+  const g = { ...MGR_DEF, ...(state.config.mgr || {}) }, r30 = (m) => Math.round(m / 30) * 30;
+  // persone di tutti i file: ore di contratto (elenchi) oppure media delle settimane
+  const map = new Map();
+  for (const list of lists) for (const p of list) {
+    const m = p.contratto ? p.minutes : r30(p.type === 'MANAGER' ? p.minutes - p.long * g.breakMin : p.minutes);
+    const x = map.get(p.key);
+    if (!x) map.set(p.key, { ...p, minutes: m, _w: [m] });
+    else { x._w.push(m); x.doppi = Math.max(x.doppi, p.doppi); if (p.contratto) { x.contratto = true; x.minutes = m; } }
+  }
+  if (!map.size) return askImportStaff('Nel file non ho trovato persone: servono i giorni (lunedì…domenica) in una riga e i nomi nella colonna a sinistra.');
+  // riposi fissi: i giorni con RIPOSO in almeno metà delle settimane
+  const restOf = (key) => { if (!weeks.length) return null; const n = [0, 0, 0, 0, 0, 0, 0]; let w = 0;
+    for (const wk of weeks) { const r = wk.righe.find((x) => x.key === key && x.sez !== 'DOPPI'); if (!r) continue; w++; r.giorni.forEach((gg, d) => { if (gg.riposo) n[d]++; }); }
+    return w ? n.map((v, d) => (v * 2 >= w && v ? d + 1 : 0)).filter(Boolean) : null; };
   const known = new Set([...state.employees, ...(state.managers || [])].map((e) => ImportaPersonale.norm(T.fullName(e))));
-  const r30 = (m) => Math.round(m / 30) * 30;
-  ui.imp = list.map((p) => ({ ...p, on: !known.has(p.key), known: known.has(p.key),
-    minutes: p.contratto ? p.minutes : r30(p.type === 'MANAGER' ? p.minutes - p.long * g.breakMin : p.minutes) }));
+  ui.imp = [...map.values()].map((p) => { const { _w, ...q } = p; const rest = restOf(p.key);
+    return { ...q, minutes: p.contratto ? p.minutes : r30(_w.reduce((t, v) => t + v, 0) / _w.length), rest: rest || p.rest, on: !known.has(p.key), known: known.has(p.key) }; });
+  ui.impWeeks = weeks;
   showImportStaff();
+}
+/**
+ * Dalle settimane caricate: orari di turno usati davvero, presenze dei crew ogni quarto d'ora, abitudini di ognuno
+ * (mattina, pranzo, pomeriggio, sera) e quante volte ognuno ha aperto o chiuso. Prende il posto dello storico del
+ * primo locale (turni-storico.js), che vale solo per Collestrada.
+ */
+function learnFromWeeks(weeks, people) {
+  const tpl = { CREW: new Map(), HOSPITALITY: new Map() }, habits = {}, stats = {};
+  const slots = { weekday: new Array(96).fill(0), weekend: new Array(96).fill(0) }, ore = { weekday: 0, weekend: 0 }, nDays = { weekday: 0, weekend: 0 };
+  const typeOf = new Map(people.map((p) => [p.key, p.type])), lastOf = new Map(people.map((p) => [p.key, p.lastName]));
+  const band = (a) => (a < 630 ? 0 : a < 780 ? 1 : a < 1020 ? 2 : 3);
+  for (const w of weeks) {
+    for (let d = 0; d < 7; d++) {
+      const part = d >= 4 ? 'weekend' : 'weekday'; nDays[part]++;
+      const hh = (state.config.hours || {})[d + 1] || {}, open = hh.h24 ? null : hh.open ?? state.config.open ?? 450, close = hh.h24 ? null : hh.close ?? state.config.close ?? 1290;
+      for (const r of w.righe) {
+        const type = r.sez === 'DOPPI' ? typeOf.get(r.key) : r.sez;
+        for (const t of r.giorni[d].turni) {
+          if (type === 'CREW') { for (let m = t.start; m < t.end; m += 15) slots[part][Math.floor(m / 15)]++; ore[part] += (t.end - t.start) / 60; }
+          if (r.sez === 'DOPPI' || type === 'MANAGER') continue;
+          if (tpl[type]) { const k = t.start + '|' + t.end; tpl[type].set(k, (tpl[type].get(k) || 0) + 1); }
+          const ln = lastOf.get(r.key); if (ln) { const x = habits[ln] = habits[ln] || [0, 0, 0, 0]; x[band(t.start)]++; }
+          const st = stats[r.key] = stats[r.key] || { apre: 0, chiude: 0 };
+          if (open != null && t.start <= open) st.apre++;
+          if (close != null && t.end >= close) st.chiude++;
+        }
+      }
+    }
+  }
+  for (const k of Object.keys(habits)) { const t = habits[k].reduce((a, b) => a + b, 0) || 1; habits[k] = habits[k].map((v) => Math.round((v / t) * 100) / 100); }
+  const avg = (part) => slots[part].map((v) => Math.round((v / Math.max(1, nDays[part])) * 100) / 100);
+  const top = (m) => [...m.entries()].map(([k, n]) => [...k.split('|').map(Number), n]).sort((a, b) => b[2] - a[2]).slice(0, 80);
+  return { hist: { templates: { CREW: top(tpl.CREW), HOSPITALITY: top(tpl.HOSPITALITY) }, habits,
+    profile: { start: 0, slot: 15, weekday: avg('weekday'), weekend: avg('weekend'), hoursWeekday: Math.round(ore.weekday / Math.max(1, nDays.weekday)), hoursWeekend: Math.round(ore.weekend / Math.max(1, nDays.weekend)) },
+    settimane: weeks.length, imparatoIl: new Date().toISOString().slice(0, 10) }, stats };
 }
 function impRest(i, d, on) { const p = ui.imp[i], l = new Set(p.rest || []); on ? l.add(d) : l.delete(d); p.rest = [...l].sort(); showImportStaff(); }
 function showImportStaff() {
@@ -2757,7 +2812,9 @@ function showImportStaff() {
       <td style="white-space:nowrap">${p.type === 'MANAGER' ? '<span class="muted small">—</span>' : [1, 2, 3, 4, 5, 6, 7].map((d) => `<label class="tg ${(p.rest || []).includes(d) ? 'on' : ''}" style="padding:2px 5px;font-size:11px"><input type="checkbox" ${(p.rest || []).includes(d) ? 'checked' : ''} onchange="impRest(${i},${d},this.checked)">${T.DOW_SHORT[d].slice(0, 2)}</label>`).join('')}</td>
       <td>${p.doppi ? p.doppi : ''}</td><td class="small" style="color:var(--warn-ink)">${warn}</td></tr>`; }).join('');
   const n = L.filter((p) => p.on).length;
+  const nw = (ui.impWeeks || []).length;
   showModal(`<h3>Controlla il personale trovato</h3>
+    ${nw ? `<div class="notice info" style="margin:0 0 8px">Settimane di orari lette: <b>${nw}</b>${(ui.impWeeks || []).map((w) => w.dal ? ` (dal ${w.dal.g}/${w.dal.mese})` : '').join('')}. Aggiungendo le persone l'app impara da queste settimane come lavorate.</div>` : ''}
     <p class="small muted" style="margin-top:0">${ui.imp.some((p) => p.contratto) ? 'Le <b>ore</b> sono quelle di contratto scritte negli elenchi del file: controllale.' : 'Le <b>ore</b> sono quelle della settimana del file (per i manager senza le pause): <b>correggile con le ore del contratto</b>.'} Per i manager scegli il <b>ruolo</b> (RDM o Shift): si può fare anche dopo. Se cognome e nome sono divisi male (es. doppio cognome) correggili qui. I <b>riposi fissi</b> sono i giorni con RIPOSO nel file: ognuno lavora in tutti gli altri giorni, quindi controllali (di solito si mettono in settimana). Formazione e date si impostano dopo, in Persone.</p>
     <div style="max-height:55vh;overflow:auto"><table class="list"><thead><tr><th></th><th>Cognome</th><th>Nome</th><th>Ruolo</th><th>Ore</th><th>Riposi fissi</th><th>Doppi</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="actions"><button class="btn" onclick="ui.imp=null;closeModal()">Annulla</button><button class="btn primary" ${n ? '' : 'disabled'} onclick="doImportStaff()">Aggiungi ${n} ${n === 1 ? 'persona' : 'persone'}</button></div>`);
@@ -2773,8 +2830,15 @@ function doImportStaff() {
     if (p.type === 'MANAGER') state.managers.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, role: p.role || '', area: '', weeklyMinutes: p.minutes || 2400, orderDays: [], flexDays: [], active: true, daControllare: true });
     else state.employees.push({ id: newId(), lastName: p.lastName, firstName: p.firstName, type: p.type, weeklyMinutes: p.minutes, restDays: [...new Set(p.rest || [])].sort(), trainings: [], active: true, fixedShift: null, doubleDays: p.doppi || 0, daControllare: true });
   }
-  ui.imp = null; save(); closeModal(); go('personale');
-  showModal(`<h3>Personale aggiunto</h3><p>Ho aggiunto <b>${L.length}</b> ${L.length === 1 ? 'persona' : 'persone'}.</p>
+  // dalle settimane caricate: storico del locale (orari tipici, presenze, abitudini) e chi di solito apre o chiude
+  let learned = null;
+  if ((ui.impWeeks || []).length) {
+    learned = learnFromWeeks(ui.impWeeks, ui.imp);
+    state.hist = learned.hist;
+    for (const e of state.employees) { const st = learned.stats[ImportaPersonale.norm(T.fullName(e))]; if (st) e.storico = st; }
+  }
+  ui.imp = null; ui.impWeeks = null; save(); closeModal(); go('personale');
+  showModal(`<h3>Personale aggiunto</h3><p>Ho aggiunto <b>${L.length}</b> ${L.length === 1 ? 'persona' : 'persone'}.${learned ? ` Ho imparato da <b>${learned.hist.settimane}</b> ${learned.hist.settimane === 1 ? 'settimana' : 'settimane'} di orari: ${learned.hist.templates.CREW.length + learned.hist.templates.HOSPITALITY.length} orari di turno diversi, abitudini di ${Object.keys(learned.hist.habits).length} persone, chi di solito apre e chiude (lo vedi in Aperture e chiusure).` : ''}</p>
     <div class="notice warn"><b>Prima di generare i turni controlla:</b><ul style="margin:6px 0 0 18px;padding:0">
       <li><b>ore di contratto</b> di crew e hospitality (apri ognuno in Persone e premi Salva);</li>
       <li><b>ruolo</b> (RDM o Shift) e <b>ore</b> dei manager (Squadra manager);</li>
@@ -2791,6 +2855,7 @@ const SETUP_STEPS = ['Il locale', 'Postazioni', 'Persone nei picchi', 'Apertura 
  * Locale nuovo: niente regole ereditate dal primo locale (delivery dei manager il martedì e il venerdì,
  * stima delle ore totali dai clienti): ogni locale le imposta o le impara dai suoi dati.
  */
+const EMPTY_HIST = () => ({ templates: { CREW: [], HOSPITALITY: [] }, habits: {}, profile: null });
 function newStoreDefaults(c) { c.mgrDelivery = []; c.oreStimaBase = 0; c.vlhFrom = 0; delete c.carpiStart; return c; } // VLH dall'apertura (Collestrada: dalle 11:00)
 const needsSetup = () => !state.config.setupDone && !(state.employees || []).length;
 function setupHead(n) {
@@ -2861,7 +2926,7 @@ function openSetup(n = 0) {
       <p class="small muted" style="margin-bottom:0">Ruoli, ore, giorni d'ordine e orari flessibili di ogni manager: Turni → Manager → Squadra.</p>`;
   } else {
     body = `<p style="margin-top:0">Ultimo passo: le persone del locale (crew, hospitality e manager).</p>
-      <p><b>Il modo più veloce:</b> carica un file Excel con gli orari di una settimana (nomi a sinistra, giorni in alto). L'app crea tutte le persone con ruolo e ore.</p>
+      <p><b>Il modo più veloce:</b> carica i file Excel con gli orari di <b>2–4 settimane passate</b> (uno per settimana, nomi a sinistra e giorni in alto). L'app crea le persone con ruolo, ore e riposi, e impara come lavorate: orari più usati, chi fa mattina o sera, chi apre e chiude.</p>
       <div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="state.config.setupDone=true;save();askImportStaff()">Carica da Excel</button><button class="btn" onclick="Riepilogo.modello()">Scarica il modello vuoto</button></div>
       <p class="small muted">Oppure premi <b>Fine</b> e aggiungile una per una in <b>Persone</b>. Quando ci sono, in <b>Turni</b> premi <b>Genera turni</b>.</p>`;
   }
@@ -3054,6 +3119,7 @@ async function doSignUp() {
   catch (e) { return askSignUp(e.message); }
   // locale nuovo: si parte da dati vuoti (anche se su questo dispositivo c'era altro) con il nome del locale
   state = TurniData.emptyState(); state.config.storeName = nome; newStoreDefaults(state.config);
+  state.hist = EMPTY_HIST(); // niente storico del primo locale: si impara dagli orari caricati
   ui.locked = false; save(); TurniCloud.setDirty(true); await cloudPush(null); go('home');
   openSetup(0);
 }

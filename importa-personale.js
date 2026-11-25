@@ -268,5 +268,51 @@
       .filter((p) => p.type !== 'CREW' || p.shifts || p.rest.length || p.absent || p.doppi || !p.score || Object.keys(p.score).length);
   }
 
-  window.ImportaPersonale = { leggiExcel, leggiXls, leggiFile, persone, elenchi, turni, norm };
+  /**
+   * I turni della settimana del file, persona per persona e giorno per giorno (per imparare come lavora il locale):
+   * { dal: { g, mese } | null, righe: [{ key, sez, giorni: [{ turni: [{ start, end }], riposo, assente } × 7] }] }
+   * sez = MANAGER | HOSPITALITY | CREW | DOPPI (i doppi sono turni in più della stessa persona).
+   */
+  function settimana(sheets) {
+    const MESI = ['GENNAIO', 'FEBBRAIO', 'MARZO', 'APRILE', 'MAGGIO', 'GIUGNO', 'LUGLIO', 'AGOSTO', 'SETTEMBRE', 'OTTOBRE', 'NOVEMBRE', 'DICEMBRE'];
+    let dal = null;
+    const righe = [];
+    const fr = (x) => (/^\d*\.?\d+$/.test(String(x || '')) && +x > 0 && +x <= 1 ? Math.round(+x * 1440) : null);
+    for (const sh of sheets) {
+      const sez = sezioneDi(sh);
+      if (!sez) continue;
+      // data di inizio: "DAL" e poi giorno e mese (nelle righe in alto)
+      if (!dal) for (let r = 0; r < Math.min(4, sh.rows.length) && !dal; r++) {
+        const row = sh.rows[r] || [], i = row.findIndex((c) => norm(c) === 'DAL');
+        if (i < 0) continue;
+        for (let rr = r; rr <= r + 1 && !dal; rr++) {
+          const rw = sh.rows[rr] || [];
+          for (let c = i; c < i + 3; c++) {
+            const g = parseInt(rw[c], 10), m = MESI.indexOf(norm(rw[c + 1]));
+            if (g >= 1 && g <= 31 && m >= 0) { dal = { g, mese: m + 1 }; break; }
+          }
+        }
+      }
+      const nDays = (r) => (r ? GIORNI.filter((g) => r.some((c) => norm(c).startsWith(g) && norm(c).length <= 10)).length : 0);
+      let hi = -1; sh.rows.forEach((r, i) => { if (nDays(r) >= 5 && (hi < 0 || nDays(r) > nDays(sh.rows[hi]))) hi = i; });
+      if (hi < 0) continue;
+      const cols = GIORNI.map((g) => sh.rows[hi].findIndex((c) => norm(c).startsWith(g) && norm(c).length <= 10));
+      const first = Math.min(...cols.filter((c) => c >= 0));
+      for (const r of sh.rows.slice(hi + 1)) {
+        if (!r) continue;
+        const name = r.slice(0, first).find((c) => c && /[A-Za-zÀ-ÿ]{2}/.test(c) && !/^(totale|note)/i.test(c));
+        if (!name) continue;
+        const giorni = cols.map((c) => {
+          if (c < 0) return { turni: [], riposo: false, assente: false };
+          const txt = r[c] || '', n = norm(txt), ts = turni(txt);
+          if (!ts.length && fr(txt) != null && fr(r[c + 1]) != null) { const a = fr(txt); let b = fr(r[c + 1]); if (b <= a) b += 1440; if (b - a >= 60 && b - a <= 960) ts.push({ start: a, end: Math.min(b, 1440) }); }
+          return { turni: ts.map((t) => ({ start: t.start, end: Math.min(t.end, 1440) })), riposo: n.startsWith('RIPOSO'), assente: /MALATTIA|FERIE|INFORTUNIO|ASSENT|PERMESSO/.test(n) };
+        });
+        if (giorni.some((g) => g.turni.length || g.riposo || g.assente)) righe.push({ key: norm(name), sez, giorni });
+      }
+    }
+    return { dal, righe };
+  }
+
+  window.ImportaPersonale = { leggiExcel, leggiXls, leggiFile, persone, elenchi, turni, norm, settimana };
 })();
