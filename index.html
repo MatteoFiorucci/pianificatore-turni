@@ -3191,7 +3191,8 @@ function renderGate() {
     ${ui.gateLogin ? `<p class="muted">Inserisci nome utente e password dei manager del locale.</p><input type="hidden" id="cl-email" value="">
       <div class="form"><label class="f">Nome utente<input type="text" id="gm-user" autocomplete="username" autocapitalize="none" spellcheck="false"></label>
       <label class="f">Password<input type="password" id="cl-pw" autocomplete="current-password" onkeydown="if(event.key==='Enter')gateLogin()"></label>
-      <div><button class="btn primary" id="cl-btn" onclick="gateLogin()">Entra</button></div><div id="cl-err" class="notice err" style="display:none"></div></div>`
+      <div><button class="btn primary" id="cl-btn" onclick="gateLogin()">Entra</button></div><div id="cl-err" class="notice err" style="display:none"></div></div>
+      <p class="small muted" style="margin:10px 0 0">Nuovo locale? <button class="link" onclick="askSignUp()">Crea il tuo locale</button> (serve un codice invito).</p>`
       : ui.gateLogin === null ? '<p class="muted">Caricamento…</p>' : `<p class="muted">Accedi con nome utente (o email) e password dei manager.</p>${cloudLoginFields()}`}
     ${back}</div>`;
   setTimeout(() => { const i = document.getElementById('gm-user') || document.getElementById('cl-pw'); if (i && !document.activeElement.matches('input')) i.focus(); }, 50);
