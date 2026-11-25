@@ -2991,6 +2991,8 @@ function setupSaveName() {
 }
 function setupNext(n) {
   if (n === 0) { setupSaveName(); if (!state.config.storeName) return alert('Scrivi il nome del locale.'); }
+  // passo I manager lasciato senza data della Carpigiani: vale "Non c'è" (come mostrato), niente avviso dopo
+  if (n === 4 && !state.config.carpiStart) { state.config.carpi = false; save(); }
   openSetup(n + 1);
 }
 function setupHour(d, k, v) {
