@@ -846,7 +846,15 @@
     let ok = null;
     for (const [t, team] of bySlot) {
       const r = team.find((x) => countsFor(ctx, cand, x));
-      if (!r) return { res: 'fuori squadra', t, team };
+      if (!r) {
+        // squadre a orari diversi (cucina apre alle 7:00, McCafé alle 7:15; Sala chiude alle 0:15, cucina alle 0:30):
+        // chi fa parte di una squadra che apre prima (o chiude dopo) ed è ancora nella sua fascia va bene anche qui
+        const kind = team[0].exact;
+        const other = ctx.coverage.some((x) => x.exact === kind && reqMin(x, cand.day) && (kind === 'start' ? teamSlot(x) < t : teamSlot(x) > t) &&
+          x.start <= t && x.end >= t + SLOT && countsFor(ctx, cand, x));
+        if (other) continue;
+        return { res: 'fuori squadra', t, team };
+      }
       const c = list.filter((x) => x !== cand && x.day === cand.day && x.start <= t && x.end >= t + SLOT && countsFor(ctx, x, r)).length;
       if (c + 1 > reqMin(r, cand.day)) return { res: 'troppi', t, team };
       ok = { res: 'ok' };
