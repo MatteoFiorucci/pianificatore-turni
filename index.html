@@ -526,21 +526,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262143"></script>
-<script src="turni-storico.js?v=202611262143"></script>
-<script src="turni-core.js?v=202611262143"></script>
-<script src="turni-manager.js?v=202611262143"></script>
-<script src="turni-vlh.js?v=202611262143"></script>
+<script src="icone.js?v=202611262135"></script>
+<script src="turni-storico.js?v=202611262135"></script>
+<script src="turni-core.js?v=202611262135"></script>
+<script src="turni-manager.js?v=202611262135"></script>
+<script src="turni-vlh.js?v=202611262135"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262143"></script>
-<script src="turni-cloud-config.js?v=202611262143"></script>
-<script src="turni-cloud.js?v=202611262143"></script>
-<script src="turni-cripto.js?v=202611262143"></script>
-<script src="riepilogo.js?v=202611262143"></script>
-<script src="importa-personale.js?v=202611262143"></script>
-<script src="turni-sb.js?v=202611262143"></script>
-<script src="lineare-ufficiale.js?v=202611262143"></script>
+<script src="turni-data.js?v=202611262135"></script>
+<script src="turni-cloud-config.js?v=202611262135"></script>
+<script src="turni-cloud.js?v=202611262135"></script>
+<script src="turni-cripto.js?v=202611262135"></script>
+<script src="riepilogo.js?v=202611262135"></script>
+<script src="importa-personale.js?v=202611262135"></script>
+<script src="turni-sb.js?v=202611262135"></script>
+<script src="lineare-ufficiale.js?v=202611262135"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -806,12 +806,8 @@ function chartSales(dd) {
   const ok = dd.days.filter((x) => x.sales && x.ly), today = T.todayDay();
   if (!ok.length) return noData('Servono le previsioni automatiche aggiornate, con le vendite dell\'anno scorso (Previsioni → Carica previsioni automatiche).');
   const tot = ok.reduce((t, x) => t + x.sales, 0), totLy = ok.reduce((t, x) => t + x.ly, 0), g = (tot / totLy - 1) * 100;
-  // giorni sia sopra sia sotto l'anno scorso: zero al centro (stessa scala sopra e sotto).
-  // Tutti sopra (o tutti sotto): la base va in fondo (o in cima), senza lasciare vuota l'altra metà.
-  const vals = ok.map((x) => (x.sales / x.ly - 1) * 100), mx = Math.max(...vals), mn = Math.min(...vals);
-  const mixed = mx > 0 && mn < 0, big = Math.max(5, ...vals.map(Math.abs));
-  const hi = mixed ? big * 1.2 : mx > 0 ? big * 1.14 : 0, lo = mixed ? -big * 1.2 : mn < 0 ? -big * 1.16 : 0;
-  const top = 22, bot = 30, y = (v) => top + ((hi - v) / (hi - lo || 1)) * (VH - top - bot), mid = y(0), step = (VW - 20) / 7, bw = Math.min(24, step * 0.5);
+  const top = 22, bot = 30, mid = top + (VH - top - bot) / 2, max = Math.max(5, ...ok.map((x) => Math.abs(x.sales / x.ly - 1) * 100)) * 1.2;
+  const y = (v) => mid - (v / max) * ((VH - top - bot) / 2), step = (VW - 20) / 7, bw = Math.min(24, step * 0.5);
   const marks = dd.days.map((x, i) => {
     const cx = 10 + step * i + step / 2, has = x.sales && x.ly, v = has ? (x.sales / x.ly - 1) * 100 : 0;
     const lab = has ? `<text class="vval" x="${cx}" y="${v >= 0 ? y(v) - 6 : y(v) + 15}" text-anchor="middle">${pct(v)}</text>` : '';
