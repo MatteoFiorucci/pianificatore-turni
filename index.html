@@ -464,21 +464,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611261942"></script>
-<script src="turni-storico.js?v=202611261942"></script>
-<script src="turni-core.js?v=202611261942"></script>
-<script src="turni-manager.js?v=202611261942"></script>
-<script src="turni-vlh.js?v=202611261942"></script>
+<script src="icone.js?v=202611261951"></script>
+<script src="turni-storico.js?v=202611261951"></script>
+<script src="turni-core.js?v=202611261951"></script>
+<script src="turni-manager.js?v=202611261951"></script>
+<script src="turni-vlh.js?v=202611261951"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611261942"></script>
-<script src="turni-cloud-config.js?v=202611261942"></script>
-<script src="turni-cloud.js?v=202611261942"></script>
-<script src="turni-cripto.js?v=202611261942"></script>
-<script src="riepilogo.js?v=202611261942"></script>
-<script src="importa-personale.js?v=202611261942"></script>
-<script src="turni-sb.js?v=202611261942"></script>
-<script src="lineare-ufficiale.js?v=202611261942"></script>
+<script src="turni-data.js?v=202611261951"></script>
+<script src="turni-cloud-config.js?v=202611261951"></script>
+<script src="turni-cloud.js?v=202611261951"></script>
+<script src="turni-cripto.js?v=202611261951"></script>
+<script src="riepilogo.js?v=202611261951"></script>
+<script src="importa-personale.js?v=202611261951"></script>
+<script src="turni-sb.js?v=202611261951"></script>
+<script src="lineare-ufficiale.js?v=202611261951"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1069,15 +1069,22 @@ function askGenerate() {
 }
 function startGenerate(fromScratch) {
   const box = document.getElementById('g-mgr'), withMgr = !!(box && box.checked);
-  showModal('<h3>⚙ Sto generando i turni…</h3><p class="muted">Provo alcune varianti e tengo la migliore. Ci vuole qualche secondo.</p>');
+  showModal('<h3>⚙ Sto generando i turni…</h3><p class="muted">Provo alcune varianti e tengo la migliore. Ci vuole qualche secondo.</p><p id="gen-prog" class="small"></p>');
   setTimeout(() => runGenerate(fromScratch, withMgr), 30);
+}
+/**
+ * Pausa tra un tentativo e l'altro: la pagina torna libera (niente "Attendi" di Chrome) e si vede a che punto è.
+ */
+function genPause(txt) {
+  const el = document.getElementById('gen-prog'); if (el) el.textContent = txt;
+  return new Promise((ok) => setTimeout(ok, 0));
 }
 /**
  * Turni dei manager della settimana, prima di quelli di crew e hospitality (il generatore dei crew ne tiene conto).
  * Prova alcune varianti e tiene quella con meno errori. Con "Completa" i turni manager già presenti restano.
  * Restituisce { n, err, warn } oppure { kept: true } / null.
  */
-function genMgrForWeek(fromScratch) {
+async function genMgrForWeek(fromScratch) {
   const M = MGR(), ws = ui.ws;
   if (!M || !(state.managers || []).some((m) => m.active !== false)) return null;
   const inWeek = (x) => x.day >= ws && x.day <= ws + 6;
@@ -1086,6 +1093,7 @@ function genMgrForWeek(fromScratch) {
   ui.mgrGen = (ui.mgrGen || 0) + 1;
   let best = null;
   for (let k = 0; k < 4; k++) {
+    await genPause(`Manager: variante ${k + 1} di 4…`);
     const r = M.generate(base, ws, { seed: ui.mgrGen * 4 + k });
     const err = r.problems.filter((p) => p.sev === 'ERROR').length, sc = err * 100 + r.problems.length;
     if (!best || sc < best.sc) best = { r, err, sc };
@@ -1094,14 +1102,15 @@ function genMgrForWeek(fromScratch) {
   state.mgrShifts = others.concat(best.r.shifts.map((x) => ({ ...x, id: newId() })));
   return { n: best.r.shifts.length, err: best.err, warn: best.r.problems.length - best.err };
 }
-function runGenerate(fromScratch, withMgr = false) {
+async function runGenerate(fromScratch, withMgr = false) {
   // 1. prima i manager, 2. poi crew e hospitality
-  const mgr = withMgr ? genMgrForWeek(fromScratch) : null;
+  const mgr = withMgr ? await genMgrForWeek(fromScratch) : null;
   if (fromScratch) state.shifts = state.shifts.filter((s) => s.day < ui.ws || s.day > ui.ws + 6);
   // prova alcune varianti e tiene la migliore (meno errori, poi meno avvisi); ogni "Genera" dà varianti nuove
   ui.genCount = (ui.genCount || 0) + 1;
   let best = null;
   for (let k = 0; k < 4; k++) {
+    await genPause(`Crew e hospitality: variante ${k + 1} di 4…`);
     const res = T.generate(T.makeCtx(state, ui.ws), { seed: ui.ws * 7919 + ui.genCount * 101 + k });
     const sc = scoreWeek(state.shifts.filter((s) => s.day >= ui.ws && s.day <= ui.ws + 6).concat(res.added));
     if (!best || sc.score < best.sc.score) best = { res, sc };
