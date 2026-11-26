@@ -464,21 +464,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611261919"></script>
-<script src="turni-storico.js?v=202611261919"></script>
-<script src="turni-core.js?v=202611261919"></script>
-<script src="turni-manager.js?v=202611261919"></script>
-<script src="turni-vlh.js?v=202611261919"></script>
+<script src="icone.js?v=202611261942"></script>
+<script src="turni-storico.js?v=202611261942"></script>
+<script src="turni-core.js?v=202611261942"></script>
+<script src="turni-manager.js?v=202611261942"></script>
+<script src="turni-vlh.js?v=202611261942"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611261919"></script>
-<script src="turni-cloud-config.js?v=202611261919"></script>
-<script src="turni-cloud.js?v=202611261919"></script>
-<script src="turni-cripto.js?v=202611261919"></script>
-<script src="riepilogo.js?v=202611261919"></script>
-<script src="importa-personale.js?v=202611261919"></script>
-<script src="turni-sb.js?v=202611261919"></script>
-<script src="lineare-ufficiale.js?v=202611261919"></script>
+<script src="turni-data.js?v=202611261942"></script>
+<script src="turni-cloud-config.js?v=202611261942"></script>
+<script src="turni-cloud.js?v=202611261942"></script>
+<script src="turni-cripto.js?v=202611261942"></script>
+<script src="riepilogo.js?v=202611261942"></script>
+<script src="importa-personale.js?v=202611261942"></script>
+<script src="turni-sb.js?v=202611261942"></script>
+<script src="lineare-ufficiale.js?v=202611261942"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -3629,9 +3629,10 @@ function publishChip() {
   if (!TurniCloud.loggedIn()) return '';
   const p = pubOf(ui.ws);
   if (!p) return '<button class="btn" onclick="askPublish()">📢 Pubblica settimana</button>';
-  return changedSincePublish(ui.ws)
+  return (changedSincePublish(ui.ws)
     ? '<button class="btn" style="border-color:var(--warn-ink);color:var(--warn-ink)" onclick="askPublish()" title="I dipendenti vedono ancora la versione pubblicata prima">📢 Modificata: ripubblica</button>'
-    : `<span class="chip ok" title="I dipendenti la vedono nell'app">📢 Pubblicata ${fmtWhen(p.at)}</span>`;
+    : `<span class="chip ok" title="I dipendenti la vedono nell'app">📢 Pubblicata ${fmtWhen(p.at)}</span>`)
+    + ' <button class="btn" onclick="askUnpublish()" title="Toglie la settimana dall\'app del personale: i turni restano qui">🙈 Togli dall\'app</button>';
 }
 function askPublish() {
   const ctx = T.makeCtx(state, ui.ws), nErr = T.validate(ctx).filter((v) => v.sev === 'ERROR').length;
@@ -3654,9 +3655,28 @@ function otherWeeksToPublish() {
 function otherWeeksBox() {
   const wks = otherWeeksToPublish();
   if (!wks.length) return '';
-  return `<div class="shiftbox" style="margin-top:10px"><div class="small" style="font-weight:600;margin-bottom:6px">Pubblica anche queste settimane (già pronte):</div>
-    ${wks.map((w) => `<label class="tg on" style="width:max-content;margin:2px 0"><input type="checkbox" class="pub-also" value="${w}" checked onchange="this.parentNode.classList.toggle('on',this.checked)">${T.weekLabel(w)}${pubOf(w) ? ' <span class="muted">(modificata dopo la pubblicazione)</span>' : ''}</label>`).join('')}
+  return `<div class="shiftbox" style="margin-top:10px"><div class="small" style="font-weight:600;margin-bottom:6px">Vuoi pubblicare anche altre settimane? Spunta quelle pronte:</div>
+    ${wks.map((w) => `<label class="tg" style="width:max-content;margin:2px 0"><input type="checkbox" class="pub-also" value="${w}" onchange="this.parentNode.classList.toggle('on',this.checked)">${T.weekLabel(w)}${pubOf(w) ? ' <span class="muted">(modificata dopo la pubblicazione)</span>' : ''}</label>`).join('')}
     <div class="small muted">La nota vale per tutte. Controlla prima che non abbiano errori.</div></div>`;
+}
+/** Toglie una settimana pubblicata dall'app del personale (i turni restano nel pianificatore, si può ripubblicare). */
+function askUnpublish() {
+  const p = pubOf(ui.ws); if (!p) return;
+  showModal(`<h3>🙈 Togliere la settimana ${T.weekLabel(ui.ws)} dall'app?</h3>
+    <p>Dipendenti e manager non la vedranno più nella scheda <b>"I miei turni"</b>. I turni restano qui e puoi ripubblicarla quando vuoi.</p>
+    <p class="muted small">Chi l'ha già aggiunta al calendario del telefono la tiene lì: va avvisato a voce.</p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="doUnpublish()">Togli dall'app</button></div>`);
+}
+async function doUnpublish() {
+  delete state.publishedWeeks[ui.ws];
+  closeModal(); save(); render();
+  await unpublishPush();
+}
+async function unpublishPush() {
+  showModal('<h3>🙈 Tolgo la settimana dall\'app…</h3>');
+  const r = await pushOrari();
+  showModal(`<h3>${r.fail ? '⚠️' : '✅'} Settimana tolta dall'app</h3><p>${r.fail ? `Per ${r.fail} persone l'invio non è riuscito (connessione?): finché non riprovi la vedono ancora.` : `Nell'app del personale non c'è più la settimana ${T.weekLabel(ui.ws)}.`}</p>
+    <div class="actions">${r.fail ? '<button class="btn" onclick="unpublishPush()">Riprova</button>' : ''}<button class="btn primary" onclick="closeModal()">OK</button></div>`);
 }
 async function doPublish() {
   const note = (document.getElementById('pub-note').value || '').trim();
