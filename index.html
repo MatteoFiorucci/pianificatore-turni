@@ -11,10 +11,6 @@
 <meta name="apple-mobile-web-app-title" content="Turni Manager">
 <link rel="apple-touch-icon" href="icone/manager-180.png">
 <link rel="icon" href="icone/manager-192.png">
-<script>
-  // tema scelto su questo dispositivo: 'light', 'dark' oppure automatico (come il dispositivo)
-  try { const t = localStorage.getItem('turni-tema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) { /* automatico */ }
-</script>
 <style>
   :root {
     --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70;
@@ -450,13 +446,16 @@
   .hcard .hact { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
   .notes .notes-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
   .notes textarea { display: block; width: 100%; min-height: 120px; max-height: 420px; field-sizing: content; resize: vertical; border: 1px solid transparent; border-radius: 10px; padding: 10px 14px;
-    font: 14px/24px inherit; font-family: inherit; color: var(--ink); background-color: var(--surface-2);
-    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 23px, var(--line-soft) 23px, var(--line-soft) 24px); background-position: 0 9px; background-attachment: local;
+    font: inherit; font-size: 14px; line-height: 1.55; color: var(--ink); background: var(--surface-2);
     transition: border-color .15s, box-shadow .15s; }
   .notes textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
   .notes textarea::placeholder { color: var(--muted); opacity: .8; }
   .notes .notes-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; min-height: 20px; }
   .notes .notes-foot .link:disabled { opacity: .35; }
+  .msgcard .msg-to { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 2px; margin: 8px 0 10px; } .msgcard .msg-to .small.muted { margin-right: 6px; }
+  .msgcard textarea { display: block; width: 100%; min-height: 80px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 14px; line-height: 1.5; color: var(--ink); background: var(--surface); }
+  .msgcard textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+  .msgcard .msg-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; } .msgcard .msg-foot #msg-who { flex: 1; }
   .witem.editing { outline: 2px dashed var(--green); outline-offset: 3px; border-radius: 14px; }
   .witem .wbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .witem .wbar .btn { padding: 4px 10px; font-size: 13px; }
@@ -502,46 +501,6 @@
   .vlegend i.dash { height: 0; width: 14px; border-top: 2px dashed var(--muted); border-radius: 0; vertical-align: 3px; }
   #vtip { position: fixed; z-index: 40; background: var(--tip-bg); color: var(--tip-ink); font-size: 12px; padding: 6px 9px; border-radius: 8px; pointer-events: none; display: none; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
   [data-tip] { cursor: default; }
-
-  /* ---------- tema scuro: scelto in Impostazioni (o in alto), oppure automatico come il dispositivo ---------- */
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --green: #3a9a5c; --green-soft: #22382a; --ink: #ecebe7; --muted: #a3a39c;
-    --line: #3a3b37; --bg: #121311; --err: #4a1f22; --err-ink: #ff9a90; --warn: #3a3015; --warn-ink: #f0c457;
-    --ok: #1d3526; --rest: #9db7ff; --brand: #16402a;
-    --surface: #1b1c1a; --surface-2: #222320; --hover: #2a2b28; --line-soft: #2d2e2b; --line-strong: #5a5b55; --faint: #55564f;
-    --info-bg: #1e2a48; --info-ink: #a9c1ff; --ev-bg: #3a3015; --ev-ink: #f0c457; --closed-bg: #2b3340; --closed-ink: #c7d2e2;
-    --tip-bg: #f0efec; --tip-ink: #1b1c1a; --tip-muted: #52514e;
-    --viz-up: #3987e5; --viz-down: #e66767; --viz-grid: #383835; --viz-ink: #f0efec; --viz-muted: #a3a39c; --viz-today: #d95926;
-    }
-  }
-  :root[data-theme="dark"] {
-    color-scheme: dark;
-    --green: #3a9a5c; --green-soft: #22382a; --ink: #ecebe7; --muted: #a3a39c;
-    --line: #3a3b37; --bg: #121311; --err: #4a1f22; --err-ink: #ff9a90; --warn: #3a3015; --warn-ink: #f0c457;
-    --ok: #1d3526; --rest: #9db7ff; --brand: #16402a;
-    --surface: #1b1c1a; --surface-2: #222320; --hover: #2a2b28; --line-soft: #2d2e2b; --line-strong: #5a5b55; --faint: #55564f;
-    --info-bg: #1e2a48; --info-ink: #a9c1ff; --ev-bg: #3a3015; --ev-ink: #f0c457; --closed-bg: #2b3340; --closed-ink: #c7d2e2;
-    --tip-bg: #f0efec; --tip-ink: #1b1c1a; --tip-muted: #52514e;
-    --viz-up: #3987e5; --viz-down: #e66767; --viz-grid: #383835; --viz-ink: #f0efec; --viz-muted: #a3a39c; --viz-today: #d95926;
-  }
-
-  /* in stampa sempre i colori chiari (foglio bianco), qualunque sia il tema dello schermo */
-  @media print {
-    :root:root {
-    --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70;
-    --line: #d9d9de; --bg: #f4f5f2; --err: #ffd3d6; --err-ink: #b3261e; --warn: #fff0c2; --warn-ink: #8a6100;
-    --ok: #dcf0e1; --rest: #1e40af; --brand: #1e5631;
-    /* superfici e linee (tema chiaro); il tema scuro ridefinisce gli stessi nomi più sotto */
-    --surface: #ffffff; --surface-2: #f7f8f6; --hover: #f3f4f1; --line-soft: #e8e9e5; --line-strong: #b9b9c0; --faint: #c8c8cc;
-    --info-bg: #e8eefc; --info-ink: #1e40af; --ev-bg: #fff4d6; --ev-ink: #7a5200; --closed-bg: #e2e8f0; --closed-ink: #334155;
-    --tip-bg: #1d1d1f; --tip-ink: #ffffff; --tip-muted: #b9b9c0;
-    /* grafici: blu = sopra / pianificato, rosso = sotto (coppia divergente), griglia appena staccata dalla superficie */
-    --viz-up: #2a78d6; --viz-down: #e34948; --viz-grid: #e7e8e4; --viz-ink: #1d1d1f; --viz-muted: #6b6b70; --viz-today: #eb6834;
-    color-scheme: light;
-    }
-  }
 </style>
 </head>
 <body>
@@ -554,21 +513,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262054"></script>
-<script src="turni-storico.js?v=202611262054"></script>
-<script src="turni-core.js?v=202611262054"></script>
-<script src="turni-manager.js?v=202611262054"></script>
-<script src="turni-vlh.js?v=202611262054"></script>
+<script src="icone.js?v=202611262110"></script>
+<script src="turni-storico.js?v=202611262110"></script>
+<script src="turni-core.js?v=202611262110"></script>
+<script src="turni-manager.js?v=202611262110"></script>
+<script src="turni-vlh.js?v=202611262110"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262054"></script>
-<script src="turni-cloud-config.js?v=202611262054"></script>
-<script src="turni-cloud.js?v=202611262054"></script>
-<script src="turni-cripto.js?v=202611262054"></script>
-<script src="riepilogo.js?v=202611262054"></script>
-<script src="importa-personale.js?v=202611262054"></script>
-<script src="turni-sb.js?v=202611262054"></script>
-<script src="lineare-ufficiale.js?v=202611262054"></script>
+<script src="turni-data.js?v=202611262110"></script>
+<script src="turni-cloud-config.js?v=202611262110"></script>
+<script src="turni-cloud.js?v=202611262110"></script>
+<script src="turni-cripto.js?v=202611262110"></script>
+<script src="riepilogo.js?v=202611262110"></script>
+<script src="importa-personale.js?v=202611262110"></script>
+<script src="turni-sb.js?v=202611262110"></script>
+<script src="lineare-ufficiale.js?v=202611262110"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -699,16 +658,6 @@ const compactOn = () => COMPACT && !ui.showAll;
 const COMPACT_VIEWS = ['giornaliero', 'vlh', 'richieste'];
 if (COMPACT) { ui.view = 'giornaliero'; try { ui.showAll = localStorage.getItem('turni-tutto') === '1'; } catch (e) { /* niente */ } }
 function setShowAll(v) { ui.showAll = v; try { localStorage.setItem('turni-tutto', v ? '1' : '0'); } catch (e) { /* niente */ } if (!v && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero'; render(); window.scrollTo(0, 0); }
-/** Tema: 'auto' (come il dispositivo), 'light' o 'dark'. Vale per questo dispositivo. */
-const themeOf = () => { try { return localStorage.getItem('turni-tema') || 'auto'; } catch (e) { return 'auto'; } };
-function setTheme(t) {
-  try { if (t === 'auto') localStorage.removeItem('turni-tema'); else localStorage.setItem('turni-tema', t); } catch (e) { /* vale fino alla chiusura */ }
-  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
-  render();
-}
-const THEME_TXT = { auto: ['◐', 'Automatico'], light: ['☀', 'Chiaro'], dark: ['🌙', 'Scuro'] };
-const themeNext = () => ({ auto: 'light', light: 'dark', dark: 'auto' })[themeOf()];
-const themeSeg = () => `<div class="seg">${['auto', 'light', 'dark'].map((k) => `<button class="${themeOf() === k ? 'on' : ''}" onclick="setTheme('${k}')">${THEME_TXT[k][0]} ${THEME_TXT[k][1]}</button>`).join('')}</div>`;
 function renderBrand() {
   const n = (state.config && state.config.storeName) || '';
   document.getElementById('brand').innerHTML = `<span class="logo">${icon('turni', 20)}</span><span class="bt"><b>Orari</b>${n ? `<small>${esc(n)}</small>` : ''}</span>`;
@@ -915,17 +864,6 @@ function chartGC(days) {
     <div class="vlegend"><span><i class="up"></i>clienti veri</span><span><i class="up fc"></i>previsti</span><span><i class="todaydot"></i>oggi</span></div>`;
 }
 const hrsTxt = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`; };
-function dashboardHtml() {
-  const ws0 = T.mondayOf(T.todayDay()), ws = ui.dashWs ?? ws0, dd = dashData(ws);
-  const sel = `<div class="seg">${[[ws0 - 7, 'Scorsa'], [ws0, 'Questa'], [ws0 + 7, 'Prossima']].map(([w, l]) => `<button class="${ws === w ? 'on' : ''}" onclick="ui.dashWs=${w};render()">${l}</button>`).join('')}</div>`;
-  const card = (t, sub, html, info) => `<div class="card hcard"><div class="hk" style="display:flex;align-items:center;gap:6px">${t} ${ib(info)}</div><div class="small muted" style="margin:2px 0 8px">${sub}</div>${html}</div>`;
-  return `<div class="dashhead"><h3>Andamento · ${T.weekLabel(ws)}</h3>${sel}</div>
-  <div class="dashgrid">
-    ${card('Vendite rispetto all\'anno scorso', 'Stesso giorno della settimana, 52 settimane fa', chartSales(dd), 'dash-vendite')}
-    ${card('Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours(dd), 'dash-ore')}
-    ${card('Vendite per ora di lavoro', 'Vendite divise per le ore pianificate (senza manager)', chartProd(dd), 'dash-prod')}
-  </div>`;
-}
 // riquadro dei numeri sui grafici: mouse (passaggio), dito (tocco) e tastiera (Tab). data-tip = "titolo|valore|righe..."
 function vTipShow(g) {
   let tip = document.getElementById('vtip');
@@ -1039,6 +977,7 @@ const HOME_WIDGETS = [
   ['assenze', 'Assenze e scadenze', 'Ferie e malattie, fine formazione, chi entra o esce nei prossimi 14 giorni', false],
   ['eventi', 'Eventi e chiusure', 'Eventi, chiusure e orari ridotti dei prossimi 30 giorni', false],
   ['pubblicazione', 'Prossime settimane', 'Le prossime 4 settimane: turni fatti, errori, pubblicazione', false],
+  ['messaggi', 'Messaggio al personale', 'Scrivi un messaggio che arriva nell\'app a crew, hospitality, manager o tutti', true],
   ['app', 'App del personale', 'Quante persone hanno l\'accesso all\'app e quante no', false],
   ['appunti', 'Appunti', 'Un blocco note per questo dispositivo', false],
 ];
@@ -1062,6 +1001,14 @@ function homeToggle(id, on) {
   if (on) { l.order = l.order.filter((x) => x !== id); const last = l.order.filter((x) => l.shown.includes(x) && x !== id).pop(); l.order.splice(last ? l.order.indexOf(last) + 1 : l.order.length, 0, id); }
   saveHomeLayout(l); render();
 }
+/** Cambia la settimana di un solo grafico e ridisegna solo quel riquadro. */
+function homeWeek(id, ws) {
+  ui.dashWsOf = { ...(ui.dashWsOf || {}), [id]: ws };
+  const box = document.querySelector(`.witem[data-w="${id}"]`), card = box && box.querySelector(':scope > .card');
+  if (!card) { render(); return; }
+  const t = document.createElement('div'); t.innerHTML = homeExtraCards()[id]();
+  card.replaceWith(t.firstElementChild);
+}
 function homeReset() { try { localStorage.removeItem(HOME_KEY); } catch (e) { /* niente */ } render(); }
 function homeWidgetsHtml(base) {
   const l = homeLayout(), edit = !!ui.homeEdit, all = { ...base, ...homeExtraCards() };
@@ -1083,14 +1030,16 @@ function homeWidgetsHtml(base) {
 function homeExtraCards() {
   const today = T.todayDay(), ws0 = T.mondayOf(today), now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
   const box = (k, w, body, act = '') => `<div class="card hcard"><div class="hk">${k}</div>${w ? `<div class="hw">${w}</div>` : ''}${body}${act ? `<div class="hact">${act}</div>` : ''}</div>`;
-  const dsel = () => { const ws = ui.dashWs ?? ws0; return `<div class="seg" style="margin:0 0 8px">${[[ws0 - 7, 'Scorsa'], [ws0, 'Questa'], [ws0 + 7, 'Prossima']].map(([w, l]) => `<button class="${ws === w ? 'on' : ''}" onclick="ui.dashWs=${w};render()">${l}</button>`).join('')}</div>`; };
-  const chart = (k, sub, fn, info) => () => { const ws = ui.dashWs ?? ws0; return `<div class="card hcard"><div class="hk" style="display:flex;align-items:center;gap:6px">${k} ${ib(info)}</div><div class="small muted" style="margin:2px 0 8px">${sub} · ${T.weekLabel(ws)}</div>${dsel()}${fn(dashData(ws))}</div>`; };
+  // ogni grafico ha la sua settimana: cambiandola si ridisegna solo quel riquadro
+  const wsOf = (id) => (ui.dashWsOf || {})[id] ?? ws0;
+  const dsel = (id) => { const ws = wsOf(id); return `<div class="seg" style="margin:0 0 8px">${[[ws0 - 7, 'Scorsa'], [ws0, 'Questa'], [ws0 + 7, 'Prossima']].map(([w, l]) => `<button class="${ws === w ? 'on' : ''}" onclick="homeWeek('${id}',${w})">${l}</button>`).join('')}</div>`; };
+  const chart = (id, k, sub, fn, info) => () => { const ws = wsOf(id); return `<div class="card hcard"><div class="hk" style="display:flex;align-items:center;gap:6px">${k} ${ib(info)}</div><div class="small muted" style="margin:2px 0 8px">${sub} · ${T.weekLabel(ws)}</div>${dsel(id)}${fn(dashData(ws))}</div>`; };
   const fcOfDay = (d) => T.forecastDay((state.forecasts || {})[T.mondayOf(d)], d - T.mondayOf(d)) || {};
   const reali = (state.autoForecast || {}).reali || {};
   return {
-    vendite: chart('Vendite rispetto all\'anno scorso', 'Stesso giorno, 52 settimane fa', chartSales, 'dash-vendite'),
-    ore: chart('Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours, 'dash-ore'),
-    prod: chart('Vendite per ora di lavoro', 'Vendite divise per le ore pianificate', chartProd, 'dash-prod'),
+    vendite: chart('vendite', 'Vendite rispetto all\'anno scorso', 'Stesso giorno, 52 settimane fa', chartSales, 'dash-vendite'),
+    ore: chart('ore', 'Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours, 'dash-ore'),
+    prod: chart('prod', 'Vendite per ora di lavoro', 'Vendite divise per le ore pianificate', chartProd, 'dash-prod'),
     inturno: () => {
       const on = (x) => x.day === today && x.start <= nowMin && x.end > nowMin;
       const crew = state.shifts.filter(on), mgr = (state.mgrShifts || []).filter(on);
@@ -1150,6 +1099,17 @@ function homeExtraCards() {
         const pub = !TurniCloud.loggedIn() ? '' : !pubOf(ws) ? '<span class="chip warn">da pubblicare</span>' : changedSincePublish(ws) ? '<span class="chip warn">da ripubblicare</span>' : '<span class="chip ok">pubblicata</span>';
         return `<button class="hrow" onclick="ui.ws=${ws};ui.type='CREW';go('turni')"><b style="min-width:110px">${T.weekLabel(ws)}</b> ${n ? `<span class="chip ${err ? 'err' : 'ok'}">${err ? err + (err === 1 ? ' errore' : ' errori') : 'ok'}</span> ${pub}` : '<span class="muted small">turni non fatti</span>'} <span class="muted">›</span></button>`; });
       return box('Prossime settimane', '', rows.join(''));
+    },
+    messaggi: () => {
+      const logged = TurniCloud.loggedIn(), last = (state.messaggi || []).filter(msgAlive).slice(-3).reverse();
+      const chk = MSG_GROUPS.map(([k, l]) => `<label class="tg on"><input type="checkbox" class="msg-g" value="${k}" checked onchange="this.parentNode.classList.toggle('on',this.checked);msgCount()">${l}</label>`).join('');
+      return `<div class="card hcard msgcard"><div class="hk">Messaggio al personale</div>
+        ${logged ? `<div class="msg-to"><span class="small muted">A chi:</span>${chk}<button class="link small" onclick="msgToggleAll()">Tutti / nessuno</button></div>
+        <textarea id="msg-ta" maxlength="500" rows="3" placeholder="Es. Domenica riunione alle 15 in sala" oninput="msgCount()"></textarea>
+        <div class="msg-foot"><span class="small muted" id="msg-who">${(() => { const p = msgPeople(['CREW', 'HOSPITALITY', 'MGR']); return `${p.length} persone · ${p.filter((x) => state.reqCreds && state.reqCreds[x.id]).length} con l'app`; })()}</span>
+          <span class="small muted" id="msg-n">0/500</span><button class="btn primary" id="msg-send" disabled onclick="msgSend()">📩 Invia</button></div>
+        ${last.length ? `<div class="small muted" style="margin:12px 0 2px">Ultimi messaggi (restano nell'app ${MSG_DAYS} giorni)</div>${last.map((m) => `<div class="hrow" style="cursor:default;align-items:flex-start"><span style="flex:1;min-width:0"><span class="small muted">${esc(fmtWhen(m.at))} · a ${esc(msgGroupsTxt(m.a))}</span><br>${esc(m.testo)}</span><button class="link small" onclick="msgDelete(${m.id})" title="Toglie il messaggio dall'app">Togli</button></div>`).join('')}` : ''}`
+        : '<p class="small muted">Per mandare messaggi nell\'app del personale serve l\'accesso online del locale.</p>'}</div>`;
     },
     app: () => {
       const act = state.employees.filter((e) => e.active !== false), mg = (state.managers || []).filter((m) => m.active !== false);
@@ -2899,7 +2859,6 @@ function renderRegole() {
   const c = state.config;
   const field = (key, label) => `<label class="f"><span>${label} ${ib('cfg-' + key)}</span><input type="text" id="cfg-${key}" value="${T.hoursText(c[key])}" style="width:110px"></label>`;
   return `
-  <div class="card section" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b>Aspetto</b>${themeSeg()}<span class="small muted">Vale per questo dispositivo. Automatico = chiaro o scuro come il telefono o il computer.</span></div>
   <h2>Regole</h2>
   <div class="card section">
     <div class="form">
@@ -3472,10 +3431,9 @@ const storeCode = () => APP_STORE || TurniCloud.uid() || (() => { try { return l
 function renderSync() {
   const el = document.getElementById('sync'); if (!el) return;
   const back = APP_MODE && storeCode() ? `<button onclick="location.href='richieste.html?s=' + encodeURIComponent(storeCode())" title="Torna all'app dei dipendenti">← Dipendenti</button>` : '';
-  const th = THEME_TXT[themeOf()], themeBtn = `<button onclick="setTheme(themeNext())" title="Tema: ${th[1]} (tocca per cambiare)" aria-label="Tema: ${th[1]}">${th[0]}</button>`;
-  if (!TurniCloud.loggedIn()) { el.innerHTML = back + themeBtn; return; }
+  if (!TurniCloud.loggedIn()) { el.innerHTML = back; return; }
   const t = TurniCloud.PROVA ? '🧪 Prova: non si salva online' : { ok: '☁️ Salvato online', saving: '⏳ Salvataggio…', offline: '⚠️ Offline: salvo appena torna la rete', error: '⚠️ Non salvato online', conflict: '⚠️ Scegli quali dati tenere' }[sync.status] || '☁️ Online';
-  el.innerHTML = `${back}<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button><button onclick="cloudLogout()" title="Esci dall'area manager su questo dispositivo">Esci</button>${themeBtn}`;
+  el.innerHTML = `${back}<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button><button onclick="cloudLogout()" title="Esci dall'area manager su questo dispositivo">Esci</button>`;
 }
 function cloudTouch() {
   if (!TurniCloud.loggedIn()) return;
@@ -4034,6 +3992,37 @@ async function doPublish() {
     <div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
 }
 /** Manda online l'orario pubblicato di ogni dipendente con accesso (o solo di quelli indicati). */
+// ---------- messaggi del manager al personale (arrivano nell'app, scheda "I miei turni") ----------
+const MSG_GROUPS = [['CREW', 'Crew'], ['HOSPITALITY', 'Hospitality'], ['MGR', 'Manager']];
+const MSG_DAYS = 30; // un messaggio resta nell'app per 30 giorni
+const msgGroupOf = (p) => (mgrById(p.id) ? 'MGR' : p.type === 'HOSPITALITY' ? 'HOSPITALITY' : 'CREW');
+const msgAlive = (m) => Date.now() - Date.parse(m.at) < MSG_DAYS * 864e5;
+const msgsFor = (p) => (state.messaggi || []).filter((m) => msgAlive(m) && m.a.includes(msgGroupOf(p))).slice(-10).map((m) => ({ id: m.id, at: m.at, testo: m.testo }));
+const msgPeople = (groups) => [...state.employees.filter((x) => x.active !== false), ...(state.managers || []).filter((x) => x.active !== false)].filter((p) => groups.includes(msgGroupOf(p)));
+const msgGroupsTxt = (a) => (a.length === 3 ? 'tutti' : a.map((g) => MSG_GROUPS.find((x) => x[0] === g)[1]).join(' e '));
+function msgToggleAll() { const bs = [...document.querySelectorAll('.msg-g')], on = !bs.every((b) => b.checked); bs.forEach((b) => { b.checked = on; b.parentNode.classList.toggle('on', on); }); msgCount(); }
+function msgCount() {
+  const g = [...document.querySelectorAll('.msg-g:checked')].map((x) => x.value), ppl = msgPeople(g), app = ppl.filter((p) => state.reqCreds && state.reqCreds[p.id]).length;
+  const el = document.getElementById('msg-who'); if (el) el.textContent = g.length ? `${ppl.length} persone · ${app} con l'app` : 'Scegli a chi mandarlo';
+  const t = (document.getElementById('msg-ta') || {}).value || '', b = document.getElementById('msg-send'); if (b) b.disabled = !g.length || !t.trim();
+  const n = document.getElementById('msg-n'); if (n) n.textContent = `${t.length}/500`;
+}
+async function msgSend() {
+  const testo = document.getElementById('msg-ta').value.trim().slice(0, 500), a = [...document.querySelectorAll('.msg-g:checked')].map((x) => x.value);
+  if (!testo || !a.length) return;
+  state.messaggi = [...(state.messaggi || []).filter(msgAlive), { id: newId(), at: new Date().toISOString(), testo, a }];
+  save(); render();
+  showModal('<h3>📩 Invio del messaggio…</h3>');
+  const r = await pushOrari(msgPeople(a).map((p) => p.id));
+  showModal(`<h3>${r.fail ? '⚠️' : '✅'} Messaggio inviato</h3><p>Lo vedono nell'app <b>${r.ok}</b> persone (${esc(msgGroupsTxt(a))}), in cima alla scheda "I miei turni".${r.fail ? ` Per ${r.fail} l'invio non è riuscito (connessione?): riprova più tardi.` : ''}</p>
+    ${msgPeople(a).length > r.ok + r.fail ? `<p class="small muted">${msgPeople(a).length - r.ok - r.fail} persone non hanno ancora l'accesso all'app: lo vedranno quando lo creerai.</p>` : ''}
+    <div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+}
+async function msgDelete(id) {
+  const m = (state.messaggi || []).find((x) => x.id === id); if (!m) return;
+  state.messaggi = state.messaggi.filter((x) => x.id !== id); save(); render();
+  await pushOrari(msgPeople(m.a).map((p) => p.id));
+}
 async function pushOrari(ids) {
   const res = { ok: 0, fail: 0 };
   if (!TurniCloud.loggedIn()) return res;
@@ -4049,7 +4038,7 @@ async function pushOrari(ids) {
       .map((q) => ({ rid: q.rid, kind: q.kind, date: T.toIso(q.day), to: q.to != null ? T.toIso(q.to) : undefined, time: q.time, from: q.from, until: q.kind === 'turno' || q.kind === 'fino' ? q.until : undefined, label: q.label, slots: q.slots, note: q.note || '', status: q.status, risposta: q.reply || '' }));
     if (!c.k || !c.oid) continue; // accesso nel vecchio formato: viene aggiornato da upgradeCreds
     try {
-      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs, cenaDalle: state.config.dinnerPreStart ?? 990, ruolo: isMgr ? 'manager' : 'personale' }));
+      await TurniCloud.setOrario(c.oid, await TurniCripto.sealWith(c.k, { nome: e.firstName || '', weeks: mine, requests: reqs, cenaDalle: state.config.dinnerPreStart ?? 990, ruolo: isMgr ? 'manager' : 'personale', messaggi: msgsFor(e) }));
       res.ok++;
     } catch (err) { res.fail++; }
   }
