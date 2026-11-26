@@ -434,12 +434,19 @@
   @media (max-width: 760px) { .pagehead { display: none; } }
 
   /* ---- Home ---- */
-  .homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+  /* riquadri della Home tutti uguali: stessa larghezza (colonne uguali) e stessa altezza; se il contenuto è di più scorre dentro */
+  .homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); grid-auto-rows: 400px; gap: 16px; align-items: stretch; }
+  .homegrid > .witem { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .homegrid > .witem > .card { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; scrollbar-width: thin; }
+  .homegrid > .witem > .card > .viz, .homegrid > .witem > .card > svg { flex: none; }
+  .homegrid .hcard .hact { margin-top: auto; padding-top: 14px; }
+  .homegrid .notes textarea, .homegrid .msgcard textarea { flex: 1; min-height: 70px; max-height: none; resize: none; }
   .hcard { padding: 18px; }
   .hcard .hk { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .hcard .hw { font-size: 19px; font-weight: 700; margin: 2px 0 12px; }
   .hcard .hrow { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line-soft); padding: 9px 0; font: inherit; cursor: pointer; color: var(--ink); }
   .hcard .hrow:hover { color: var(--green); }
+  .hcard .hrow.tight { padding: 5px 0; font-size: 13.5px; }
   .hcard .hrow .muted:last-child { margin-left: auto; }
   .hcard .hs { display: flex; align-items: center; gap: 8px; padding: 9px 0 0; font-size: 13.5px; }
   .hcard .hs.warn { color: var(--warn-ink); } .hcard .hs.ok { color: var(--green); }
@@ -459,6 +466,12 @@
   .witem.editing { outline: 2px dashed var(--green); outline-offset: 3px; border-radius: 14px; }
   .witem .wbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .witem .wbar .btn { padding: 4px 10px; font-size: 13px; }
+  .witem.editing { cursor: grab; }
+  .witem .whandle { cursor: grab; touch-action: none; user-select: none; padding: 4px 6px 4px 2px; }
+  .witem.wplace { opacity: .35; }
+  .witem.wplace > .card { border-style: dashed; }
+  .wghost { position: fixed; z-index: 50; pointer-events: none; transform: rotate(1.2deg) scale(1.02); box-shadow: 0 18px 40px rgba(16,24,40,.22); border-radius: 14px; opacity: .96; }
+  body.wdragging, body.wdragging * { cursor: grabbing !important; user-select: none; }
   button.btn, details.more > summary { display: inline-flex; align-items: center; gap: 7px; }
 
   /* ---- dashboard ---- */
@@ -513,21 +526,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262124"></script>
-<script src="turni-storico.js?v=202611262124"></script>
-<script src="turni-core.js?v=202611262124"></script>
-<script src="turni-manager.js?v=202611262124"></script>
-<script src="turni-vlh.js?v=202611262124"></script>
+<script src="icone.js?v=202611262135"></script>
+<script src="turni-storico.js?v=202611262135"></script>
+<script src="turni-core.js?v=202611262135"></script>
+<script src="turni-manager.js?v=202611262135"></script>
+<script src="turni-vlh.js?v=202611262135"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262124"></script>
-<script src="turni-cloud-config.js?v=202611262124"></script>
-<script src="turni-cloud.js?v=202611262124"></script>
-<script src="turni-cripto.js?v=202611262124"></script>
-<script src="riepilogo.js?v=202611262124"></script>
-<script src="importa-personale.js?v=202611262124"></script>
-<script src="turni-sb.js?v=202611262124"></script>
-<script src="lineare-ufficiale.js?v=202611262124"></script>
+<script src="turni-data.js?v=202611262135"></script>
+<script src="turni-cloud-config.js?v=202611262135"></script>
+<script src="turni-cloud.js?v=202611262135"></script>
+<script src="turni-cripto.js?v=202611262135"></script>
+<script src="riepilogo.js?v=202611262135"></script>
+<script src="importa-personale.js?v=202611262135"></script>
+<script src="turni-sb.js?v=202611262135"></script>
+<script src="lineare-ufficiale.js?v=202611262135"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -721,6 +734,7 @@ function render() {
     viewHtml.html +
     (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
   setHeaderHeight();
+  if (ui.view === 'home' && ui.homeEdit) homeDragInit();
 }
 /** Intestazione della pagina (icona, titolo, spiegazione). Toglie il primo titolo della sezione se è lo stesso. */
 function pageHead(v) {
@@ -1009,11 +1023,51 @@ function homeWeek(id, ws) {
   const t = document.createElement('div'); t.innerHTML = homeExtraCards()[id]();
   card.replaceWith(t.firstElementChild);
 }
+/**
+ * Trascinare i riquadri in Personalizza: col mouse da qualsiasi punto del riquadro (tranne pulsanti e campi),
+ * col dito dalla maniglia ⠿ (così si può ancora scorrere la pagina). Il riquadro si sposta tra gli altri mentre lo trascini;
+ * lasciandolo, il nuovo ordine si salva su questo dispositivo.
+ */
+function homeDragInit() {
+  const grid = document.querySelector('.homegrid');
+  if (!grid || grid.dataset.dnd) return;
+  grid.dataset.dnd = '1';
+  grid.addEventListener('pointerdown', (e) => {
+    if (!ui.homeEdit || e.button > 0) return;
+    const item = e.target.closest('.witem'), handle = e.target.closest('.whandle');
+    if (!item || (!handle && (e.pointerType !== 'mouse' || e.target.closest('button, a, input, textarea, select, label, .seg, .vm')))) return;
+    e.preventDefault();
+    const r = item.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const ghost = item.cloneNode(true);
+    ghost.className = 'witem wghost'; Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' });
+    document.body.appendChild(ghost); item.classList.add('wplace'); document.body.classList.add('wdragging');
+    let last = null, scroll = 0, raf = 0;
+    const step = () => { if (scroll) { window.scrollBy(0, scroll); raf = requestAnimationFrame(step); } else raf = 0; };
+    const move = (ev) => {
+      ghost.style.left = ev.clientX - dx + 'px'; ghost.style.top = ev.clientY - dy + 'px';
+      scroll = ev.clientY < 70 ? -14 : ev.clientY > window.innerHeight - 70 ? 14 : 0; if (scroll && !raf) raf = requestAnimationFrame(step);
+      ghost.style.display = 'none'; const under = document.elementFromPoint(ev.clientX, ev.clientY); ghost.style.display = '';
+      const over = under && under.closest('.homegrid .witem');
+      if (!over || over === item) { if (!over) last = null; return; }
+      if (over === last) return; // stesso riquadro di prima: niente avanti e indietro
+      last = over;
+      const kids = [...grid.children], after = kids.indexOf(item) < kids.indexOf(over);
+      grid.insertBefore(item, after ? over.nextSibling : over);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      scroll = 0; ghost.remove(); item.classList.remove('wplace'); document.body.classList.remove('wdragging');
+      const vis = [...grid.querySelectorAll(':scope > .witem')].map((x) => x.dataset.w), l = homeLayout();
+      l.order = [...vis, ...l.order.filter((x) => !vis.includes(x))]; saveHomeLayout(l); render();
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
+}
 function homeReset() { try { localStorage.removeItem(HOME_KEY); } catch (e) { /* niente */ } render(); }
 function homeWidgetsHtml(base) {
   const l = homeLayout(), edit = !!ui.homeEdit, all = { ...base, ...homeExtraCards() };
   const vis = l.order.filter((x) => l.shown.includes(x));
-  const bar = (id, i) => `<div class="wbar"><span class="small"><b>${esc(HOME_WIDGETS.find((w) => w[0] === id)[1])}</b></span><span>
+  const bar = (id, i) => `<div class="wbar"><span class="small whandle" title="Trascina per spostare" aria-label="Trascina per spostare">⠿ <b>${esc(HOME_WIDGETS.find((w) => w[0] === id)[1])}</b></span><span>
       <button class="btn" title="Sposta prima" ${i ? '' : 'disabled'} onclick="homeMove('${id}',-1)">↑</button><button class="btn" title="Sposta dopo" ${i < vis.length - 1 ? '' : 'disabled'} onclick="homeMove('${id}',1)">↓</button>
       <button class="btn" title="Togli dalla Home" onclick="homeToggle('${id}',false)">Togli</button></span></div>`;
   const cards = vis.map((id, i) => { let h = ''; try { h = all[id](); } catch (e) { h = `<div class="card hcard"><div class="hk">${esc(id)}</div><p class="small muted">Non disponibile.</p></div>`; }
@@ -1045,7 +1099,7 @@ function homeExtraCards() {
       const crew = state.shifts.filter(on), mgr = (state.mgrShifts || []).filter(on);
       const soon = state.shifts.concat(state.mgrShifts || []).filter((x) => x.day === today && ((x.start > nowMin && x.start <= nowMin + 60) || (x.end > nowMin && x.end <= nowMin + 60)));
       const who = (x) => { const e = personById(x.employeeId ?? x.managerId); return e ? esc(T.fullName(e)) : '—'; };
-      const list = (arr) => arr.sort((a, b) => a.end - b.end).map((x) => `<div class="hrow" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${T.fmtTime(x.start)}–${T.fmtTime(x.end)}${x.station && T.STATIONS[x.station] ? ' · ' + T.STATIONS[x.station].short : ''}</span></div>`).join('');
+      const list = (arr) => arr.sort((a, b) => a.end - b.end).map((x) => `<div class="hrow tight" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${T.fmtTime(x.start)}–${T.fmtTime(x.end)}${x.station && T.STATIONS[x.station] ? ' · ' + T.STATIONS[x.station].short : ''}</span></div>`).join('');
       return box('Chi è in turno adesso', `${crew.length} crew e hospitality · ${mgr.length} manager`,
         (mgr.length + crew.length ? list([...mgr, ...crew]) : '<p class="small muted">Nessuno in turno in questo momento.</p>')
         + (soon.length ? `<div class="hs">Nella prossima ora: ${soon.filter((x) => x.start > nowMin).length} entrano, ${soon.filter((x) => x.end <= nowMin + 60 && x.end > nowMin).length} escono</div>` : ''),
@@ -1063,7 +1117,7 @@ function homeExtraCards() {
       if (!rows.length) return box('Previsioni della settimana scorsa', T.weekLabel(ws), '<p class="small muted">Servono le previsioni e i dati veri di SmartBusiness della settimana scorsa.</p>');
       const media = rows.reduce((t, x) => t + Math.abs(x.e), 0) / rows.length;
       return box('Previsioni della settimana scorsa', `Errore medio ${Math.round(media * 100)}%`,
-        rows.map((x) => `<div class="hrow" style="cursor:default"><b style="width:46px">${T.DOW_SHORT[T.dow(x.d)]}</b> <span class="muted small">previsti ${x.prev} · veri ${x.vero}</span> <span class="chip ${Math.abs(x.e) > 0.15 ? 'warn' : 'ok'}" style="margin-left:auto">${x.e > 0 ? '+' : ''}${Math.round(x.e * 100)}%</span></div>`).join(''));
+        rows.map((x) => `<div class="hrow tight" style="cursor:default"><b style="width:46px">${T.DOW_SHORT[T.dow(x.d)]}</b> <span class="muted small">previsti ${x.prev} · veri ${x.vero}</span> <span class="chip ${Math.abs(x.e) > 0.15 ? 'warn' : 'ok'}" style="margin-left:auto">${x.e > 0 ? '+' : ''}${Math.round(x.e * 100)}%</span></div>`).join(''));
     },
     contratti: () => {
       if (!state.shifts.some((x) => x.day >= ws0 && x.day <= ws0 + 6)) return box('Ore di contratto', T.weekLabel(ws0), '<div class="hs warn">Turni non ancora fatti per questa settimana</div>');
@@ -1071,8 +1125,8 @@ function homeExtraCards() {
       const rows = ctx.employees.filter((e) => e.active !== false).map((e) => { const w = T.worked(ctx, e.id) + T.doubleWorked(ctx, e.id), t = T.target(ctx, e); return { e, w, t, d: w - t }; })
         .filter((x) => x.t > 0 && Math.abs(x.d) >= 30).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
       return box('Ore di contratto', rows.length ? `${rows.length} persone fuori contratto` : 'Tutti in linea con il contratto',
-        rows.slice(0, 6).map((x) => `<div class="hrow" style="cursor:default"><b>${esc(T.fullName(x.e))}</b> <span class="muted small">${T.fmtDur(x.w)} su ${T.fmtDur(x.t)}</span> <span class="chip ${x.d < 0 ? 'warn' : 'err'}" style="margin-left:auto">${x.d > 0 ? '+' : ''}${T.fmtDur(x.d)}</span></div>`).join('')
-        + (rows.length > 6 ? `<div class="small muted" style="margin-top:4px">e altre ${rows.length - 6}…</div>` : ''), `<button class="btn" onclick="ui.ws=${ws0};go('turni')">Apri i turni</button>`);
+        rows.slice(0, 5).map((x) => `<div class="hrow tight" style="cursor:default"><b>${esc(T.fullName(x.e))}</b> <span class="muted small">${T.fmtDur(x.w)} su ${T.fmtDur(x.t)}</span> <span class="chip ${x.d < 0 ? 'warn' : 'err'}" style="margin-left:auto">${x.d > 0 ? '+' : ''}${T.fmtDur(x.d)}</span></div>`).join('')
+        + (rows.length > 5 ? `<div class="small muted" style="margin-top:4px">e altre ${rows.length - 5}…</div>` : ''), `<button class="btn" onclick="ui.ws=${ws0};go('turni')">Apri i turni</button>`);
     },
     assenze: () => {
       const until = today + 14, out = [];
@@ -1084,20 +1138,20 @@ function homeExtraCards() {
       });
       out.sort((a, b) => a[0] - b[0]);
       return box('Assenze e scadenze', out.length ? `${out.length} nei prossimi 14 giorni` : 'Niente nei prossimi 14 giorni',
-        out.slice(0, 7).map((x) => `<div class="hrow" style="cursor:default">${x[1]}</div>`).join('') + (out.length > 7 ? `<div class="small muted" style="margin-top:4px">e altre ${out.length - 7}…</div>` : ''),
+        out.slice(0, 7).map((x) => `<div class="hrow tight" style="cursor:default">${x[1]}</div>`).join('') + (out.length > 7 ? `<div class="small muted" style="margin-top:4px">e altre ${out.length - 7}…</div>` : ''),
         `<button class="btn" onclick="go('ferie')">Ferie e malattie</button>`);
     },
     eventi: () => {
       const until = today + 30, evs = (state.eventi || []).filter((e) => e.dal && T.toDay(e.al || e.dal) >= today && T.toDay(e.dal) <= until).sort((a, b) => T.toDay(a.dal) - T.toDay(b.dal));
       return box('Eventi e chiusure', evs.length ? `${evs.length} nei prossimi 30 giorni` : 'Nessuno nei prossimi 30 giorni',
-        evs.slice(0, 6).map((e) => `<div class="hrow" style="cursor:default"><b>${esc(e.nome || (EV_TIPI[e.tipo] || e.tipo || '').replace(/^\S+\s/, ''))}</b> <span class="muted small">${T.itDate(T.toDay(e.dal))}${e.al && e.al !== e.dal ? ' → ' + T.itDate(T.toDay(e.al)) : ''} · ${esc((EV_TIPI[e.tipo] || '').split(' (')[0].replace(/^\S+\s/, ''))}</span></div>`).join(''),
+        evs.slice(0, 6).map((e) => `<div class="hrow tight" style="cursor:default"><b>${esc(e.nome || (EV_TIPI[e.tipo] || e.tipo || '').replace(/^\S+\s/, ''))}</b> <span class="muted small">${T.itDate(T.toDay(e.dal))}${e.al && e.al !== e.dal ? ' → ' + T.itDate(T.toDay(e.al)) : ''} · ${esc((EV_TIPI[e.tipo] || '').split(' (')[0].replace(/^\S+\s/, ''))}</span></div>`).join(''),
         `<button class="btn" onclick="go('previsioni')">Eventi e chiusure</button>`);
     },
     pubblicazione: () => {
       const rows = [0, 1, 2, 3].map((k) => { const ws = ws0 + 7 * k, n = state.shifts.filter((x) => x.day >= ws && x.day <= ws + 6).length;
         const err = n ? T.validate(T.makeCtx(state, ws)).filter((v) => v.sev === 'ERROR').length : 0;
         const pub = !TurniCloud.loggedIn() ? '' : !pubOf(ws) ? '<span class="chip warn">da pubblicare</span>' : changedSincePublish(ws) ? '<span class="chip warn">da ripubblicare</span>' : '<span class="chip ok">pubblicata</span>';
-        return `<button class="hrow" onclick="ui.ws=${ws};ui.type='CREW';go('turni')"><b style="min-width:110px">${T.weekLabel(ws)}</b> ${n ? `<span class="chip ${err ? 'err' : 'ok'}">${err ? err + (err === 1 ? ' errore' : ' errori') : 'ok'}</span> ${pub}` : '<span class="muted small">turni non fatti</span>'} <span class="muted">›</span></button>`; });
+        return `<button class="hrow tight" onclick="ui.ws=${ws};ui.type='CREW';go('turni')"><b style="min-width:110px">${T.weekLabel(ws)}</b> ${n ? `<span class="chip ${err ? 'err' : 'ok'}">${err ? err + (err === 1 ? ' errore' : ' errori') : 'ok'}</span> ${pub}` : '<span class="muted small">turni non fatti</span>'} <span class="muted">›</span></button>`; });
       return box('Prossime settimane', '', rows.join(''));
     },
     messaggi: () => {
@@ -1108,7 +1162,7 @@ function homeExtraCards() {
         <textarea id="msg-ta" maxlength="500" rows="3" placeholder="Es. Domenica riunione alle 15 in sala" oninput="msgCount()"></textarea>
         <div class="msg-foot"><span class="small muted" id="msg-who">${(() => { const p = msgPeople(['CREW', 'HOSPITALITY', 'MGR']); return `${p.length} persone · ${p.filter((x) => state.reqCreds && state.reqCreds[x.id]).length} con l'app`; })()}</span>
           <span class="small muted" id="msg-n">0/500</span><button class="btn primary" id="msg-send" disabled onclick="msgSend()">📩 Invia</button></div>
-        ${last.length ? `<div class="small muted" style="margin:12px 0 2px">Ultimi messaggi (restano nell'app ${MSG_DAYS} giorni)</div>${last.map((m) => `<div class="hrow" style="cursor:default;align-items:flex-start"><span style="flex:1;min-width:0"><span class="small muted">${esc(fmtWhen(m.at))} · a ${esc(msgGroupsTxt(m.a))}</span><br>${esc(m.testo)}</span><button class="link small" onclick="msgDelete(${m.id})" title="Toglie il messaggio dall'app">Togli</button></div>`).join('')}` : ''}`
+        ${last.length ? `<div class="small muted" style="margin:12px 0 2px">Ultimi messaggi (restano nell'app ${MSG_DAYS} giorni)</div>${last.map((m) => `<div class="hrow tight" style="cursor:default;align-items:flex-start"><span style="flex:1;min-width:0"><span class="small muted">${esc(fmtWhen(m.at))} · a ${esc(msgGroupsTxt(m.a))}</span><br>${esc(m.testo)}</span><button class="link small" onclick="msgDelete(${m.id})" title="Toglie il messaggio dall'app">Togli</button></div>`).join('')}` : ''}`
         : '<p class="small muted">Per mandare messaggi nell\'app del personale serve l\'accesso online del locale.</p>'}</div>`;
     },
     app: () => {
