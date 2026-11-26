@@ -459,6 +459,12 @@
   .witem.editing { outline: 2px dashed var(--green); outline-offset: 3px; border-radius: 14px; }
   .witem .wbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .witem .wbar .btn { padding: 4px 10px; font-size: 13px; }
+  .witem.editing { cursor: grab; }
+  .witem .whandle { cursor: grab; touch-action: none; user-select: none; padding: 4px 6px 4px 2px; }
+  .witem.wplace { opacity: .35; }
+  .witem.wplace > .card { border-style: dashed; }
+  .wghost { position: fixed; z-index: 50; pointer-events: none; transform: rotate(1.2deg) scale(1.02); box-shadow: 0 18px 40px rgba(16,24,40,.22); border-radius: 14px; opacity: .96; }
+  body.wdragging, body.wdragging * { cursor: grabbing !important; user-select: none; }
   button.btn, details.more > summary { display: inline-flex; align-items: center; gap: 7px; }
 
   /* ---- dashboard ---- */
@@ -513,21 +519,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262110"></script>
-<script src="turni-storico.js?v=202611262110"></script>
-<script src="turni-core.js?v=202611262110"></script>
-<script src="turni-manager.js?v=202611262110"></script>
-<script src="turni-vlh.js?v=202611262110"></script>
+<script src="icone.js?v=202611262130"></script>
+<script src="turni-storico.js?v=202611262130"></script>
+<script src="turni-core.js?v=202611262130"></script>
+<script src="turni-manager.js?v=202611262130"></script>
+<script src="turni-vlh.js?v=202611262130"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262110"></script>
-<script src="turni-cloud-config.js?v=202611262110"></script>
-<script src="turni-cloud.js?v=202611262110"></script>
-<script src="turni-cripto.js?v=202611262110"></script>
-<script src="riepilogo.js?v=202611262110"></script>
-<script src="importa-personale.js?v=202611262110"></script>
-<script src="turni-sb.js?v=202611262110"></script>
-<script src="lineare-ufficiale.js?v=202611262110"></script>
+<script src="turni-data.js?v=202611262130"></script>
+<script src="turni-cloud-config.js?v=202611262130"></script>
+<script src="turni-cloud.js?v=202611262130"></script>
+<script src="turni-cripto.js?v=202611262130"></script>
+<script src="riepilogo.js?v=202611262130"></script>
+<script src="importa-personale.js?v=202611262130"></script>
+<script src="turni-sb.js?v=202611262130"></script>
+<script src="lineare-ufficiale.js?v=202611262130"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -721,6 +727,7 @@ function render() {
     viewHtml.html +
     (COMPACT ? `<p class="small muted" style="text-align:center;margin:24px 0 0">${compactOn() ? 'Su telefono e tablet ci sono solo Giornaliero, VLH e Richieste: la generazione dei turni e le altre sezioni si usano dal PC. <button class="link" onclick="setShowAll(true)">Mostra comunque tutte le sezioni</button>' : '<button class="link" onclick="setShowAll(false)">Torna alla versione per telefono e tablet</button>'}</p>` : '');
   setHeaderHeight();
+  if (ui.view === 'home' && ui.homeEdit) homeDragInit();
 }
 /** Intestazione della pagina (icona, titolo, spiegazione). Toglie il primo titolo della sezione se è lo stesso. */
 function pageHead(v) {
@@ -1009,11 +1016,51 @@ function homeWeek(id, ws) {
   const t = document.createElement('div'); t.innerHTML = homeExtraCards()[id]();
   card.replaceWith(t.firstElementChild);
 }
+/**
+ * Trascinare i riquadri in Personalizza: col mouse da qualsiasi punto del riquadro (tranne pulsanti e campi),
+ * col dito dalla maniglia ⠿ (così si può ancora scorrere la pagina). Il riquadro si sposta tra gli altri mentre lo trascini;
+ * lasciandolo, il nuovo ordine si salva su questo dispositivo.
+ */
+function homeDragInit() {
+  const grid = document.querySelector('.homegrid');
+  if (!grid || grid.dataset.dnd) return;
+  grid.dataset.dnd = '1';
+  grid.addEventListener('pointerdown', (e) => {
+    if (!ui.homeEdit || e.button > 0) return;
+    const item = e.target.closest('.witem'), handle = e.target.closest('.whandle');
+    if (!item || (!handle && (e.pointerType !== 'mouse' || e.target.closest('button, a, input, textarea, select, label, .seg, .vm')))) return;
+    e.preventDefault();
+    const r = item.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    const ghost = item.cloneNode(true);
+    ghost.className = 'witem wghost'; Object.assign(ghost.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' });
+    document.body.appendChild(ghost); item.classList.add('wplace'); document.body.classList.add('wdragging');
+    let last = null, scroll = 0, raf = 0;
+    const step = () => { if (scroll) { window.scrollBy(0, scroll); raf = requestAnimationFrame(step); } else raf = 0; };
+    const move = (ev) => {
+      ghost.style.left = ev.clientX - dx + 'px'; ghost.style.top = ev.clientY - dy + 'px';
+      scroll = ev.clientY < 70 ? -14 : ev.clientY > window.innerHeight - 70 ? 14 : 0; if (scroll && !raf) raf = requestAnimationFrame(step);
+      ghost.style.display = 'none'; const under = document.elementFromPoint(ev.clientX, ev.clientY); ghost.style.display = '';
+      const over = under && under.closest('.homegrid .witem');
+      if (!over || over === item) { if (!over) last = null; return; }
+      if (over === last) return; // stesso riquadro di prima: niente avanti e indietro
+      last = over;
+      const kids = [...grid.children], after = kids.indexOf(item) < kids.indexOf(over);
+      grid.insertBefore(item, after ? over.nextSibling : over);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+      scroll = 0; ghost.remove(); item.classList.remove('wplace'); document.body.classList.remove('wdragging');
+      const vis = [...grid.querySelectorAll(':scope > .witem')].map((x) => x.dataset.w), l = homeLayout();
+      l.order = [...vis, ...l.order.filter((x) => !vis.includes(x))]; saveHomeLayout(l); render();
+    };
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+  });
+}
 function homeReset() { try { localStorage.removeItem(HOME_KEY); } catch (e) { /* niente */ } render(); }
 function homeWidgetsHtml(base) {
   const l = homeLayout(), edit = !!ui.homeEdit, all = { ...base, ...homeExtraCards() };
   const vis = l.order.filter((x) => l.shown.includes(x));
-  const bar = (id, i) => `<div class="wbar"><span class="small"><b>${esc(HOME_WIDGETS.find((w) => w[0] === id)[1])}</b></span><span>
+  const bar = (id, i) => `<div class="wbar"><span class="small whandle" title="Trascina per spostare" aria-label="Trascina per spostare">⠿ <b>${esc(HOME_WIDGETS.find((w) => w[0] === id)[1])}</b></span><span>
       <button class="btn" title="Sposta prima" ${i ? '' : 'disabled'} onclick="homeMove('${id}',-1)">↑</button><button class="btn" title="Sposta dopo" ${i < vis.length - 1 ? '' : 'disabled'} onclick="homeMove('${id}',1)">↓</button>
       <button class="btn" title="Togli dalla Home" onclick="homeToggle('${id}',false)">Togli</button></span></div>`;
   const cards = vis.map((id, i) => { let h = ''; try { h = all[id](); } catch (e) { h = `<div class="card hcard"><div class="hk">${esc(id)}</div><p class="small muted">Non disponibile.</p></div>`; }
