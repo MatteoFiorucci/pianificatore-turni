@@ -467,21 +467,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262033"></script>
-<script src="turni-storico.js?v=202611262033"></script>
-<script src="turni-core.js?v=202611262033"></script>
-<script src="turni-manager.js?v=202611262033"></script>
-<script src="turni-vlh.js?v=202611262033"></script>
+<script src="icone.js?v=202611262042"></script>
+<script src="turni-storico.js?v=202611262042"></script>
+<script src="turni-core.js?v=202611262042"></script>
+<script src="turni-manager.js?v=202611262042"></script>
+<script src="turni-vlh.js?v=202611262042"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262033"></script>
-<script src="turni-cloud-config.js?v=202611262033"></script>
-<script src="turni-cloud.js?v=202611262033"></script>
-<script src="turni-cripto.js?v=202611262033"></script>
-<script src="riepilogo.js?v=202611262033"></script>
-<script src="importa-personale.js?v=202611262033"></script>
-<script src="turni-sb.js?v=202611262033"></script>
-<script src="lineare-ufficiale.js?v=202611262033"></script>
+<script src="turni-data.js?v=202611262042"></script>
+<script src="turni-cloud-config.js?v=202611262042"></script>
+<script src="turni-cloud.js?v=202611262042"></script>
+<script src="turni-cripto.js?v=202611262042"></script>
+<script src="riepilogo.js?v=202611262042"></script>
+<script src="importa-personale.js?v=202611262042"></script>
+<script src="turni-sb.js?v=202611262042"></script>
+<script src="lineare-ufficiale.js?v=202611262042"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -973,7 +973,7 @@ function homeExtraCards() {
       const rows = [0, 1, 2, 3].map((k) => { const ws = ws0 + 7 * k, n = state.shifts.filter((x) => x.day >= ws && x.day <= ws + 6).length;
         const err = n ? T.validate(T.makeCtx(state, ws)).filter((v) => v.sev === 'ERROR').length : 0;
         const pub = !TurniCloud.loggedIn() ? '' : !pubOf(ws) ? '<span class="chip warn">da pubblicare</span>' : changedSincePublish(ws) ? '<span class="chip warn">da ripubblicare</span>' : '<span class="chip ok">pubblicata</span>';
-        return `<button class="hrow" onclick="ui.ws=${ws};ui.type='CREW';go('turni')"><b style="min-width:110px">${T.weekLabel(ws)}</b> ${n ? `<span class="chip ${err ? 'err' : 'ok'}">${err ? err + ' errori' : 'ok'}</span> ${pub}` : '<span class="muted small">turni non fatti</span>'} <span class="muted">›</span></button>`; });
+        return `<button class="hrow" onclick="ui.ws=${ws};ui.type='CREW';go('turni')"><b style="min-width:110px">${T.weekLabel(ws)}</b> ${n ? `<span class="chip ${err ? 'err' : 'ok'}">${err ? err + (err === 1 ? ' errore' : ' errori') : 'ok'}</span> ${pub}` : '<span class="muted small">turni non fatti</span>'} <span class="muted">›</span></button>`; });
       return box('Prossime settimane', '', rows.join(''));
     },
     app: () => {
