@@ -128,7 +128,8 @@
 
   // ---------- orari e date ----------
   const pad2 = (n) => String(n).padStart(2, '0');
-  const fmtTime = (m) => `${Math.floor(m / 60)}:${pad2(m % 60)}`;
+  // dopo mezzanotte (locale che chiude alle 1:00 = 25:00 dello stesso giorno) si scrive l'ora vera: 1:00
+  const fmtTime = (m) => { const x = m > 1440 ? m - 1440 : m; return `${Math.floor(x / 60)}:${pad2(x % 60)}`; };
   function fmtDur(m) {
     const sign = m < 0 ? '-' : '';
     const a = Math.abs(m), h = Math.floor(a / 60), r = a % 60;
@@ -1075,7 +1076,7 @@
   function ruleMcCafeMax(ctx) {
     const out = [];
     for (const d of ctx.days) {
-      for (let m = 0; m < 1440; m += 15) {
+      for (let m = 0; m < 1680; m += 15) {
         const n = mcCafeLoad(ctx.shifts, d, m), max = mcCafeMax(ctx.cfg, d, m);
         if (n > max) {
           const p = parts(d);
@@ -1468,7 +1469,7 @@
       if (!e.fixedShift && shortOffPeak(cfg, cand)) return false; // turni brevi solo dentro i rush
       if (!e.fixedShift && !cand.doppio && isRigidAfternoon(cfg, cand)) return false; // pomeriggio: turni sfalsati, non rigidi
       if (!e.fixedShift && !cand.doppio && e.type === 'CREW' && (isHybridAfternoon(cfg, cand) || isLongWithoutRush(cfg, cand))) return false; // niente ibridi, turni lunghi solo sul rush
-      if (dur(cand) <= 0 || cand.start < 0 || cand.end > 1440) return false;
+      if (dur(cand) <= 0 || cand.start < 0 || cand.end > Math.max(1440, CL(cand.day))) return false;
       if (!cand.doppio && cand.start <= OP(cand.day) && shifts.some((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing)) return false; // chi apre non fa il doppio
       if (!cand.doppio && !e.fixedShift) { const dd = shifts.find((s) => s.employeeId === e.id && s.day === cand.day && isDouble(s) && s !== replacing); if (dd && !doublePairOk(cfg, cand, dd)) return false; } // doppio: pranzo + cena
       const others = dayMain(e.id, cand.day).filter((s) => s !== replacing);

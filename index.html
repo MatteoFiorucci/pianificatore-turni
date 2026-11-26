@@ -506,7 +506,18 @@ const isPeople = (v) => PEOPLE.some(([k]) => k === v);
 const VIEWS = [...NAV.flatMap(([, items]) => items).filter(([k]) => k !== 'personale' && !GROUPS[k]), ...Object.values(GROUPS).flat(), ...PEOPLE];
 /** Menu laterale sul computer (finestra larga); su telefono, tablet e finestre strette resta la barra in alto. */
 const sideOn = () => !compactOn() && window.innerWidth > 900;
-const TIME_OPTIONS = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS.push(m);
+const TIME_OPTIONS_BASE = []; for (let m = 6 * 60; m <= 23 * 60; m += 15) TIME_OPTIONS_BASE.push(m);
+/** Orari dei menu dei turni: dalle 6:00 alle 23:00, allargati all'orario del locale (apertura presto, chiusura dopo mezzanotte). */
+function timeOptions() {
+  const c = (typeof state !== 'undefined' && state && state.config) || {};
+  let lo = 360, hi = 1380;
+  for (let d = 1; d <= 7; d++) { const h = (c.hours || {})[d] || {}; if (h.h24) { lo = 0; hi = Math.max(hi, 1440); } else { if (h.open != null) lo = Math.min(lo, h.open); if (h.close != null) hi = Math.max(hi, h.close); } }
+  if (c.open != null) lo = Math.min(lo, c.open); if (c.close != null) hi = Math.max(hi, c.close);
+  if (lo === 360 && hi === 1380) return TIME_OPTIONS_BASE;
+  const out = []; for (let m = Math.floor(lo / 15) * 15; m <= hi; m += 15) out.push(m); return out;
+}
+/** Testo di un orario nei menu: dopo mezzanotte si aggiunge "(notte)". */
+const timeLabel = (t) => (t === 1440 ? '24:00' : t > 1440 ? `${T.fmtTime(t)} (notte)` : T.fmtTime(t));
 
 // ---------- stato (salvato nel browser) ----------
 let storageOk = true;
@@ -535,7 +546,7 @@ const mgrById = (id) => (state.managers || []).find((m) => m.id === id);
 const personById = (id) => empById(id) || mgrById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const timeSelect = (value, onchange) =>
-  `<select onchange="${onchange}">${TIME_OPTIONS.map((t) => `<option value="${t}" ${t === value ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+  `<select onchange="${onchange}">${(() => { const o = timeOptions(); return value != null && !o.includes(value) ? [...o, value].sort((a, b) => a - b) : o; })().map((t) => `<option value="${t}" ${t === value ? 'selected' : ''}>${timeLabel(t)}</option>`).join('')}</select>`;
 const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompare(T.fullName(b), 'it'));
 
 // ---------- navigazione ----------
@@ -580,7 +591,7 @@ const INFO = {
   'dash-vendite': [`Vendite rispetto all'anno scorso`, `<b>Cosa mostra</b>: per ogni giorno, quanto ha venduto il locale rispetto allo <b>stesso giorno della settimana dell'anno scorso</b> (52 settimane prima: lunedì con lunedì). Il numero grande è la variazione della settimana intera.<br><br><b>Come si legge</b>: barra <b style="color:#2a78d6">blu</b> verso l'alto = sopra l'anno scorso; barra <b style="color:#e34948">rossa</b> verso il basso = sotto. I giorni già passati usano le <b>vendite vere</b>; quelli futuri le <b>previsioni</b> (barre chiare tratteggiate). Passa il mouse su una barra per vedere gli euro.<br><br><b>A cosa serve</b>: capire se il locale cresce o cala e in quali giorni; è il numero da portare in riunione. Se un giorno previsto è molto diverso dall'anno scorso, controlla gli eventi in Previsioni (un evento sbagliato sposta anche le ore dei turni).<br><br>Le vendite vere arrivano con le previsioni automatiche (aggiornate ogni giorno da SmartBusiness).`],
   'dash-ore': [`Ore pianificate e ore previste`, `<b>Cosa mostra</b>: per ogni giorno, le <b>ore messe in turno</b> (barre blu: crew, hospitality e doppi, senza manager) e le <b>Ore totali previste</b> (lineetta nera), cioè le ore che servono secondo la previsione delle vendite. Il numero grande è quante ore sei sopra (+) o sotto (−) la previsione nella settimana.<br><br><b>Come si legge</b>: barra più alta della lineetta = più ore del necessario; barra più bassa = meno ore del previsto.<br><br><b>A cosa serve</b>: controllare il costo del lavoro prima di pubblicare i turni. Troppe ore in un giorno tranquillo = soldi spesi; troppo poche in un giorno forte = rischio di restare scoperti nei rush.`],
   'dash-prod': [`Vendite per ora di lavoro`, `<b>Cosa mostra</b>: quanti euro di vendite fa il locale per ogni ora di lavoro pianificata (vendite del giorno divise per le ore di crew, hospitality e doppi, senza manager). La linea tratteggiata è la media della settimana; il numero è scritto sul giorno migliore e su quello peggiore.<br><br><b>Come si legge</b>: barra alta = poche persone per tante vendite; barra bassa = tante persone per poche vendite.<br><br><b>A cosa serve</b>: è l'indice della produttività. Un giorno molto <b>sotto</b> la media ha probabilmente troppe ore (si possono togliere); un giorno molto <b>sopra</b> rischia di essere scoperto. Confrontando le settimane vedi se la produttività migliora.`],
-  'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale, giorno per giorno (anche 24 ore): sezione Store. Il generatore non mette turni fuori da quest'orario.`],
+  'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale, giorno per giorno (anche 24 ore): sezione Store. La chiusura può essere anche dopo mezzanotte (fino alle 4:00, segnata «notte»): i turni di quella sera finiscono all'ora di chiusura. Il generatore non mette turni fuori da quest'orario.`],
   'col-nome': [`Fascia di copertura`, `Ogni riga è una fascia oraria (es. il rush del pranzo) con il numero minimo di persone che devono essere presenti per tutta la sua durata. Puoi cambiarne nome e orari, aggiungerne o eliminarne.`],
   'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Ore totali (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality.`],
   'col-post': [`Postazione`, `<b>Qualsiasi crew</b>: contano tutti i crew presenti, in qualunque postazione.<br><b>Una postazione</b> (quelle del locale, impostate nella sezione Store): contano solo le persone messe in quella postazione. Per la Sala contano anche le hospitality, se nella sezione Store è attiva la regola.`],
@@ -1394,7 +1405,7 @@ function renderGiornaliero() {
   const day = ui.day, cfg = state.config;
   const ctx = T.makeCtx(state, T.mondayOf(day));
   const dh = T.dayHours(cfg, day); // orario del locale di quel giorno (anche 24h)
-  const H0 = Math.max(0, Math.floor((dh.open - 30) / 60)), H1 = Math.min(24, Math.ceil((dh.close + 60) / 60));
+  const H0 = Math.max(0, Math.floor((dh.open - 30) / 60)), H1 = Math.min(28, Math.ceil((dh.close + 60) / 60));
   const hours = []; for (let h = H0; h < H1; h++) hours.push(h);
   const span = (H1 - H0) * 60, pct = (m) => (((m - H0 * 60) / span) * 100).toFixed(3) + '%';
   const hw = `calc(100% / ${hours.length})`;
@@ -1433,7 +1444,7 @@ function renderGiornaliero() {
     </div>`;
   };
   const head = `<div class="lrow lhead"><div class="lpos">Post.</div><div class="lname">Nome</div><div class="ltime">Dalle</div><div class="ltime">Alle</div>
-    <div class="ltrack" style="${grid};background-color:#fafafa">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60)}">${h}</span>`).join('')}</div></div>`;
+    <div class="ltrack" style="${grid};background-color:#fafafa">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60)}">${h % 24}</span>`).join('')}</div></div>`;
   ui.dragGeo = { H0, span };
   // manager (calendario a parte): sempre in cima
   const mDay = (state.mgrShifts || []).filter((x) => x.day === day && mgrById(x.managerId)).sort((a, b) => a.start - b.start || a.end - b.end);
@@ -1523,7 +1534,7 @@ const VLH_SHEETS_STD = [[8, 9, 10, 11, 12, 13, 14, 15], [15, 16, 17, 18, 19, 20,
  */
 function vlhSheetsFor(day) {
   const h = T.dayHours(state.config, day);
-  const a = h.h24 ? 0 : h.open <= 420 ? Math.floor(h.open / 60) : 8, b = h.h24 ? 23 : h.close > 1350 ? Math.min(23, Math.ceil(h.close / 60) - 1) : 22;
+  const a = h.h24 ? 0 : h.open <= 420 ? Math.floor(h.open / 60) : 8, b = h.h24 ? 23 : h.close > 1350 ? Math.min(27, Math.ceil(h.close / 60) - 1) : 22;
   if (a === 8 && b === 22) return VLH_SHEETS_STD;
   const out = []; for (let x = a; x <= b; x += 8) out.push(Array.from({ length: Math.min(8, b - x + 1) }, (_, i) => x + i));
   return out;
@@ -1664,7 +1675,7 @@ function renderVLH() {
       <tr class="blk"><td colspan="${n + 2}">Shift Information:</td></tr>
       <tr><td class="lab" colspan="2">Date:</td><td class="c">${T.shortDate(day)}</td><td class="lab">Shift Manager:</td><td colspan="${n - 2}">${esc(mgrAt(hours[0]) || '')}</td></tr>
       <tr><td class="lab blk" colspan="2">DayPart</td>${cols.map((c) => `<td class="c sm">${V.PART_TXT[c.r.part]}</td>`).join('')}</tr>
-      <tr><td class="lab blk" colspan="2">Starting Hour</td>${hours.map((h) => `<td class="c hr">${String(h).padStart(2, '0')}:00</td>`).join('')}</tr>
+      <tr><td class="lab blk" colspan="2">Starting Hour</td>${hours.map((h) => `<td class="c hr">${String(h % 24).padStart(2, '0')}:00</td>`).join('')}</tr>
       <tr><td class="lab blk" colspan="2">Proj GC</td>${hours.map((h, i) => `<td class="c"><input class="${cols[i].man ? 'man' : ''}" value="${cols[i].gc ?? ''}" placeholder="–" title="${cols[i].man ? 'Scritto a mano (cancella per tornare alla previsione)' : 'Previsione: puoi correggerla'}" onchange="setVlhGC(${day},${h},this.value)"></td>`).join('')}</tr>
       <tr><td class="lab blk" colspan="2">Act GC</td>${hours.map(() => '<td></td>').join('')}</tr>`;
     const areas = V.AREAS.map(([a, label]) => {
@@ -2560,7 +2571,9 @@ function renderRegole() {
 // Tutto ciò che cambia da un locale all'altro sta in state.config (cifrato insieme ai dati del locale):
 // un locale nuovo imposta qui le sue regole senza toccare il motore dei turni.
 const DAY_TIMES = []; for (let m = 0; m <= 1440; m += 15) DAY_TIMES.push(m);
-const dayTimeSel = (v, on) => `<select onchange="${on}">${DAY_TIMES.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${t === 1440 ? '24:00' : T.fmtTime(t)}</option>`).join('')}</select>`;
+// la chiusura può andare oltre la mezzanotte (fino alle 4:00): 1:00 di notte = 25:00 dello stesso giorno
+const CLOSE_TIMES = []; for (let m = 15; m <= 1680; m += 15) CLOSE_TIMES.push(m);
+const dayTimeSel = (v, on, list = DAY_TIMES) => `<select onchange="${on}">${list.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${timeLabel(t)}</option>`).join('')}</select>`;
 const MGR_DEF = { short: [180, 300], long: [390, 510], breakFrom: 390, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
 function storeStations() { if (!Array.isArray(state.config.stations) || !state.config.stations.length) state.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x })); return state.config.stations; }
 /**
@@ -2577,7 +2590,7 @@ function shiftBandsForHours(o0, c0, o1, c1) {
     if (isOpen) { r.start += dO; r.end += dO; continue; }
     if (isClose) { r.start += dC; r.end += dC; continue; }
     if (r.start === o0) r.start += dO;
-    if (r.end >= c0 - 30) r.end = Math.min(1440, r.end + dC);
+    if (r.end >= c0 - 30) r.end = Math.min(Math.max(1440, c1), r.end + dC);
     if (r.end <= r.start) r.end = r.start + 30;
   }
 }
@@ -2630,7 +2643,7 @@ async function publishReqRule() {
   try { await TurniCloud.setStoreInfo({ reqRule: r }); state.reqRulePublished = r; save(); } catch (e) { /* riprova al prossimo controllo */ }
 }
 function reqRuleBox() {
-  const r = reqRuleOf(), tsel = (v, k) => `<select onchange="setReqRule('${k}',+this.value)">${TIME_OPTIONS.filter((t) => t % 30 === 0).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+  const r = reqRuleOf(), tsel = (v, k) => `<select onchange="setReqRule('${k}',+this.value)">${TIME_OPTIONS_BASE.filter((t) => t % 30 === 0).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
   return `<label class="tg ${r.on ? 'on' : ''}" style="width:max-content;margin:0 0 6px"><input type="checkbox" ${r.on ? 'checked' : ''} onchange="setReqRule('on',this.checked)">Limiti alle richieste dall'app</label>
     <div class="small muted" style="margin:0 0 10px 4px">Valgono per crew e hospitality: i manager hanno richieste libere. Le richieste che inserisci tu a mano non hanno limiti.</div>
     ${r.on ? `<div class="form"><div class="row" style="align-items:end">
@@ -2654,7 +2667,7 @@ function renderStore() {
   const hrs = (v) => T.hoursText(v);
   const hours = [1, 2, 3, 4, 5, 6, 7].map((d) => {
     const h = (c.hours || {})[d] || {}, h24 = !!h.h24, o = h.open ?? c.open ?? 450, cl = h.close ?? c.close ?? 1290;
-    return `<tr><td><b>${T.DOW_LONG[d]}</b></td><td>${h24 ? '<span class="muted">aperto 24 ore su 24</span>' : `${dayTimeSel(o, `setHour(${d},'open',+this.value)`)} – ${dayTimeSel(cl, `setHour(${d},'close',+this.value)`)}`}</td>
+    return `<tr><td><b>${T.DOW_LONG[d]}</b></td><td>${h24 ? '<span class="muted">aperto 24 ore su 24</span>' : `${dayTimeSel(o, `setHour(${d},'open',+this.value)`)} – ${dayTimeSel(cl, `setHour(${d},'close',+this.value)`, CLOSE_TIMES)}`}</td>
       <td><label class="tg ${h24 ? 'on' : ''}"><input type="checkbox" ${h24 ? 'checked' : ''} onchange="setHour(${d},'h24',this.checked)">24h</label></td></tr>`;
   }).join('');
   const stRows = sts.map((x, i) => `<tr style="${x.active === false ? 'opacity:.55' : ''}">
@@ -2928,7 +2941,7 @@ function openSetup(n = 0) {
   if (n === 0) {
     const h = (d) => ({ open: c.open ?? 450, close: c.close ?? 1290, ...((c.hours || {})[d] || {}) });
     const rows = [1, 2, 3, 4, 5, 6, 7].map((d) => `<tr><td><b>${T.DOW_LONG[d]}</b></td>
-      <td>${h(d).h24 ? '<span class="muted">aperto 24 ore su 24</span>' : `${dayTimeSel(h(d).open, `setupHour(${d},'open',+this.value)`)} – ${dayTimeSel(h(d).close, `setupHour(${d},'close',+this.value)`)}`}</td>
+      <td>${h(d).h24 ? '<span class="muted">aperto 24 ore su 24</span>' : `${dayTimeSel(h(d).open, `setupHour(${d},'open',+this.value)`)} – ${dayTimeSel(h(d).close, `setupHour(${d},'close',+this.value)`, CLOSE_TIMES)}`}</td>
       <td><label class="tg ${h(d).h24 ? 'on' : ''}"><input type="checkbox" ${h(d).h24 ? 'checked' : ''} onchange="setupHour(${d},'h24',this.checked)">24h</label></td></tr>`).join('');
     body = `<label class="f">Nome del locale<input type="text" id="setup-nome" value="${esc(c.storeName || '')}" maxlength="80"></label>
       <p class="small muted" style="margin:12px 0 6px">Orari di apertura al pubblico. Cambiane uno e premi <b>Copia il lunedì su tutti</b> se sono uguali ogni giorno.</p>
@@ -3930,7 +3943,7 @@ function askAccept(id) {
   }
   const p = q.kind === 'libero' ? null : proposalOf(q);
   const weekHas = state.shifts.some((x) => x.day >= T.mondayOf(q.day) && x.day <= T.mondayOf(q.day) + 6);
-  const timeSel = (idn, v, from, to) => `<select id="${idn}">${TIME_OPTIONS.filter((t) => t >= from && t <= to).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+  const timeSel = (idn, v, from, to) => `<select id="${idn}">${timeOptions().filter((t) => t >= from && t <= Math.max(to, to >= 1380 ? Math.max(...timeOptions()) : to)).map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${timeLabel(t)}</option>`).join('')}</select>`;
   showModal(`<h3>Accetta la richiesta</h3>
     <p><b>${esc(T.fullName(personById(q.employeeId)))}</b> · ${T.DOW_LONG[T.dow(q.day)]} ${T.itDate(q.day)}: ${esc(KIND_TXT(q))}${q.note ? ` <span class="muted">("${esc(q.note)}")</span>` : ''}</p>
     <div class="form">
@@ -4011,7 +4024,7 @@ function mrSlotAdd() { const l = ui.mr.slots[ui.mr.slots.length - 1] || { d: 1, 
 function mrSlotDel(i) { ui.mr.slots.splice(i, 1); showManualRequest(); }
 function showManualRequest() {
   const m = ui.mr, people = sortByName(state.employees.filter((e) => e.active));
-  const tSel = (v, on) => `<select onchange="${on}">${TIME_OPTIONS.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${T.fmtTime(t)}</option>`).join('')}</select>`;
+  const tSel = (v, on) => `<select onchange="${on}">${timeOptions().map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${timeLabel(t)}</option>`).join('')}</select>`;
   const KINDS = [['turno', 'Vuole fare un certo turno (es. solo mattina, solo pranzo/pomeriggio)'], ['libero', 'Giorno libero (non può lavorare)'], ['impegno', 'Ha un impegno a una certa ora (deve finire prima)'], ['dalle', 'Può lavorare solo da una certa ora'], ['fisso', 'Impegni fissi ogni settimana (università, sport…)']];
   const margin = state.config.requestMargin ?? 30, after = state.config.requestAfter ?? 120;
   showModal(`<h3>✍️ Nuova richiesta a mano</h3>
