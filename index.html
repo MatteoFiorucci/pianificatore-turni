@@ -464,21 +464,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611261855"></script>
-<script src="turni-storico.js?v=202611261855"></script>
-<script src="turni-core.js?v=202611261855"></script>
-<script src="turni-manager.js?v=202611261855"></script>
-<script src="turni-vlh.js?v=202611261855"></script>
+<script src="icone.js?v=202611261919"></script>
+<script src="turni-storico.js?v=202611261919"></script>
+<script src="turni-core.js?v=202611261919"></script>
+<script src="turni-manager.js?v=202611261919"></script>
+<script src="turni-vlh.js?v=202611261919"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611261855"></script>
-<script src="turni-cloud-config.js?v=202611261855"></script>
-<script src="turni-cloud.js?v=202611261855"></script>
-<script src="turni-cripto.js?v=202611261855"></script>
-<script src="riepilogo.js?v=202611261855"></script>
-<script src="importa-personale.js?v=202611261855"></script>
-<script src="turni-sb.js?v=202611261855"></script>
-<script src="lineare-ufficiale.js?v=202611261855"></script>
+<script src="turni-data.js?v=202611261919"></script>
+<script src="turni-cloud-config.js?v=202611261919"></script>
+<script src="turni-cloud.js?v=202611261919"></script>
+<script src="turni-cripto.js?v=202611261919"></script>
+<script src="riepilogo.js?v=202611261919"></script>
+<script src="importa-personale.js?v=202611261919"></script>
+<script src="turni-sb.js?v=202611261919"></script>
+<script src="lineare-ufficiale.js?v=202611261919"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1026,13 +1026,34 @@ function saveDay() {
 }
 
 // --- generazione ---
+/**
+ * Controlli prima di generare: cosa manca perché i turni seguano i clienti (VLH, previsioni, ore totali)
+ * e persone senza formazioni segnate. Restituisce il riquadro di avviso, oppure '' se è tutto a posto.
+ */
+function genChecks(ws = ui.ws) {
+  const out = [], days = [0, 1, 2, 3, 4, 5, 6].map((k) => T.forecastDay((state.forecasts || {})[ws], k) || {});
+  if (state.config.vlhGen !== false && !(state.vlh && state.vlh.giorni))
+    out.push(`<b>Tabelle VLH non caricate</b>: le persone vengono messe solo in base ai minimi delle fasce, non in base ai clienti previsti ora per ora. Si caricano in <b>VLH</b>.`);
+  if (!days.some((d) => d.gc > 0 || d.sales > 0))
+    out.push(`<b>Nessuna previsione dei clienti</b> per questa settimana: si caricano in <b>Previsioni</b> (report SmartBusiness).`);
+  if (!days.some((d) => d.crewHours > 0))
+    out.push(`<b>Mancano le ore totali</b> della settimana: si usano solo le ore di contratto, uguali in ogni settimana. Si scrivono in <b>Previsioni</b>; dopo 2–3 settimane scritte l'app le calcola da sola.`);
+  const active = state.employees.filter((e) => e.active !== false && (e.endDate == null || e.endDate >= ws) && (e.startDate == null || e.startDate <= ws + 6));
+  const noTr = (type) => active.filter((e) => e.type === type && !(e.trainings || []).some((x) => T.STATIONS[x])).length;
+  const tot = (type) => active.filter((e) => e.type === type).length;
+  // crew: anche solo qualcuno senza formazioni (non può andare in nessuna postazione); hospitality: solo se mancano a tutte
+  const tr = [['CREW', 'crew'], ['HOSPITALITY', 'hospitality']].filter(([t]) => noTr(t) && (t === 'CREW' || noTr(t) === tot(t)))
+    .map(([t, l]) => (noTr(t) === tot(t) ? `<b>tutti i ${l}</b> (${tot(t)})` : `<b>${noTr(t)} ${l}</b> su ${tot(t)}`));
+  if (tr.length) out.push(`Formazioni non segnate per ${tr.join(' e ')}: senza formazioni il generatore non sa in quali postazioni metterli. Si segnano in <b>Formazione</b>.`);
+  return out.length ? `<div class="notice warn" style="margin-top:12px"><b>Prima di generare, controlla:</b><ul style="margin:6px 0 0 18px;padding:0">${out.map((x) => `<li style="margin-top:4px">${x}</li>`).join('')}</ul><span class="small" style="display:block;margin-top:6px">Puoi generare lo stesso: i turni rispettano le regole, ma possono essere meno precisi.</span></div>` : '';
+}
 function askGenerate() {
   const trained = (st) => state.employees.filter((e) => e.active && (e.openings || []).includes(st)).length;
   // nella settimana c'è almeno un giorno con l'apertura (non aperto 24 ore)?
   const opensSomeDay = [0, 1, 2, 3, 4, 5, 6].some((k) => !T.dayHours(state.config, ui.ws + k).h24);
   const missing = opensSomeDay ? OPENINGS_().filter((st) => !trained(st)).map((st) => T.STATIONS[st].label) : [];
-  const warn = missing.length
-    ? `<div class="notice warn" style="margin-top:12px">Nessuno risulta formato per l'apertura ${missing.join(' né ')}: quelle aperture non potranno essere coperte. Segnalo nella sezione <b>Aperture e chiusure</b>.</div>` : '';
+  const warn = (missing.length
+    ? `<div class="notice warn" style="margin-top:12px">Nessuno risulta formato per l'apertura ${missing.join(' né ')}: quelle aperture non potranno essere coperte. Segnalo nella sezione <b>Aperture e chiusure</b>.</div>` : '') + genChecks();
   showModal(`
     <h3>Genera turni · ${T.weekLabel(ui.ws)}</h3>
     <p><b>Completa</b>: tiene i turni già inseriti e aggiunge quelli che mancano.<br><b>Da zero</b>: cancella tutti i turni della settimana e li ricrea.</p>
@@ -1213,11 +1234,27 @@ function showTurniHelp() {
     </div>`}</div>
     <div class="actions"><button class="btn primary" onclick="closeModal()">Ho capito</button></div>`);
 }
+/** Turni della settimana di un gruppo: crew e hospitality (doppi compresi, secondo chi li fa) o manager. */
+const inCurWeek = (s) => s.day >= ui.ws && s.day <= ui.ws + 6;
+const clearGroups = {
+  CREW: { label: 'Crew', count: () => state.shifts.filter((s) => inCurWeek(s) && (empById(s.employeeId) || {}).type !== 'HOSPITALITY').length },
+  HOSPITALITY: { label: 'Hospitality', count: () => state.shifts.filter((s) => inCurWeek(s) && (empById(s.employeeId) || {}).type === 'HOSPITALITY').length },
+  MGR: { label: 'Manager', count: () => (state.mgrShifts || []).filter(inCurWeek).length },
+};
 function askClearWeek() {
-  showModal(`<h3>Svuotare la settimana?</h3><p>Verranno cancellati tutti i turni dal ${T.itDate(ui.ws)} al ${T.itDate(ui.ws + 6)}. Riposi e ferie restano.</p>
-    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="clearWeek()">Svuota</button></div>`);
+  const box = (k) => { const g = clearGroups[k], n = g.count(); return `<label style="display:block;margin:6px 0;cursor:pointer"><input type="checkbox" class="cw-g" value="${k}" ${n ? 'checked' : 'disabled'}> <b>${g.label}</b> <span class="muted">(${n ? n + ' turni' : 'nessun turno'})</span></label>`; };
+  showModal(`<h3>Svuotare la settimana?</h3><p>Dal ${T.itDate(ui.ws)} al ${T.itDate(ui.ws + 6)} cancello i turni di:</p>
+    <div>${Object.keys(clearGroups).map(box).join('')}</div>
+    <p class="muted small">I doppi turni vanno con chi li fa (crew o hospitality). Riposi e ferie restano.</p>
+    <div class="actions"><button class="btn" onclick="closeModal()">Annulla</button><button class="btn danger" onclick="clearWeek([...document.querySelectorAll('.cw-g:checked')].map((x) => x.value))">Svuota</button></div>`);
 }
-function clearWeek() { state.shifts = state.shifts.filter((s) => s.day < ui.ws || s.day > ui.ws + 6); save(); closeModal(); render(); }
+function clearWeek(groups = ['CREW', 'HOSPITALITY']) {
+  const g = new Set(groups);
+  if (!g.size) { closeModal(); return; }
+  state.shifts = state.shifts.filter((s) => !inCurWeek(s) || !g.has((empById(s.employeeId) || {}).type === 'HOSPITALITY' ? 'HOSPITALITY' : 'CREW'));
+  if (g.has('MGR')) state.mgrShifts = (state.mgrShifts || []).filter((s) => !inCurWeek(s));
+  save(); closeModal(); render();
+}
 
 // ================= MANAGER (scheda nella pagina Turni) =================
 const MGR = () => window.TurniManager;
@@ -2197,7 +2234,7 @@ function renderPersonale() {
         <td><b>${esc(T.fullName(e))}</b></td>
         <td>${e.fixedShift ? `<span class="pill on">Fisso ${T.fmtTime(e.fixedShift.start)}–${T.fmtTime(e.fixedShift.end)}</span>` : T.fmtDur(e.weeklyMinutes)}${e.daControllare ? ' <span class="pill" style="background:var(--warn)">da controllare</span>' : ''}</td>
         <td>${e.restDays.length ? e.restDays.slice().sort().map((d) => T.DOW_SHORT[d]).join(', ') : '<span class="muted">nessuno</span>'}</td>
-        <td>${e.type === 'CREW' ? (e.trainings.length ? e.trainings.map((s) => `<span class="pill on">${T.STATIONS[s].label}</span>`).join('') : '<span class="muted small">non inserita</span>') : '—'}</td>
+        <td>${(e.trainings || []).filter((s) => T.STATIONS[s]).length ? e.trainings.filter((s) => T.STATIONS[s]).map((s) => `<span class="pill on">${T.STATIONS[s].label}</span>`).join('') : '<span class="muted small">non inserita</span>'}</td>
         <td>${e.active ? 'Sì' : '<b style="color:var(--err-ink)">No</b>'}${e.trainee ? ' <span class="pill" style="background:var(--warn)">🎓 in formazione</span>' : ''}${e.startDate != null && e.startDate > T.todayDay() ? ` <span class="pill" style="background:#e8eefc;color:var(--rest)">entra il ${T.itDate(e.startDate)}</span>` : ''}${e.endDate != null ? ` <span class="pill" style="background:${e.endDate < T.todayDay() ? '#eee;color:#666' : 'var(--warn);color:var(--warn-ink)'}">${e.endDate < T.todayDay() ? 'uscito/a il' : 'esce il'} ${T.itDate(e.endDate)}</span>` : ''}</td>
       </tr>`;
     }).join('');
