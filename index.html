@@ -11,34 +11,45 @@
 <meta name="apple-mobile-web-app-title" content="Turni Manager">
 <link rel="apple-touch-icon" href="icone/manager-180.png">
 <link rel="icon" href="icone/manager-192.png">
+<script>
+  // tema scelto su questo dispositivo: 'light', 'dark' oppure automatico (come il dispositivo)
+  try { const t = localStorage.getItem('turni-tema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) { /* automatico */ }
+</script>
 <style>
   :root {
     --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70;
-    --line: #d9d9de; --bg: #f6f6f4; --err: #ffd3d6; --err-ink: #b3261e; --warn: #fff0c2; --warn-ink: #8a6100;
-    --ok: #dcf0e1; --rest: #1e40af;
+    --line: #d9d9de; --bg: #f4f5f2; --err: #ffd3d6; --err-ink: #b3261e; --warn: #fff0c2; --warn-ink: #8a6100;
+    --ok: #dcf0e1; --rest: #1e40af; --brand: #1e5631;
+    /* superfici e linee (tema chiaro); il tema scuro ridefinisce gli stessi nomi più sotto */
+    --surface: #ffffff; --surface-2: #f7f8f6; --hover: #f3f4f1; --line-soft: #e8e9e5; --line-strong: #b9b9c0; --faint: #c8c8cc;
+    --info-bg: #e8eefc; --info-ink: #1e40af; --ev-bg: #fff4d6; --ev-ink: #7a5200; --closed-bg: #e2e8f0; --closed-ink: #334155;
+    --tip-bg: #1d1d1f; --tip-ink: #ffffff; --tip-muted: #b9b9c0;
+    /* grafici: blu = sopra / pianificato, rosso = sotto (coppia divergente), griglia appena staccata dalla superficie */
+    --viz-up: #2a78d6; --viz-down: #e34948; --viz-grid: #e7e8e4; --viz-ink: #1d1d1f; --viz-muted: #6b6b70; --viz-today: #eb6834;
+    color-scheme: light;
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
-  header { background: var(--green); color: #fff; display: flex; align-items: center; gap: 24px; padding: 0 20px; height: 56px; position: sticky; top: 0; z-index: 5; }
+  header { background: var(--brand); color: #fff; display: flex; align-items: center; gap: 24px; padding: 0 20px; height: 56px; position: sticky; top: 0; z-index: 5; }
   header .brand { font-weight: 800; letter-spacing: .5px; display: flex; align-items: center; gap: 10px; }
-  header .brand .m { background: var(--yellow); color: var(--green); border-radius: 6px; padding: 2px 8px; font-size: 18px; }
+  header .brand .m { background: var(--yellow); color: var(--brand); border-radius: 6px; padding: 2px 8px; font-size: 18px; }
   nav { display: flex; gap: 4px; }
   nav button { background: transparent; border: 0; color: #d9eadf; font: inherit; font-weight: 600; padding: 8px 14px; border-radius: 8px; cursor: pointer; }
   nav button:hover { background: rgba(255,255,255,.1); }
-  nav button.active { background: var(--yellow); color: var(--green); }
+  nav button.active { background: var(--yellow); color: var(--brand); }
   main { padding: 16px 20px 40px; }
   h2 { margin: 4px 0 12px; font-size: 20px; }
   .muted { color: var(--muted); }
   .small { font-size: 12px; }
-  button.btn, label.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--ink); }
-  button.btn:hover, label.btn:hover { border-color: #b9b9c0; }
+  button.btn, label.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 7px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+  button.btn:hover, label.btn:hover { border-color: var(--line-strong); }
   button.primary { background: var(--green); color: #fff; border-color: var(--green); }
   button.danger { background: var(--err-ink); color: #fff; border-color: var(--err-ink); }
   button.link { background: none; border: 0; color: var(--green); font: inherit; font-weight: 600; cursor: pointer; padding: 0; }
   button:disabled { opacity: .45; cursor: default; }
   .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
   .toolbar .week { font-size: 17px; font-weight: 700; min-width: 210px; text-align: center; }
-  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: #fff; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
   .seg button { border: 0; background: none; font: inherit; padding: 7px 14px; cursor: pointer; font-weight: 600; color: var(--muted); }
   .seg button.on { background: var(--green-soft); color: var(--green); }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; }
@@ -48,15 +59,15 @@
   .spacer { flex: 1; }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; align-items: start; }
   @media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
   .gridwrap { overflow: auto; max-height: calc(100vh - 190px); }
   table.grid { border-collapse: separate; border-spacing: 0; width: 100%; }
   .grid th, .grid td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 0; }
-  .grid thead th { position: sticky; top: 0; background: #fafafa; z-index: 2; padding: 8px 6px; font-size: 13px; }
-  .grid .name { position: sticky; left: 0; background: #fff; z-index: 1; text-align: left; padding: 6px 10px; min-width: 190px; font-weight: 600; white-space: nowrap; }
-  .grid thead .name { z-index: 3; background: #fafafa; }
-  .grid tr.cov td { background: #fbfbfb; font-size: 12px; }
-  .grid tr.cov .name { font-weight: 500; color: var(--muted); background: #fbfbfb; }
+  .grid thead th { position: sticky; top: 0; background: var(--surface-2); z-index: 2; padding: 8px 6px; font-size: 13px; }
+  .grid .name { position: sticky; left: 0; background: var(--surface); z-index: 1; text-align: left; padding: 6px 10px; min-width: 190px; font-weight: 600; white-space: nowrap; }
+  .grid thead .name { z-index: 3; background: var(--surface-2); }
+  .grid tr.cov td { background: var(--surface-2); font-size: 12px; }
+  .grid tr.cov .name { font-weight: 500; color: var(--muted); background: var(--surface-2); }
   .grid tr.cov .c { text-align: center; font-weight: 700; padding: 4px; }
   .grid tr.cov .c.okc { color: var(--green); background: var(--ok); }
   .grid tr.cov .c.bad { color: var(--err-ink); background: var(--err); }
@@ -68,15 +79,15 @@
   td.cell .st { font-size: 10px; color: var(--muted); letter-spacing: .3px; }
   td.cell.dbl { box-shadow: inset 3px 0 0 var(--yellow); }
   .rest { color: var(--rest); font-weight: 600; font-size: 12px; }
-  .abs { color: #777; font-weight: 700; font-size: 12px; }
-  .empty { color: #c8c8cc; }
+  .abs { color: var(--muted); font-weight: 700; font-size: 12px; }
+  .empty { color: var(--faint); }
   td.tot { text-align: center; min-width: 80px; font-weight: 700; font-variant-numeric: tabular-nums; }
   td.tot .sub { font-weight: 400; font-size: 11px; color: var(--muted); }
   td.tot.over { background: var(--err); } td.tot.under { background: var(--warn); } td.tot.exact { background: var(--ok); }
   aside.problems { padding: 14px; max-height: calc(100vh - 190px); overflow: auto; }
   aside h3 { margin: 0 0 8px; font-size: 15px; }
   .prob { display: flex; gap: 8px; padding: 8px; border-radius: 8px; cursor: default; }
-  .prob.click { cursor: pointer; } .prob.click:hover { background: #f3f3f5; }
+  .prob.click { cursor: pointer; } .prob.click:hover { background: var(--hover); }
   .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none; }
   .dot.ERROR { background: #d32f2f; } .dot.WARNING { background: #f9a825; }
   .prob .r { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
@@ -88,39 +99,39 @@
   .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); display: inline-block; }
   table.list { border-collapse: collapse; width: 100%; }
   .list th, .list td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); }
-  .list th { font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); background: #fafafa; }
+  .list th { font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); background: var(--surface-2); }
   .list tr.group td { background: var(--green-soft); color: var(--green); font-weight: 700; }
   .list tr.sel td { background: var(--err); }
-  .list tr.clickable { cursor: pointer; } .list tr.clickable:hover td { background: #f6f8f6; }
-  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eee; font-size: 12px; margin-right: 4px; }
+  .list tr.clickable { cursor: pointer; } .list tr.clickable:hover td { background: var(--hover); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; background: var(--hover); font-size: 12px; margin-right: 4px; }
   .pill.on { background: var(--green-soft); color: var(--green); font-weight: 600; }
-  label.tg { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; margin: 2px 4px 2px 0; user-select: none; background: #fff; }
+  label.tg { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; margin: 2px 4px 2px 0; user-select: none; background: var(--surface); }
   label.tg.on { background: var(--green-soft); border-color: var(--green); color: var(--green); font-weight: 600; }
   label.tg input { display: none; }
-  .deletebar { position: sticky; bottom: 0; display: flex; gap: 8px; justify-content: flex-end; padding: 12px; background: #fff; border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; }
+  .deletebar { position: sticky; bottom: 0; display: flex; gap: 8px; justify-content: flex-end; padding: 12px; background: var(--surface); border-top: 1px solid var(--line); border-radius: 0 0 12px 12px; }
   .form { display: grid; gap: 12px; }
   .form .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .form label.f { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
-  input[type=text], input[type=number], input[type=date], select { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  input[type=text], input[type=number], input[type=date], select { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
   input.bad { border-color: var(--err-ink); }
   .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 20; padding: 20px; }
-  .modal { background: #fff; border-radius: 14px; padding: 20px; width: min(560px, 100%); max-height: 90vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+  .modal { background: var(--surface); border-radius: 14px; padding: 20px; width: min(560px, 100%); max-height: 90vh; overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
   .modal h3 { margin: 0 0 4px; }
   .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
   .shiftbox { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
-  .reqtag { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #e8eefc; color: #1e40af; font-size: 9.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; vertical-align: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .reqtag { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--info-bg); color: var(--info-ink); font-size: 9.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; vertical-align: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   button.ib { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; background: none; color: var(--green); font: 700 12px/1 -apple-system, sans-serif; cursor: pointer; padding: 0; margin-left: 4px; vertical-align: 2px; text-transform: none; letter-spacing: 0; }
   button.ib:hover { background: var(--green); color: #fff; }
   th button.ib { width: 18px; height: 18px; font-size: 11px; }
   .badge { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e5484d; color: #fff; font-size: 11px; line-height: 18px; text-align: center; margin-left: 2px; }
-  .evtag { display: inline-block; padding: 0 7px; border-radius: 999px; background: #fff4d6; color: #7a5200; font-size: 11px; line-height: 18px; font-weight: 600; white-space: nowrap; }
-  .evtag.closed { background: #e2e8f0; color: #334155; }
-  .autotag { display: inline-block; padding: 0 6px; border-radius: 999px; background: #e6f0ff; color: #2456b3; font-size: 11px; line-height: 18px; margin-left: 4px; }
+  .evtag { display: inline-block; padding: 0 7px; border-radius: 999px; background: var(--ev-bg); color: var(--ev-ink); font-size: 11px; line-height: 18px; font-weight: 600; white-space: nowrap; }
+  .evtag.closed { background: var(--closed-bg); color: var(--closed-ink); }
+  .autotag { display: inline-block; padding: 0 6px; border-radius: 999px; background: var(--info-bg); color: var(--info-ink); font-size: 11px; line-height: 18px; margin-left: 4px; }
   .reqcard { padding: 14px 16px; margin-bottom: 12px; }
   .reqcard .when { font-weight: 700; font-size: 15px; }
   .card.empty { color: var(--muted); }
   .toolbar .ptabs { margin: 0; }
-  .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: #f3f6f4; font-size: 13px; }
+  .reqcard .prop { margin-top: 8px; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-size: 13px; }
   /* iPhone ingrandisce da solo la pagina quando si tocca un campo con testo sotto i 16px: su telefono/tablet si usano 16px */
   @media (pointer: coarse), (max-width: 760px) { input, select, textarea { font-size: 16px !important; } }
   @media (max-width: 760px) {
@@ -153,7 +164,7 @@
   .sync button { background: rgba(255,255,255,.16); color: #fff; border: 0; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
   .sync button.bad { background: #fde68a; color: #7c2d12; }
   .notice { padding: 8px 10px; border-radius: 8px; font-size: 13px; }
-  .notice.err { background: var(--err); color: var(--err-ink); } .notice.info { background: #e8eefc; color: var(--rest); } .notice.warn { background: var(--warn); color: var(--warn-ink); }
+  .notice.err { background: var(--err); color: var(--err-ink); } .notice.info { background: var(--info-bg); color: var(--info-ink); } .notice.warn { background: var(--warn); color: var(--warn-ink); }
   .section { padding: 16px; margin-bottom: 16px; }
   /* ---- adattamento a schermi piccoli e finestre ridotte ---- */
   html, body { overflow-x: clip; }
@@ -214,18 +225,18 @@
   .sheet { padding: 12px 14px; }
   .lsec { margin-top: 12px; }
   .lsec h4 { margin: 0 0 4px; font-size: 12px; letter-spacing: .6px; text-transform: uppercase; color: var(--green); text-align: center; background: var(--yellow); border-radius: 4px; padding: 2px; }
-  .lrow { display: grid; grid-template-columns: 62px 190px 46px 46px minmax(0, 1fr); align-items: stretch; min-height: 22px; border-bottom: 1px solid #eee; font-size: 12px; }
+  .lrow { display: grid; grid-template-columns: 62px 190px 46px 46px minmax(0, 1fr); align-items: stretch; min-height: 22px; border-bottom: 1px solid var(--line-soft); font-size: 12px; }
   .lrow > div { padding: 2px 4px; display: flex; align-items: center; }
-  .lrow.click { cursor: pointer; } .lrow.click:hover { background: #f4f8f5; }
+  .lrow.click { cursor: pointer; } .lrow.click:hover { background: var(--hover); }
   .lrow .lpos { font-size: 10px; font-weight: 700; color: var(--muted); justify-content: flex-end; }
   .lrow .lname { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .lrow .ltime { font-variant-numeric: tabular-nums; justify-content: center; }
   .lrow .ltrack { position: relative; padding: 0; min-height: 20px;
-    background-image: linear-gradient(to right, #cfcfd4 1px, transparent 1px), linear-gradient(to right, #ececf0 1px, transparent 1px);
+    background-image: linear-gradient(to right, var(--line) 1px, transparent 1px), linear-gradient(to right, var(--line-soft) 1px, transparent 1px);
     background-size: var(--hw) 100%, calc(var(--hw) / 4) 100%; }
   .lbar { position: absolute; top: 4px; bottom: 4px; border-radius: 3px; opacity: .9; }
   .lhead { border-bottom: 2px solid var(--line); font-weight: 700; font-size: 11px; color: var(--muted); }
-  .lhead .ltrack { background: #fafafa; }
+  .lhead .ltrack { background: var(--surface-2); }
   .lhead .ltrack span { position: absolute; top: 3px; transform: translateX(-50%); font-size: 10px; }
   .lcount .ltrack { display: flex; background: none; }
   .lcount .ltrack span { flex: 1; text-align: center; border-left: 1px solid var(--line); font-variant-numeric: tabular-nums; font-size: 11px; display: flex; align-items: center; justify-content: center; }
@@ -234,8 +245,8 @@
   .st-SERVIZIO { background: #8a8a8a; } .st-HOSPITALITY { background: #6c4bb5; } .st-MANAGER { background: #1f5f46; }
   .lbar .lbl { display: none; }
   .printhead { display: none; }
-  .evimp { font-size: 11px; color: #7a5200; font-weight: 600; margin-top: 2px; }
-  .lcount.gcrow { color: var(--green); font-weight: 600; } .lcount.evrow { color: #7a5200; }
+  .evimp { font-size: 11px; color: var(--ev-ink); font-weight: 600; margin-top: 2px; }
+  .lcount.gcrow { color: var(--green); font-weight: 600; } .lcount.evrow { color: var(--ev-ink); }
   .dayside .card { padding: 12px; margin-bottom: 12px; } .dayside h3 { margin: 0 0 6px; font-size: 14px; }
   .dayside ul { margin: 0; padding-left: 18px; } .dayside li { margin: 2px 0; }
   @media print {
@@ -273,6 +284,7 @@
   /* ---- VLH: come il foglio aziendale ---- */
   .vlhsheet { margin-bottom: 16px; max-width: 980px; padding: 10px; }
   table.vlh { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 12px; font-family: Calibri, Arial, sans-serif; }
+  table.vlh { background: #fff; color: #111; }
   table.vlh td { border: 1px solid #555; padding: 1px 4px; vertical-align: top; overflow: hidden; }
   table.vlh tr.ttl td { font-weight: 800; font-size: 15px; border: 1px solid #000; padding: 3px 6px; }
   table.vlh .blk, table.vlh tr.blk td { background: #111; color: #fff; font-weight: 700; }
@@ -323,8 +335,8 @@
     /* su telefono la tabella scorre nel suo riquadro: titoli fermi in alto e nomi fermi a sinistra */
     .card:has(> table.list), .card > div:has(> table.list) { overflow: auto; max-height: calc(100dvh - var(--hdr, 100px) - 56px); -webkit-overflow-scrolling: touch; }
     main > .card:last-child:has(> table.list) { position: sticky; top: calc(var(--hdr, 100px) + 8px); }
-    .list td:first-child, .list th:first-child { position: sticky; left: 0; z-index: 1; background: #fff; box-shadow: inset -1px 0 0 var(--line); }
-    .list thead th:first-child { z-index: 3; background: #fafafa; box-shadow: inset -1px -1px 0 var(--line); }
+    .list td:first-child, .list th:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface); box-shadow: inset -1px 0 0 var(--line); }
+    .list thead th:first-child { z-index: 3; background: var(--surface-2); box-shadow: inset -1px -1px 0 var(--line); }
     .list tr.group td:first-child { background: var(--green-soft); } .list tr.sel td:first-child { background: var(--err); }
   }
   /* nelle finestre non c'è la barra verde: i titoli si fermano in cima al riquadro che scorre */
@@ -335,7 +347,7 @@
   /* ---- menu laterale (computer) e ritocchi grafici ---- */
   .card { box-shadow: 0 1px 2px rgba(16,24,40,.04); }
   button.btn, label.btn { border-radius: 10px; padding: 8px 14px; transition: border-color .15s, background .15s; }
-  button.btn:hover { background: #fafafa; }
+  button.btn:hover { background: var(--hover); }
   button.primary:hover { background: #17482a; }
   h2 { font-size: 22px; letter-spacing: -.2px; }
   nav .ic { display: none; }
@@ -343,11 +355,11 @@
   .hint { font-size: 13px; color: var(--muted); margin: -2px 0 12px; }
   .hint b { color: var(--ink); }
   details.more { position: relative; display: inline-block; }
-  details.more > summary { list-style: none; display: inline-block; font-weight: 600; border-radius: 10px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: #fff; user-select: none; }
-  details.more > summary:hover { border-color: #b9b9c0; }
+  details.more > summary { list-style: none; display: inline-block; font-weight: 600; border-radius: 10px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--surface); user-select: none; }
+  details.more > summary:hover { border-color: var(--line-strong); }
   details.more.left .menu { right: auto; left: 0; }
   details.more > summary::-webkit-details-marker { display: none; }
-  details.more .menu { position: absolute; right: 0; top: calc(100% + 6px); background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(16,24,40,.12); padding: 6px; min-width: 230px; z-index: 20; }
+  details.more .menu { position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 8px 24px rgba(16,24,40,.12); padding: 6px; min-width: 230px; z-index: 20; }
   details.more .menu button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; font: inherit; padding: 9px 12px; border-radius: 8px; cursor: pointer; color: var(--ink); }
   details.more .menu button:hover { background: var(--bg); }
   details.more .menu button.red { color: var(--err-ink); }
@@ -398,7 +410,7 @@
   @media print { body.side main { margin-left: 0; padding: 0; } }
 
   /* ---- icone, logo, intestazioni delle pagine e rifiniture ---- */
-  body { background: #f4f5f2; }
+  body { background: var(--bg); }
   .ico { display: block; }
   nav .ic { display: inline-flex; align-items: center; opacity: .9; }
   nav button { display: inline-flex; align-items: center; gap: 7px; }
@@ -410,19 +422,19 @@
   body.side header .brand { display: flex !important; align-items: center; padding: 2px 8px 10px; border-bottom: 1px solid rgba(255,255,255,.12); margin-bottom: 4px; }
   body.side nav button { color: #dcebe1; border-radius: 10px; }
   body.side nav button:hover { background: rgba(255,255,255,.09); }
-  body.side nav button.active { background: var(--yellow); color: var(--green); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
+  body.side nav button.active { background: var(--yellow); color: var(--brand); box-shadow: 0 2px 8px rgba(0,0,0,.15); }
   body:not(.side) header .brand .bt small { display: none; }
   .pagehead { display: flex; align-items: center; gap: 14px; margin: 2px 0 18px; }
   .pagehead .pi { width: 44px; height: 44px; border-radius: 12px; background: var(--green-soft); color: var(--green); display: inline-flex; align-items: center; justify-content: center; flex: none; }
   .pagehead h1 { margin: 0; font-size: 24px; letter-spacing: -.3px; display: flex; align-items: center; gap: 8px; }
   .pagehead p { margin: 2px 0 0; color: var(--muted); font-size: 13.5px; }
-  .card { border-color: #e4e5e1; }
-  .list th { background: #f7f8f6; }
-  .list tbody tr:hover td { background: #fafbf9; }
+  .card { border-color: var(--line-soft); }
+  .list th { background: var(--surface-2); }
+  .list tbody tr:hover td { background: var(--hover); }
   .seg { border-radius: 10px; }
   .chip { letter-spacing: .1px; }
   :focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
-  * { scrollbar-width: thin; scrollbar-color: #c9ccc5 transparent; }
+  * { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
   @media (max-width: 760px) { .pagehead { display: none; } }
 
   /* ---- Home ---- */
@@ -430,12 +442,21 @@
   .hcard { padding: 18px; }
   .hcard .hk { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .hcard .hw { font-size: 19px; font-weight: 700; margin: 2px 0 12px; }
-  .hcard .hrow { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid #eef0ec; padding: 9px 0; font: inherit; cursor: pointer; color: var(--ink); }
+  .hcard .hrow { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--line-soft); padding: 9px 0; font: inherit; cursor: pointer; color: var(--ink); }
   .hcard .hrow:hover { color: var(--green); }
   .hcard .hrow .muted:last-child { margin-left: auto; }
   .hcard .hs { display: flex; align-items: center; gap: 8px; padding: 9px 0 0; font-size: 13.5px; }
   .hcard .hs.warn { color: var(--warn-ink); } .hcard .hs.ok { color: var(--green); }
   .hcard .hact { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .notes .notes-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .notes textarea { display: block; width: 100%; min-height: 120px; max-height: 420px; field-sizing: content; resize: vertical; border: 1px solid transparent; border-radius: 10px; padding: 10px 14px;
+    font: 14px/24px inherit; font-family: inherit; color: var(--ink); background-color: var(--surface-2);
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 23px, var(--line-soft) 23px, var(--line-soft) 24px); background-position: 0 9px; background-attachment: local;
+    transition: border-color .15s, box-shadow .15s; }
+  .notes textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 3px var(--green-soft); }
+  .notes textarea::placeholder { color: var(--muted); opacity: .8; }
+  .notes .notes-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; min-height: 20px; }
+  .notes .notes-foot .link:disabled { opacity: .35; }
   .witem.editing { outline: 2px dashed var(--green); outline-offset: 3px; border-radius: 14px; }
   .witem .wbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .witem .wbar .btn { padding: 4px 10px; font-size: 13px; }
@@ -445,16 +466,82 @@
   .dashhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 0 12px; }
   .dashhead h3 { margin: 0; font-size: 17px; }
   .dashgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
-  .viz { width: 100%; height: auto; display: block; overflow: visible; }
+  .viz { width: 100%; height: auto; display: block; overflow: visible; font-family: inherit; }
+  .viz .vgrid { stroke: var(--viz-grid); stroke-width: 1; shape-rendering: crispEdges; }
+  .viz .vgrid.soft { opacity: .7; }
+  .viz .vtxt { fill: var(--viz-muted); font-size: 12px; }
+  .viz .vtxt.today { fill: var(--viz-ink); font-weight: 700; }
+  .viz .vtoday { fill: var(--viz-today); }
+  .viz .vval { fill: var(--viz-ink); font-size: 12px; font-weight: 600; pointer-events: none; }
+  .viz .vhit { fill: transparent; }
+  .viz .vm { cursor: pointer; outline: none; }
+  .viz .vm:focus-visible .vhit { fill: var(--hover); }
+  .viz .vb { transform-box: fill-box; transform-origin: 50% 100%; animation: vgrow .55s cubic-bezier(.2, .8, .2, 1) both; transition: opacity .15s, filter .15s; }
+  .viz .vb.neg { transform-origin: 50% 0; }
+  .viz .vb.up { fill: var(--viz-up); } .viz .vb.down { fill: var(--viz-down); }
+  .viz .vb.fc { fill-opacity: .38; stroke-width: 1.5; stroke-dasharray: 3 2; }
+  .viz .vb.up.fc { stroke: var(--viz-up); } .viz .vb.down.fc { stroke: var(--viz-down); }
+  .viz:hover .vb, .viz:focus-within .vb, .viz.has-on .vb { opacity: .5; }
+  .viz .vm:hover .vb, .viz .vm:focus .vb, .viz .vm.on .vb { opacity: 1; filter: brightness(1.08); }
+  .viz .vtarget { stroke: var(--viz-ink); stroke-width: 2.5; stroke-linecap: round; pointer-events: none; }
+  .viz .vavg { stroke: var(--viz-muted); stroke-width: 1.5; stroke-dasharray: 4 4; pointer-events: none; }
+  @keyframes vgrow { from { transform: scaleY(0); } }
+  @media (prefers-reduced-motion: reduce) { .viz .vb { animation: none; transition: none; } }
+  .vempty { display: flex; align-items: center; gap: 10px; padding: 18px 14px; border-radius: 10px; background: var(--surface-2); color: var(--muted); font-size: 13px; }
+  .vempty .ico { flex: none; opacity: .7; }
+  #vtip .tt { font-size: 11.5px; color: var(--tip-muted); } #vtip .tv { display: block; font-size: 15px; margin: 1px 0 2px; } #vtip .tl { font-size: 12px; color: var(--tip-muted); }
   .hero { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
   .hero b { font-size: 24px; letter-spacing: -.3px; color: var(--ink); }
   .hero span { color: var(--muted); font-size: 13px; }
   .vlegend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 6px; }
   .vlegend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-  .vlegend i.tick { height: 3px; width: 14px; background: var(--ink); border-radius: 2px; vertical-align: 3px; }
+  .vlegend i.up { background: var(--viz-up); } .vlegend i.down { background: var(--viz-down); }
+  .vlegend i.fc { opacity: .4; outline: 1.5px dashed var(--viz-up); outline-offset: -1.5px; } .vlegend i.down.fc { outline-color: var(--viz-down); }
+  .vlegend i.todaydot { width: 6px; height: 6px; border-radius: 50%; background: var(--viz-today); vertical-align: 1px; }
+  .vlegend i.tick { height: 3px; width: 14px; background: var(--viz-ink); border-radius: 2px; vertical-align: 3px; }
   .vlegend i.dash { height: 0; width: 14px; border-top: 2px dashed var(--muted); border-radius: 0; vertical-align: 3px; }
-  #vtip { position: fixed; z-index: 40; background: #1d1d1f; color: #fff; font-size: 12px; padding: 6px 9px; border-radius: 8px; pointer-events: none; display: none; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+  #vtip { position: fixed; z-index: 40; background: var(--tip-bg); color: var(--tip-ink); font-size: 12px; padding: 6px 9px; border-radius: 8px; pointer-events: none; display: none; max-width: 280px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
   [data-tip] { cursor: default; }
+
+  /* ---------- tema scuro: scelto in Impostazioni (o in alto), oppure automatico come il dispositivo ---------- */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --green: #3a9a5c; --green-soft: #22382a; --ink: #ecebe7; --muted: #a3a39c;
+    --line: #3a3b37; --bg: #121311; --err: #4a1f22; --err-ink: #ff9a90; --warn: #3a3015; --warn-ink: #f0c457;
+    --ok: #1d3526; --rest: #9db7ff; --brand: #16402a;
+    --surface: #1b1c1a; --surface-2: #222320; --hover: #2a2b28; --line-soft: #2d2e2b; --line-strong: #5a5b55; --faint: #55564f;
+    --info-bg: #1e2a48; --info-ink: #a9c1ff; --ev-bg: #3a3015; --ev-ink: #f0c457; --closed-bg: #2b3340; --closed-ink: #c7d2e2;
+    --tip-bg: #f0efec; --tip-ink: #1b1c1a; --tip-muted: #52514e;
+    --viz-up: #3987e5; --viz-down: #e66767; --viz-grid: #383835; --viz-ink: #f0efec; --viz-muted: #a3a39c; --viz-today: #d95926;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --green: #3a9a5c; --green-soft: #22382a; --ink: #ecebe7; --muted: #a3a39c;
+    --line: #3a3b37; --bg: #121311; --err: #4a1f22; --err-ink: #ff9a90; --warn: #3a3015; --warn-ink: #f0c457;
+    --ok: #1d3526; --rest: #9db7ff; --brand: #16402a;
+    --surface: #1b1c1a; --surface-2: #222320; --hover: #2a2b28; --line-soft: #2d2e2b; --line-strong: #5a5b55; --faint: #55564f;
+    --info-bg: #1e2a48; --info-ink: #a9c1ff; --ev-bg: #3a3015; --ev-ink: #f0c457; --closed-bg: #2b3340; --closed-ink: #c7d2e2;
+    --tip-bg: #f0efec; --tip-ink: #1b1c1a; --tip-muted: #52514e;
+    --viz-up: #3987e5; --viz-down: #e66767; --viz-grid: #383835; --viz-ink: #f0efec; --viz-muted: #a3a39c; --viz-today: #d95926;
+  }
+
+  /* in stampa sempre i colori chiari (foglio bianco), qualunque sia il tema dello schermo */
+  @media print {
+    :root:root {
+    --green: #1e5631; --green-soft: #d5eadb; --yellow: #ffc72c; --ink: #1d1d1f; --muted: #6b6b70;
+    --line: #d9d9de; --bg: #f4f5f2; --err: #ffd3d6; --err-ink: #b3261e; --warn: #fff0c2; --warn-ink: #8a6100;
+    --ok: #dcf0e1; --rest: #1e40af; --brand: #1e5631;
+    /* superfici e linee (tema chiaro); il tema scuro ridefinisce gli stessi nomi più sotto */
+    --surface: #ffffff; --surface-2: #f7f8f6; --hover: #f3f4f1; --line-soft: #e8e9e5; --line-strong: #b9b9c0; --faint: #c8c8cc;
+    --info-bg: #e8eefc; --info-ink: #1e40af; --ev-bg: #fff4d6; --ev-ink: #7a5200; --closed-bg: #e2e8f0; --closed-ink: #334155;
+    --tip-bg: #1d1d1f; --tip-ink: #ffffff; --tip-muted: #b9b9c0;
+    /* grafici: blu = sopra / pianificato, rosso = sotto (coppia divergente), griglia appena staccata dalla superficie */
+    --viz-up: #2a78d6; --viz-down: #e34948; --viz-grid: #e7e8e4; --viz-ink: #1d1d1f; --viz-muted: #6b6b70; --viz-today: #eb6834;
+    color-scheme: light;
+    }
+  }
 </style>
 </head>
 <body>
@@ -467,21 +554,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262042"></script>
-<script src="turni-storico.js?v=202611262042"></script>
-<script src="turni-core.js?v=202611262042"></script>
-<script src="turni-manager.js?v=202611262042"></script>
-<script src="turni-vlh.js?v=202611262042"></script>
+<script src="icone.js?v=202611262054"></script>
+<script src="turni-storico.js?v=202611262054"></script>
+<script src="turni-core.js?v=202611262054"></script>
+<script src="turni-manager.js?v=202611262054"></script>
+<script src="turni-vlh.js?v=202611262054"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262042"></script>
-<script src="turni-cloud-config.js?v=202611262042"></script>
-<script src="turni-cloud.js?v=202611262042"></script>
-<script src="turni-cripto.js?v=202611262042"></script>
-<script src="riepilogo.js?v=202611262042"></script>
-<script src="importa-personale.js?v=202611262042"></script>
-<script src="turni-sb.js?v=202611262042"></script>
-<script src="lineare-ufficiale.js?v=202611262042"></script>
+<script src="turni-data.js?v=202611262054"></script>
+<script src="turni-cloud-config.js?v=202611262054"></script>
+<script src="turni-cloud.js?v=202611262054"></script>
+<script src="turni-cripto.js?v=202611262054"></script>
+<script src="riepilogo.js?v=202611262054"></script>
+<script src="importa-personale.js?v=202611262054"></script>
+<script src="turni-sb.js?v=202611262054"></script>
+<script src="lineare-ufficiale.js?v=202611262054"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -612,6 +699,16 @@ const compactOn = () => COMPACT && !ui.showAll;
 const COMPACT_VIEWS = ['giornaliero', 'vlh', 'richieste'];
 if (COMPACT) { ui.view = 'giornaliero'; try { ui.showAll = localStorage.getItem('turni-tutto') === '1'; } catch (e) { /* niente */ } }
 function setShowAll(v) { ui.showAll = v; try { localStorage.setItem('turni-tutto', v ? '1' : '0'); } catch (e) { /* niente */ } if (!v && !COMPACT_VIEWS.includes(ui.view)) ui.view = 'giornaliero'; render(); window.scrollTo(0, 0); }
+/** Tema: 'auto' (come il dispositivo), 'light' o 'dark'. Vale per questo dispositivo. */
+const themeOf = () => { try { return localStorage.getItem('turni-tema') || 'auto'; } catch (e) { return 'auto'; } };
+function setTheme(t) {
+  try { if (t === 'auto') localStorage.removeItem('turni-tema'); else localStorage.setItem('turni-tema', t); } catch (e) { /* vale fino alla chiusura */ }
+  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
+  render();
+}
+const THEME_TXT = { auto: ['◐', 'Automatico'], light: ['☀', 'Chiaro'], dark: ['🌙', 'Scuro'] };
+const themeNext = () => ({ auto: 'light', light: 'dark', dark: 'auto' })[themeOf()];
+const themeSeg = () => `<div class="seg">${['auto', 'light', 'dark'].map((k) => `<button class="${themeOf() === k ? 'on' : ''}" onclick="setTheme('${k}')">${THEME_TXT[k][0]} ${THEME_TXT[k][1]}</button>`).join('')}</div>`;
 function renderBrand() {
   const n = (state.config && state.config.storeName) || '';
   document.getElementById('brand').innerHTML = `<span class="logo">${icon('turni', 20)}</span><span class="bt"><b>Orari</b>${n ? `<small>${esc(n)}</small>` : ''}</span>`;
@@ -713,65 +810,109 @@ function dashData(ws) {
   });
   return { days };
 }
-/** Vendite rispetto all'anno scorso: barre +/−% giorno per giorno; i giorni non ancora passati sono previsioni (più chiari). */
+/*
+ * Grafici della Home: colonne con l'estremità arrotondata e la base dritta, che crescono dalla linea di base.
+ * Ogni colonna ha la sua zona sensibile (tutta la fascia del giorno): passando il mouse, toccando o con il tasto Tab
+ * compare il riquadro con i numeri; un clic apre il lineare di quel giorno. Colori dai gettoni --viz-* (chiaro e scuro).
+ */
+const VW = 460, VH = 200;
+/** Colonna da y0 (base) a y1 (valore): 4px arrotondati solo all'estremità del dato. */
+function colPath(x, w, y0, y1) {
+  const h = Math.abs(y1 - y0), r = Math.min(4, h, w / 2), up = y1 <= y0;
+  if (h < 0.5) return '';
+  return up ? `M${x},${y0}V${y1 + r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 + r}V${y0}Z`
+    : `M${x},${y0}V${y1 - r}Q${x},${y1} ${x + r},${y1}H${x + w - r}Q${x + w},${y1} ${x + w},${y1 - r}V${y0}Z`;
+}
+/** Valori "puliti" per l'asse (0, 10, 20... oppure 0, 50, 100...). */
+function niceTicks(max, n = 4) {
+  const raw = max / n, p = 10 ** Math.floor(Math.log10(raw || 1)), step = [1, 2, 2.5, 5, 10].map((m) => m * p).find((s) => s >= raw) || raw;
+  const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(v); return { ticks: out, top: out[out.length - 1] };
+}
+/** Una colonna interattiva. tip = [titolo, valore, altre righe...]; dayClick = giorno da aprire nel lineare. */
+function vMark({ i, x, w, y0, y1, cls, tip, label, day, hitX, hitW, top, bottom, extra = '' }) {
+  const t = tip.map((s) => String(s).replace(/\|/g, '/')).join('|');
+  return `<g class="vm" tabindex="0" role="img" aria-label="${esc(tip.join(', '))}" data-tip="${esc(t)}"${day != null ? ` onclick="ui.day=${day};go('giornaliero')"` : ''}>
+    <rect class="vhit" x="${hitX}" y="${top}" width="${hitW}" height="${bottom - top}"/>
+    ${y1 != null ? `<path class="vb ${cls}${y1 > y0 ? ' neg' : ''}" style="animation-delay:${i * 45}ms" d="${colPath(x, w, y0, y1)}"/>` : ''}${extra}${label || ''}</g>`;
+}
+const dayLab = (d, x, y, today) => `<text class="vtxt${d === today ? ' today' : ''}" x="${x}" y="${y}" text-anchor="middle">${DSHORT[(T.dow(d) + 6) % 7]}</text>${d === today ? `<circle class="vtoday" cx="${x}" cy="${y + 6}" r="2.5"/>` : ''}`;
+const noData = (txt) => `<div class="vempty">${icon('previsioni', 22)}<span>${txt}</span></div>`;
+
+/** Vendite rispetto all'anno scorso: barre +/−% giorno per giorno; i giorni futuri sono previsioni (più chiari). */
 function chartSales(dd) {
-  const ok = dd.days.filter((x) => x.sales && x.ly);
-  if (!ok.length) return '<p class="muted small">Servono le previsioni automatiche aggiornate (con le vendite dell\'anno scorso): <b>📥 Carica previsioni automatiche</b> in Previsioni.</p>';
+  const ok = dd.days.filter((x) => x.sales && x.ly), today = T.todayDay();
+  if (!ok.length) return noData('Servono le previsioni automatiche aggiornate, con le vendite dell\'anno scorso (Previsioni → Carica previsioni automatiche).');
   const tot = ok.reduce((t, x) => t + x.sales, 0), totLy = ok.reduce((t, x) => t + x.ly, 0), g = (tot / totLy - 1) * 100;
-  const W = 460, H = 190, top = 18, bot = 26, mid = top + (H - top - bot) / 2, max = Math.max(5, ...ok.map((x) => Math.abs(x.sales / x.ly - 1) * 100)) * 1.15;
-  const y = (v) => mid - v / max * ((H - top - bot) / 2), bw = 34, step = (W - 40) / 7;
-  const bars = dd.days.map((x, i) => {
-    const cx = 30 + step * i + step / 2;
-    const lab = `<text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${VZ.muted}">${DSHORT[i]}</text>`;
-    if (!x.sales || !x.ly) return lab;
-    const v = (x.sales / x.ly - 1) * 100, c = v >= 0 ? VZ.up : VZ.down, y0 = Math.min(y(v), mid), h = Math.max(1, Math.abs(y(v) - mid));
-    const tip = `${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}: ${eur(x.sales)}${x.real ? '' : ' (previste)'} · anno scorso ${eur(x.ly)} · ${pct(v)}`;
-    return `<g data-tip="${esc(tip)}"><rect x="${cx - step / 2}" y="${top}" width="${step}" height="${H - top - bot}" fill="transparent"/>
-      <rect x="${cx - bw / 2}" y="${y0}" width="${bw}" height="${h}" rx="4" fill="${c}" fill-opacity="${x.real ? 1 : 0.4}" ${x.real ? '' : `stroke="${c}" stroke-dasharray="3 2"`}/>
-      <text x="${cx}" y="${v >= 0 ? y0 - 5 : y0 + h + 12}" text-anchor="middle" font-size="11" fill="${VZ.ink}">${pct(v)}</text></g>${lab}`;
+  const top = 22, bot = 30, mid = top + (VH - top - bot) / 2, max = Math.max(5, ...ok.map((x) => Math.abs(x.sales / x.ly - 1) * 100)) * 1.2;
+  const y = (v) => mid - (v / max) * ((VH - top - bot) / 2), step = (VW - 20) / 7, bw = Math.min(24, step * 0.5);
+  const marks = dd.days.map((x, i) => {
+    const cx = 10 + step * i + step / 2, has = x.sales && x.ly, v = has ? (x.sales / x.ly - 1) * 100 : 0;
+    const lab = has ? `<text class="vval" x="${cx}" y="${v >= 0 ? y(v) - 6 : y(v) + 15}" text-anchor="middle">${pct(v)}</text>` : '';
+    return vMark({ i, x: cx - bw / 2, w: bw, y0: mid, y1: has ? y(v) : null, cls: `${v >= 0 ? 'up' : 'down'}${x.real ? '' : ' fc'}`, day: x.d, hitX: cx - step / 2, hitW: step, top, bottom: VH - bot,
+      tip: has ? [`${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}`, pct(v), `${eur(x.sales)}${x.real ? '' : ' (previste)'}`, `anno scorso ${eur(x.ly)}`] : [`${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}`, 'nessun dato'],
+      label: lab + dayLab(x.d, cx, VH - 10, today) });
   }).join('');
   return `<div class="hero"><b class="${g >= 0 ? 'up' : 'down'}">${pct(g)}</b> <span>${eur(tot)} contro ${eur(totLy)} dell'anno scorso</span></div>
-    <svg viewBox="0 0 ${W} ${H}" class="viz" role="img" aria-label="Vendite rispetto all'anno scorso, giorno per giorno">
-      <line x1="20" x2="${W - 10}" y1="${mid}" y2="${mid}" stroke="${VZ.grid}"/>${bars}</svg>
-    <div class="vlegend"><span><i style="background:${VZ.up}"></i>sopra l'anno scorso</span><span><i style="background:${VZ.down}"></i>sotto</span><span><i style="background:${VZ.up};opacity:.4"></i>giorni previsti</span></div>`;
+    <svg viewBox="0 0 ${VW} ${VH}" class="viz" role="group" aria-label="Vendite rispetto all'anno scorso, giorno per giorno">
+      <line class="vgrid" x1="10" x2="${VW - 10}" y1="${mid}" y2="${mid}"/>${marks}</svg>
+    <div class="vlegend"><span><i class="up"></i>sopra l'anno scorso</span><span><i class="down"></i>sotto</span><span><i class="up fc"></i>giorni previsti</span></div>`;
 }
 /** Ore pianificate (crew, hospitality e doppi) contro le Ore totali previste, giorno per giorno. */
 function chartHours(dd) {
-  const W = 460, H = 190, top = 14, bot = 26, max = Math.max(1, ...dd.days.map((x) => Math.max(x.planned, x.target || 0))) * 1.12;
-  const y = (v) => H - bot - v / max * (H - top - bot), step = (W - 40) / 7, bw = 30;
-  const totP = dd.days.reduce((t, x) => t + x.planned, 0), withT = dd.days.filter((x) => x.target), totT = withT.reduce((t, x) => t + x.target, 0), totPt = withT.reduce((t, x) => t + x.planned, 0);
+  const totP = dd.days.reduce((t, x) => t + x.planned, 0), today = T.todayDay();
+  if (!totP) return noData('Turni non ancora fatti per questa settimana.');
+  const withT = dd.days.filter((x) => x.target), totT = withT.reduce((t, x) => t + x.target, 0), totPt = withT.reduce((t, x) => t + x.planned, 0);
+  const top = 14, bot = 30, left = 34, { ticks, top: mx } = niceTicks(Math.max(1, ...dd.days.map((x) => Math.max(x.planned, x.target || 0))) * 1.05);
+  const y = (v) => VH - bot - (v / mx) * (VH - top - bot), step = (VW - left - 10) / 7, bw = Math.min(24, step * 0.5);
+  const grid = ticks.map((v) => `<line class="vgrid${v ? ' soft' : ''}" x1="${left}" x2="${VW - 10}" y1="${y(v)}" y2="${y(v)}"/><text class="vtxt" x="${left - 6}" y="${y(v) + 4}" text-anchor="end">${v}h</text>`).join('');
   const marks = dd.days.map((x, i) => {
-    const cx = 30 + step * i + step / 2, diff = x.target ? x.planned - x.target : null;
-    const tip = `${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}: ${hrsTxt(x.planned)} pianificate${x.target ? ` · previste ${hrsTxt(x.target)} · ${diff >= 0 ? '+' : '−'}${hrsTxt(Math.abs(diff))}` : ' · nessuna previsione'}`;
-    return `<g data-tip="${esc(tip)}"><rect x="${cx - step / 2}" y="${top}" width="${step}" height="${H - top - bot}" fill="transparent"/>
-      ${x.planned ? `<rect x="${cx - bw / 2}" y="${y(x.planned)}" width="${bw}" height="${H - bot - y(x.planned)}" rx="4" fill="${VZ.bar}"/>` : ''}
-      ${x.target ? `<line x1="${cx - bw / 2 - 5}" x2="${cx + bw / 2 + 5}" y1="${y(x.target)}" y2="${y(x.target)}" stroke="${VZ.ink}" stroke-width="2.5" stroke-linecap="round"/>` : ''}</g>
-      <text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${VZ.muted}">${DSHORT[i]}</text>`;
+    const cx = left + step * i + step / 2, diff = x.target ? x.planned - x.target : null;
+    const tick = x.target ? `<line class="vtarget" x1="${cx - bw / 2 - 6}" x2="${cx + bw / 2 + 6}" y1="${y(x.target)}" y2="${y(x.target)}"/>` : '';
+    return vMark({ i, x: cx - bw / 2, w: bw, y0: y(0), y1: x.planned ? y(x.planned) : null, cls: x.target && diff > 0 ? 'down' : 'up', day: x.d, hitX: cx - step / 2, hitW: step, top, bottom: VH - bot, extra: tick,
+      tip: [`${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}`, `${hrsTxt(x.planned)} pianificate`, x.target ? `previste ${hrsTxt(x.target)}` : 'nessuna previsione', ...(x.target ? [`${diff >= 0 ? '+' : '−'}${hrsTxt(Math.abs(diff))} ${diff > 0 ? 'in più' : 'in meno'}`] : [])],
+      label: dayLab(x.d, cx, VH - 10, today) });
   }).join('');
-  if (!totP) return '<p class="muted small">Turni non ancora fatti per questa settimana.</p>';
   const head = withT.length ? `<b class="${totPt > totT ? 'down' : 'up'}">${totPt >= totT ? '+' : '−'}${hrsTxt(Math.abs(totPt - totT))}</b> <span>${hrsTxt(totPt)} pianificate contro ${hrsTxt(totT)} previste</span>`
     : `<b>${hrsTxt(totP)}</b> <span>pianificate · mancano le Ore totali previste</span>`;
-  return `<div class="hero">${head}</div><svg viewBox="0 0 ${W} ${H}" class="viz" role="img" aria-label="Ore pianificate contro ore previste">
-    <line x1="20" x2="${W - 10}" y1="${H - bot}" y2="${H - bot}" stroke="${VZ.grid}"/>${marks}</svg>
-    <div class="vlegend"><span><i style="background:${VZ.bar}"></i>ore pianificate (senza manager)</span><span><i class="tick"></i>Ore totali previste</span></div>`;
+  return `<div class="hero">${head}</div><svg viewBox="0 0 ${VW} ${VH}" class="viz" role="group" aria-label="Ore pianificate contro ore previste">${grid}${marks}</svg>
+    <div class="vlegend"><span><i class="up"></i>pianificate (entro le previste)</span><span><i class="down"></i>più delle previste</span><span><i class="tick"></i>Ore totali previste</span></div>`;
 }
 /** Vendite per ora di lavoro (vendite / ore pianificate senza manager), giorno per giorno. */
 function chartProd(dd) {
-  const ok = dd.days.filter((x) => x.sales && x.planned);
-  if (!ok.length) return '<p class="muted small">Servono vendite previste e turni della settimana.</p>';
+  const ok = dd.days.filter((x) => x.sales && x.planned), today = T.todayDay();
+  if (!ok.length) return noData('Servono vendite previste e turni della settimana.');
   const v = (x) => x.sales / x.planned, avg = ok.reduce((t, x) => t + x.sales, 0) / ok.reduce((t, x) => t + x.planned, 0);
-  const W = 460, H = 190, top = 18, bot = 26, max = Math.max(...ok.map(v)) * 1.15, y = (q) => H - bot - q / max * (H - top - bot), step = (W - 40) / 7, bw = 30;
+  const top = 14, bot = 30, left = 40, { ticks, top: mx } = niceTicks(Math.max(...ok.map(v)) * 1.08);
+  const y = (q) => VH - bot - (q / mx) * (VH - top - bot), step = (VW - left - 10) / 7, bw = Math.min(24, step * 0.5);
   const hi = ok.reduce((a, b) => (v(b) > v(a) ? b : a)), lo = ok.reduce((a, b) => (v(b) < v(a) ? b : a));
+  const grid = ticks.map((t) => `<line class="vgrid${t ? ' soft' : ''}" x1="${left}" x2="${VW - 10}" y1="${y(t)}" y2="${y(t)}"/><text class="vtxt" x="${left - 6}" y="${y(t) + 4}" text-anchor="end">${t} €</text>`).join('');
   const marks = dd.days.map((x, i) => {
-    const cx = 30 + step * i + step / 2, has = x.sales && x.planned, q = has ? v(x) : 0;
-    return `<g data-tip="${esc(has ? `${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}: ${eur(q)} per ora (${eur(x.sales)}${x.real ? '' : ' previste'} / ${hrsTxt(x.planned)})` : 'Dati mancanti')}"><rect x="${cx - step / 2}" y="${top}" width="${step}" height="${H - top - bot}" fill="transparent"/>
-      ${has ? `<rect x="${cx - bw / 2}" y="${y(q)}" width="${bw}" height="${H - bot - y(q)}" rx="4" fill="${VZ.bar}" fill-opacity="${x.real ? 1 : 0.4}" ${x.real ? '' : `stroke="${VZ.bar}" stroke-dasharray="3 2"`}/>` : ''}
-      ${has && (x === hi || x === lo) ? `<text x="${cx}" y="${y(q) - 5}" text-anchor="middle" font-size="11" fill="${VZ.ink}">${Math.round(q)} €</text>` : ''}</g>
-      <text x="${cx}" y="${H - 8}" text-anchor="middle" font-size="11" fill="${VZ.muted}">${DSHORT[i]}</text>`;
+    const cx = left + step * i + step / 2, has = x.sales && x.planned, q = has ? v(x) : 0;
+    return vMark({ i, x: cx - bw / 2, w: bw, y0: y(0), y1: has ? y(q) : null, cls: `up${x.real ? '' : ' fc'}`, day: x.d, hitX: cx - step / 2, hitW: step, top, bottom: VH - bot,
+      tip: has ? [`${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}`, `${eur(q)} per ora`, `${eur(x.sales)}${x.real ? '' : ' previste'}`, `${hrsTxt(x.planned)} di lavoro`] : [`${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}`, 'dati mancanti'],
+      label: (has && (x === hi || x === lo) ? `<text class="vval" x="${cx}" y="${y(q) - 6}" text-anchor="middle">${Math.round(q)} €</text>` : '') + dayLab(x.d, cx, VH - 10, today) });
   }).join('');
-  return `<div class="hero"><b>${eur(avg)}</b> <span>per ora di lavoro nella settimana</span></div><svg viewBox="0 0 ${W} ${H}" class="viz" role="img" aria-label="Vendite per ora di lavoro">
-    <line x1="20" x2="${W - 10}" y1="${y(avg)}" y2="${y(avg)}" stroke="${VZ.muted}" stroke-dasharray="4 4"/><line x1="20" x2="${W - 10}" y1="${H - bot}" y2="${H - bot}" stroke="${VZ.grid}"/>${marks}</svg>
-    <div class="vlegend"><span><i class="dash"></i>media della settimana</span><span><i style="background:${VZ.bar};opacity:.4"></i>giorni previsti</span></div>`;
+  return `<div class="hero"><b>${eur(avg)}</b> <span>per ora di lavoro nella settimana</span></div><svg viewBox="0 0 ${VW} ${VH}" class="viz" role="group" aria-label="Vendite per ora di lavoro">
+    ${grid}${marks}<line class="vavg" x1="${left}" x2="${VW - 10}" y1="${y(avg)}" y2="${y(avg)}"/><text class="vtxt" x="${VW - 10}" y="${y(avg) - 5}" text-anchor="end">media ${Math.round(avg)} €</text></svg>
+    <div class="vlegend"><span><i class="up"></i>giorni passati</span><span><i class="up fc"></i>giorni previsti</span><span><i class="dash"></i>media della settimana</span></div>`;
+}
+/** Clienti (GC) giorno per giorno, questa settimana e la prossima: veri per i giorni passati, previsti per gli altri. */
+function chartGC(days) {
+  const today = T.todayDay();
+  if (!days.some((x) => x.v)) return noData('Nessuna previsione dei clienti: si caricano in Previsioni.');
+  const top = 18, bot = 30, left = 36, gap = 14, { ticks, top: mx } = niceTicks(Math.max(...days.map((x) => x.v || 0)) * 1.05);
+  const y = (v) => VH - bot - (v / mx) * (VH - top - bot), step = (VW - left - 10 - gap) / 14, bw = Math.min(18, step * 0.62);
+  const grid = ticks.map((t) => `<line class="vgrid${t ? ' soft' : ''}" x1="${left}" x2="${VW - 10}" y1="${y(t)}" y2="${y(t)}"/><text class="vtxt" x="${left - 6}" y="${y(t) + 4}" text-anchor="end">${t >= 1000 ? (t / 1000).toLocaleString('it-IT') + 'k' : t}</text>`).join('');
+  const marks = days.map((x, i) => {
+    const cx = left + step * i + step / 2 + (i >= 7 ? gap : 0);
+    return vMark({ i, x: cx - bw / 2, w: bw, y0: y(0), y1: x.v ? y(x.v) : null, cls: `up${x.real ? '' : ' fc'}`, day: x.d, hitX: cx - step / 2, hitW: step, top, bottom: VH - bot,
+      tip: [`${T.DOW_LONG[T.dow(x.d)]} ${T.itDate(x.d)}`, x.v ? `${x.v.toLocaleString('it-IT')} clienti` : 'nessun dato', x.real ? 'clienti veri' : 'previsione'],
+      label: dayLab(x.d, cx, VH - 10, today) });
+  }).join('');
+  const xs = left + 7 * step + gap / 2;
+  return `<svg viewBox="0 0 ${VW} ${VH}" class="viz" role="group" aria-label="Clienti giorno per giorno, questa settimana e la prossima">${grid}
+    <line class="vgrid" x1="${xs}" x2="${xs}" y1="${top}" y2="${VH - bot}"/><text class="vtxt" x="${left + 2}" y="${top - 6}">Questa settimana</text><text class="vtxt" x="${xs + 6}" y="${top - 6}">Prossima</text>${marks}</svg>
+    <div class="vlegend"><span><i class="up"></i>clienti veri</span><span><i class="up fc"></i>previsti</span><span><i class="todaydot"></i>oggi</span></div>`;
 }
 const hrsTxt = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, '0') : ''}`; };
 function dashboardHtml() {
@@ -785,14 +926,31 @@ function dashboardHtml() {
     ${card('Vendite per ora di lavoro', 'Vendite divise per le ore pianificate (senza manager)', chartProd(dd), 'dash-prod')}
   </div>`;
 }
-// suggerimento al passaggio del mouse sui grafici
-document.addEventListener('mouseover', (e) => {
-  const g = e.target.closest && e.target.closest('[data-tip]'); let tip = document.getElementById('vtip');
-  if (!g) { if (tip) tip.style.display = 'none'; return; }
-  if (!tip) { tip = document.createElement('div'); tip.id = 'vtip'; document.body.appendChild(tip); }
-  tip.textContent = g.getAttribute('data-tip'); tip.style.display = 'block';
-  const b = g.getBoundingClientRect(); tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, b.left + b.width / 2 - tip.offsetWidth / 2)) + 'px'; tip.style.top = Math.max(8, b.top - tip.offsetHeight - 8) + 'px';
-});
+// riquadro dei numeri sui grafici: mouse (passaggio), dito (tocco) e tastiera (Tab). data-tip = "titolo|valore|righe..."
+function vTipShow(g) {
+  let tip = document.getElementById('vtip');
+  if (!tip) { tip = document.createElement('div'); tip.id = 'vtip'; tip.setAttribute('role', 'tooltip'); document.body.appendChild(tip); }
+  const parts = (g.getAttribute('data-tip') || '').split('|');
+  tip.replaceChildren();
+  parts.forEach((t, i) => { const el = document.createElement(i === 1 ? 'b' : 'div'); el.textContent = t; el.className = i === 0 ? 'tt' : i === 1 ? 'tv' : 'tl'; tip.appendChild(el); });
+  tip.style.display = 'block';
+  const b = g.getBoundingClientRect();
+  tip.style.left = Math.min(window.innerWidth - tip.offsetWidth - 8, Math.max(8, b.left + b.width / 2 - tip.offsetWidth / 2)) + 'px';
+  tip.style.top = Math.max(8, b.top - tip.offsetHeight - 8) + 'px';
+  document.querySelectorAll('.vm.on').forEach((x) => x !== g && x.classList.remove('on')); g.classList.add('on');
+}
+function vTipHide() { const tip = document.getElementById('vtip'); if (tip) tip.style.display = 'none'; document.querySelectorAll('.vm.on').forEach((x) => x.classList.remove('on')); }
+let vTouch = false;
+document.addEventListener('pointerdown', (e) => { vTouch = e.pointerType !== 'mouse'; if (!vTouch) return; const g = e.target.closest && e.target.closest('[data-tip]'); if (!g) vTipHide(); });
+document.addEventListener('click', (e) => {
+  // col dito: il primo tocco mostra i numeri, il secondo sulla stessa colonna apre il giorno
+  const g = e.target.closest && e.target.closest('.vm[data-tip]');
+  if (g && vTouch && !g.classList.contains('on')) { e.stopPropagation(); e.preventDefault(); vTipShow(g); }
+}, true);
+document.addEventListener('mouseover', (e) => { if (vTouch) return; const g = e.target.closest && e.target.closest('[data-tip]'); if (g) vTipShow(g); else vTipHide(); });
+document.addEventListener('focusin', (e) => { const g = e.target.closest && e.target.closest('[data-tip]'); if (g) vTipShow(g); else vTipHide(); });
+document.addEventListener('keydown', (e) => { const g = document.activeElement; if (e.key === 'Enter' && g && g.classList && g.classList.contains('vm')) g.dispatchEvent(new MouseEvent('click', { bubbles: true })); if (e.key === 'Escape') vTipHide(); });
+window.addEventListener('scroll', vTipHide, { passive: true });
 // ================= HOME =================
 /** Pagina iniziale: com'è messa questa settimana e la prossima, richieste da decidere, previsioni. */
 function renderHome() {
@@ -839,6 +997,28 @@ function renderHome() {
     richieste: () => reqCard, previsioni: () => fcCard, oggi: () => todayCard,
   };
   return `${welcome}${TurniCloud.loggedIn() ? setupCard() : ''}${homeWidgetsHtml(cards)}`;
+}
+// ================= APPUNTI (solo su questo dispositivo) =================
+function notesGet() {
+  let v = null; try { v = localStorage.getItem('turni-appunti'); } catch (e) { v = null; }
+  if (!v) return { t: '', at: null };
+  try { const j = JSON.parse(v); if (j && typeof j.t === 'string') return j; } catch (e) { /* vecchio formato: solo testo */ }
+  return { t: v, at: null };
+}
+const notesCount = (t) => { const w = (t.trim().match(/\S+/g) || []).length; return w ? `${w} ${w === 1 ? 'parola' : 'parole'}` : ''; };
+function notesInput(el) {
+  el.style.height = 'auto'; el.style.height = Math.max(120, el.scrollHeight + 2) + 'px';
+  const n = { t: el.value, at: new Date().toISOString() };
+  try { localStorage.setItem('turni-appunti', JSON.stringify(n)); } catch (e) { /* senza memoria del browser */ }
+  const st = document.getElementById('notes-st'); if (st) st.textContent = 'Salvato ora';
+  const c = document.getElementById('notes-n'); if (c) c.textContent = notesCount(el.value);
+  const b = document.getElementById('notes-clear'); if (b) b.disabled = !el.value;
+}
+function notesClear(btn) {
+  // due tocchi: il primo chiede conferma (niente finestre del browser)
+  if (!btn.dataset.sure) { btn.dataset.sure = '1'; btn.textContent = 'Tocca di nuovo per svuotare'; setTimeout(() => { if (btn.isConnected) { delete btn.dataset.sure; btn.textContent = 'Svuota'; } }, 3000); return; }
+  try { localStorage.removeItem('turni-appunti'); } catch (e) { /* niente */ }
+  render();
 }
 // ================= HOME PERSONALIZZABILE =================
 // Ogni dispositivo sceglie i suoi riquadri (localStorage): quali si vedono e in che ordine.
@@ -924,14 +1104,9 @@ function homeExtraCards() {
     },
     gc: () => {
       const days = []; for (let d = ws0; d < ws0 + 14; d++) { const r = reali[T.toIso(d)], f = fcOfDay(d); days.push({ d, v: d < today && r ? r[1] : f.gc || null, real: d < today && !!r }); }
-      const max = Math.max(1, ...days.map((x) => x.v || 0)), W = 460, H = 150, bw = (W - 20) / 14;
-      const bars = days.map((x, i) => { const h = x.v ? (x.v / max) * (H - 34) : 0, X = 10 + i * bw;
-        return `<g data-tip="${T.DOW_SHORT[T.dow(x.d)]} ${T.itDate(x.d)}: ${x.v ? x.v + (x.real ? ' clienti (veri)' : ' clienti previsti') : 'nessun dato'}"><rect x="${X + 3}" y="${H - 20 - h}" width="${bw - 6}" height="${Math.max(h, 1)}" rx="3" fill="${x.d === today ? VZ.up : 'var(--green)'}" opacity="${x.real ? 1 : 0.45}"/>
-          <text x="${X + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="10" fill="${VZ.muted}">${T.DOW_SHORT[T.dow(x.d)].slice(0, 2)}</text></g>`; }).join('');
       const tot = (a, b) => days.slice(a, b).reduce((t, x) => t + (x.v || 0), 0);
-      return box('Clienti previsti', `${tot(0, 7).toLocaleString('it-IT')} questa settimana · ${tot(7, 14).toLocaleString('it-IT')} la prossima`,
-        days.some((x) => x.v) ? `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Clienti giorno per giorno">${bars}<line x1="${10 + 7 * bw}" x2="${10 + 7 * bw}" y1="6" y2="${H - 18}" stroke="${VZ.muted}" stroke-dasharray="3 3"/></svg><div class="small muted">Più scuri: giorni passati (clienti veri). Più chiari: previsione.</div>`
-          : '<p class="small muted">Nessuna previsione dei clienti: si caricano in Previsioni.</p>', `<button class="btn" onclick="go('previsioni')">Apri le previsioni</button>`);
+      return box('Clienti previsti', `${tot(0, 7).toLocaleString('it-IT')} questa settimana · ${tot(7, 14).toLocaleString('it-IT')} la prossima`, chartGC(days),
+        `<button class="btn" onclick="go('previsioni')">Apri le previsioni</button>`);
     },
     precisione: () => {
       const ws = ws0 - 7, rows = [];
@@ -984,8 +1159,10 @@ function homeExtraCards() {
         no.length ? `<div class="small muted">Senza accesso: ${no.slice(0, 8).map((x) => esc(T.fullName(x))).join(', ')}${no.length > 8 ? ` e altre ${no.length - 8}` : ''}</div>` : '<div class="hs ok">Tutti hanno l\'accesso</div>',
         `<button class="btn" onclick="go('richieste')">Accessi all'app</button>`);
     },
-    appunti: () => { let t = ''; try { t = localStorage.getItem('turni-appunti') || ''; } catch (e) { t = ''; }
-      return box('Appunti', '', `<textarea style="width:100%;min-height:110px;box-sizing:border-box;font:inherit;padding:8px;border:1px solid var(--line,#ddd);border-radius:8px" placeholder="Scrivi qui (resta solo su questo dispositivo)" oninput="try{localStorage.setItem('turni-appunti',this.value)}catch(e){}">${esc(t)}</textarea>`); },
+    appunti: () => { const n = notesGet();
+      return `<div class="card hcard notes"><div class="notes-head"><span class="hk">Appunti</span><span class="small muted" id="notes-st">${n.at ? 'Salvato ' + esc(fmtWhen(n.at)) : 'Solo su questo dispositivo'}</span></div>
+        <textarea id="notes-ta" rows="5" placeholder="Cose da ricordare: ordini, chiamate, chi sostituire…" oninput="notesInput(this)" aria-label="Appunti">${esc(n.t)}</textarea>
+        <div class="notes-foot"><span class="small muted" id="notes-n">${notesCount(n.t)}</span><button class="link" id="notes-clear" onclick="notesClear(this)" ${n.t ? '' : 'disabled'}>Svuota</button></div></div>`; },
   };
 }
 /** Hospitality: pranzi e cene di ognuna (questa settimana e le 4 prima), per vedere la rotazione. */
@@ -1619,7 +1796,7 @@ function renderGiornaliero() {
   // linea marcata a ogni ora, linee chiare ogni 15 minuti (4 quadratini per ora)
   const gx = (m) => (((m - H0 * 60) / span) * 100).toFixed(4);
   let gl = '';
-  for (let m = H0 * 60; m <= H1 * 60; m += 15) gl += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='${m % 60 ? '%23d0d0d8' : '%238c8c96'}' stroke-width='1' shape-rendering='crispEdges'/>`;
+  for (let m = H0 * 60; m <= H1 * 60; m += 15) gl += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='%23888890' stroke-opacity='${m % 60 ? 0.35 : 0.85}' stroke-width='1' shape-rendering='crispEdges'/>`;
   // in stampa la stessa griglia tutta nera (ore più spesse), così si vede bene sul foglio
   let glp = '';
   for (let m = H0 * 60; m <= H1 * 60; m += 15) glp += `<line x1='${gx(m)}%25' x2='${gx(m)}%25' y1='0' y2='100%25' stroke='%23000000' stroke-width='${m % 60 ? 1 : 2}'/>`;
@@ -1650,7 +1827,7 @@ function renderGiornaliero() {
     </div>`;
   };
   const head = `<div class="lrow lhead"><div class="lpos">Post.</div><div class="lname">Nome</div><div class="ltime">Dalle</div><div class="ltime">Alle</div>
-    <div class="ltrack" style="${grid};background-color:#fafafa">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60)}">${h % 24}</span>`).join('')}</div></div>`;
+    <div class="ltrack" style="${grid};background-color:var(--surface-2)">${hours.map((h) => `<span class="${h % 2 ? 'odd' : ''}" style="left:${pct(h * 60)}">${h % 24}</span>`).join('')}</div></div>`;
   ui.dragGeo = { H0, span };
   // manager (calendario a parte): sempre in cima
   const mDay = (state.mgrShifts || []).filter((x) => x.day === day && mgrById(x.managerId)).sort((a, b) => a.start - b.start || a.end - b.end);
@@ -2722,6 +2899,7 @@ function renderRegole() {
   const c = state.config;
   const field = (key, label) => `<label class="f"><span>${label} ${ib('cfg-' + key)}</span><input type="text" id="cfg-${key}" value="${T.hoursText(c[key])}" style="width:110px"></label>`;
   return `
+  <div class="card section" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><b>Aspetto</b>${themeSeg()}<span class="small muted">Vale per questo dispositivo. Automatico = chiaro o scuro come il telefono o il computer.</span></div>
   <h2>Regole</h2>
   <div class="card section">
     <div class="form">
@@ -3294,9 +3472,10 @@ const storeCode = () => APP_STORE || TurniCloud.uid() || (() => { try { return l
 function renderSync() {
   const el = document.getElementById('sync'); if (!el) return;
   const back = APP_MODE && storeCode() ? `<button onclick="location.href='richieste.html?s=' + encodeURIComponent(storeCode())" title="Torna all'app dei dipendenti">← Dipendenti</button>` : '';
-  if (!TurniCloud.loggedIn()) { el.innerHTML = back; return; }
+  const th = THEME_TXT[themeOf()], themeBtn = `<button onclick="setTheme(themeNext())" title="Tema: ${th[1]} (tocca per cambiare)" aria-label="Tema: ${th[1]}">${th[0]}</button>`;
+  if (!TurniCloud.loggedIn()) { el.innerHTML = back + themeBtn; return; }
   const t = TurniCloud.PROVA ? '🧪 Prova: non si salva online' : { ok: '☁️ Salvato online', saving: '⏳ Salvataggio…', offline: '⚠️ Offline: salvo appena torna la rete', error: '⚠️ Non salvato online', conflict: '⚠️ Scegli quali dati tenere' }[sync.status] || '☁️ Online';
-  el.innerHTML = `${back}<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button><button onclick="cloudLogout()" title="Esci dall'area manager su questo dispositivo">Esci</button>`;
+  el.innerHTML = `${back}<button class="${/offline|error|conflict/.test(sync.status) ? 'bad' : ''}" onclick="go('regole')" title="${esc(sync.msg || 'Salvataggio online')}">${t}</button><button onclick="cloudLogout()" title="Esci dall'area manager su questo dispositivo">Esci</button>${themeBtn}`;
 }
 function cloudTouch() {
   if (!TurniCloud.loggedIn()) return;
@@ -3957,7 +4136,7 @@ function ntfyBox() {
   return `<details class="card section" ${ui.ntfyOpen ? 'open' : ''} ontoggle="ui.ntfyOpen=this.open"><summary style="cursor:pointer;font-weight:700">🔔 Notifiche sul telefono: attive (canale <code>${esc(t)}</code>)</summary>
     <ol style="margin:10px 0;padding-left:20px;line-height:1.7">
       <li>Sul telefono installa l'app gratuita <b>ntfy</b>: <a href="https://play.google.com/store/apps/details?id=io.heckel.ntfy" target="_blank" rel="noopener">Android</a> · <a href="https://apps.apple.com/app/ntfy/id1625396347" target="_blank" rel="noopener">iPhone</a></li>
-      <li>Aprila, tocca <b>+</b> (Iscriviti a un argomento) e scrivi esattamente: <code style="background:#f3f3f5;padding:2px 6px;border-radius:4px">${esc(t)}</code> (il server lascia quello già scritto, ntfy.sh). Tocca <b>Iscriviti</b>.</li>
+      <li>Aprila, tocca <b>+</b> (Iscriviti a un argomento) e scrivi esattamente: <code style="background:var(--hover);padding:2px 6px;border-radius:4px">${esc(t)}</code> (il server lascia quello già scritto, ntfy.sh). Tocca <b>Iscriviti</b>.</li>
       <li>Premi qui sotto "Manda una notifica di prova": deve arrivarti sul telefono.</li>
     </ol>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="testNtfy()">📨 Manda una notifica di prova</button><button class="link" onclick="if(confirm('Creare un canale nuovo? Dovrai iscriverti di nuovo su ntfy.'))enableNtfy()">Cambia canale</button></div>
@@ -4146,7 +4325,7 @@ function renderRichieste() {
   if (tab === 'done') body = done.length ? `<div class="card"><table class="list"><thead><tr><th>Nome</th><th>Quando</th><th>Richiesta</th><th>Esito</th><th></th></tr></thead><tbody>${done.map(doneRow).join('')}</tbody></table></div>${nDone > done.length ? `<p class="small muted">Sono mostrate le ultime ${done.length}.</p>` : ''}` : '<p class="muted">Nessuna richiesta decisa.</p>';
   else if (tab === 'app') body = ready ? `${ntfyBox()}<h3 style="margin:18px 0 8px">App del personale e accessi</h3>` + `
   <div class="card section"><p style="margin-top:0"><b>1. Un solo link per tutti</b> (es. nel gruppo WhatsApp): da lì scaricano l'app sul telefono.</p>
-    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><a href="${esc(appLink())}" target="_blank" rel="noopener" title="Apri l'app del personale"><code style="background:#f3f3f5;padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code></a><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
+    <div class="row" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><a href="${esc(appLink())}" target="_blank" rel="noopener" title="Apri l'app del personale"><code style="background:var(--hover);padding:6px 8px;border-radius:6px;font-size:12px;word-break:break-all">${esc(appLink())}</code></a><button class="btn primary" onclick="shareAppLink()">📤 Invia il link a tutti</button></div>
     <p style="margin-bottom:0"><b>2. Nome utente e password personali</b>: li crea l'app; mandali a ciascuno in privato (pulsante 📤). Se qualcuno perde la password o la dà ad altri, premi "Nuova password": la vecchia smette di funzionare.</p></div>
   <div class="toolbar">${people.some((e) => !state.reqCreds[e.id]) ? '<button class="btn" onclick="makeAllAccess()">Crea gli accessi per tutti</button>' : ''}</div>
   <div class="card"><table class="list acc"><thead><tr><th>Nome</th><th>Nome utente</th><th>Password</th><th></th></tr></thead><tbody>
