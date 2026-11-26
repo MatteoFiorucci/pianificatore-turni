@@ -17,7 +17,7 @@
   const X_GE = X_G + 96 * QW, X_R = X_GE + 3, RW = W - X_R;
   const RH = 2.35; // altezza riga
 
-  const fmt = (m) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+  const fmt = (m) => { const x = m > 1440 ? m % 1440 : m; return `${Math.floor(x / 60)}:${String(x % 60).padStart(2, '0')}`; };
   const num = (x) => (Math.round(x * 100) / 100).toString().replace('.', ',');
   const X = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const name = (e) => `${e.lastName || ''} ${e.firstName || ''}`.trim() || T.fullName(e);

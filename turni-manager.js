@@ -208,7 +208,7 @@
   const limitsOf = (state, ws) => (T.limitsFrom ? T.limitsFrom(state.requests, ws) : new Map());
   /** Parte più lunga di [a, b] che rispetta la richiesta l (giorno libero escluso), oppure null se resta meno di 3 ore. */
   function fitFree(l, a, b) {
-    let segs = [[Math.max(a, l.from ?? 0), Math.min(b, l.until ?? 1440)]];
+    let segs = [[Math.max(a, l.from ?? 0), Math.min(b, l.until ?? 9999)]];
     for (const [x, y] of l.busy || []) segs = segs.flatMap(([p, q]) => (y <= p || x >= q ? [[p, q]] : [[p, Math.min(q, x)], [Math.max(p, y), q]]));
     const best = segs.filter(([p, q]) => q > p).sort((u, v) => (v[1] - v[0]) - (u[1] - u[0]))[0];
     return best && best[1] - best[0] >= 180 ? best : null;
