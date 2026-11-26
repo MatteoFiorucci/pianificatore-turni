@@ -52,6 +52,8 @@
   tie: '<path d="M9.5 3.5h5l-1 3 2 9.5-3.5 4.5-3.5-4.5 2-9.5z"/>',
   hourglass: '<path d="M6.5 3.5h11M6.5 20.5h11M7.5 3.5c0 5 9 6 9 8.5s-9 3.5-9 8.5M16.5 3.5c0 5-9 6-9 8.5s9 3.5 9 8.5"/>',
   inbox: '<path d="M3.5 13.5 6 5h12l2.5 8.5V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 13.5H8.5l1.5 2.5h4l1.5-2.5h5"/>',
+  // occhio barrato: "non si vede più" (togli dall'app del personale)
+  nascondi: '<path d="M3 12s3.4-6.5 9-6.5c1.7 0 3.2.6 4.5 1.4M21 12s-3.4 6.5-9 6.5c-1.7 0-3.2-.6-4.5-1.4"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M4 20 20 4"/>',
   };
   const icon = (k, size = 19) => `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k] || ''}</svg>`;
   // emoji → icona
@@ -59,7 +61,7 @@
     '🔒': 'lock', '🕐': 'giornaliero', '🕒': 'giornaliero', '⏳': 'hourglass', '🔔': 'bell', '🔑': 'key', '📤': 'share', '🏬': 'store', '🏪': 'store', '✍': 'pen', '✏': 'pen',
     '📄': 'file', '📈': 'previsioni', '⚙': 'genera', '🍦': 'cono', '🔄': 'refresh', '🗓': 'turni', '📅': 'turni', '🧪': 'flask', '📥': 'download', '🎉': 'sparkle',
     '🌙': 'moon', '👔': 'tie', '✋': 'move', '🖨': 'print', '📩': 'inbox', '✉': 'mail', '📨': 'mail', '📋': 'vlh', '🚚': 'truck', '🧩': 'grid', '🤖': 'sparkle',
-    '👤': 'user', '👥': 'personale', '📌': 'pin', '📊': 'previsioni', '🔍': 'info', 'ℹ': 'info', 'ⓘ': 'info', '💡': 'sparkle', '❌': 'trash', '🔁': 'refresh', '🕓': 'giornaliero', '✕': 'x', '✖': 'x', '✓': 'ok2', '✔': 'ok2', '↩': 'undo', '↻': 'refresh', '↺': 'undo' };
+    '👤': 'user', '👥': 'personale', '📌': 'pin', '📊': 'previsioni', '🔍': 'info', 'ℹ': 'info', 'ⓘ': 'info', '💡': 'sparkle', '❌': 'trash', '🔁': 'refresh', '🕓': 'giornaliero', '✕': 'x', '✖': 'x', '✓': 'ok2', '✔': 'ok2', '↩': 'undo', '↻': 'refresh', '↺': 'undo', '🚫': 'nascondi' };
   const RE = new RegExp('(' + Object.keys(EMOJI).map((e) => e.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')️?', 'g');
   const SKIP = /^(SCRIPT|STYLE|TEXTAREA|OPTION|SELECT|TITLE|INPUT|svg|title)$/;
   function swap(node) {
