@@ -434,7 +434,13 @@
   @media (max-width: 760px) { .pagehead { display: none; } }
 
   /* ---- Home ---- */
-  .homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+  /* riquadri della Home tutti uguali: stessa larghezza (colonne uguali) e stessa altezza; se il contenuto è di più scorre dentro */
+  .homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); grid-auto-rows: 400px; gap: 16px; align-items: stretch; }
+  .homegrid > .witem { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .homegrid > .witem > .card { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; scrollbar-width: thin; }
+  .homegrid > .witem > .card > .viz, .homegrid > .witem > .card > svg { flex: none; }
+  .homegrid .hcard .hact { margin-top: auto; padding-top: 14px; }
+  .homegrid .notes textarea, .homegrid .msgcard textarea { flex: 1; min-height: 70px; max-height: none; resize: none; }
   .hcard { padding: 18px; }
   .hcard .hk { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
   .hcard .hw { font-size: 19px; font-weight: 700; margin: 2px 0 12px; }
@@ -519,21 +525,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262130"></script>
-<script src="turni-storico.js?v=202611262130"></script>
-<script src="turni-core.js?v=202611262130"></script>
-<script src="turni-manager.js?v=202611262130"></script>
-<script src="turni-vlh.js?v=202611262130"></script>
+<script src="icone.js?v=202611262133"></script>
+<script src="turni-storico.js?v=202611262133"></script>
+<script src="turni-core.js?v=202611262133"></script>
+<script src="turni-manager.js?v=202611262133"></script>
+<script src="turni-vlh.js?v=202611262133"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262130"></script>
-<script src="turni-cloud-config.js?v=202611262130"></script>
-<script src="turni-cloud.js?v=202611262130"></script>
-<script src="turni-cripto.js?v=202611262130"></script>
-<script src="riepilogo.js?v=202611262130"></script>
-<script src="importa-personale.js?v=202611262130"></script>
-<script src="turni-sb.js?v=202611262130"></script>
-<script src="lineare-ufficiale.js?v=202611262130"></script>
+<script src="turni-data.js?v=202611262133"></script>
+<script src="turni-cloud-config.js?v=202611262133"></script>
+<script src="turni-cloud.js?v=202611262133"></script>
+<script src="turni-cripto.js?v=202611262133"></script>
+<script src="riepilogo.js?v=202611262133"></script>
+<script src="importa-personale.js?v=202611262133"></script>
+<script src="turni-sb.js?v=202611262133"></script>
+<script src="lineare-ufficiale.js?v=202611262133"></script>
 <script>
 'use strict';
 const T = window.Turni;
