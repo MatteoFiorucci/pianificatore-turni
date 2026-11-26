@@ -464,21 +464,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611212122"></script>
-<script src="turni-storico.js?v=202611212122"></script>
-<script src="turni-core.js?v=202611212122"></script>
-<script src="turni-manager.js?v=202611212122"></script>
-<script src="turni-vlh.js?v=202611212122"></script>
+<script src="icone.js?v=202611261437"></script>
+<script src="turni-storico.js?v=202611261437"></script>
+<script src="turni-core.js?v=202611261437"></script>
+<script src="turni-manager.js?v=202611261437"></script>
+<script src="turni-vlh.js?v=202611261437"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611212122"></script>
-<script src="turni-cloud-config.js?v=202611212122"></script>
-<script src="turni-cloud.js?v=202611212122"></script>
-<script src="turni-cripto.js?v=202611212122"></script>
-<script src="riepilogo.js?v=202611212122"></script>
-<script src="importa-personale.js?v=202611212122"></script>
-<script src="turni-sb.js?v=202611212122"></script>
-<script src="lineare-ufficiale.js?v=202611212122"></script>
+<script src="turni-data.js?v=202611261437"></script>
+<script src="turni-cloud-config.js?v=202611261437"></script>
+<script src="turni-cloud.js?v=202611261437"></script>
+<script src="turni-cripto.js?v=202611261437"></script>
+<script src="riepilogo.js?v=202611261437"></script>
+<script src="importa-personale.js?v=202611261437"></script>
+<script src="turni-sb.js?v=202611261437"></script>
+<script src="lineare-ufficiale.js?v=202611261437"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -591,7 +591,7 @@ const INFO = {
   'dash-vendite': [`Vendite rispetto all'anno scorso`, `<b>Cosa mostra</b>: per ogni giorno, quanto ha venduto il locale rispetto allo <b>stesso giorno della settimana dell'anno scorso</b> (52 settimane prima: lunedì con lunedì). Il numero grande è la variazione della settimana intera.<br><br><b>Come si legge</b>: barra <b style="color:#2a78d6">blu</b> verso l'alto = sopra l'anno scorso; barra <b style="color:#e34948">rossa</b> verso il basso = sotto. I giorni già passati usano le <b>vendite vere</b>; quelli futuri le <b>previsioni</b> (barre chiare tratteggiate). Passa il mouse su una barra per vedere gli euro.<br><br><b>A cosa serve</b>: capire se il locale cresce o cala e in quali giorni; è il numero da portare in riunione. Se un giorno previsto è molto diverso dall'anno scorso, controlla gli eventi in Previsioni (un evento sbagliato sposta anche le ore dei turni).<br><br>Le vendite vere arrivano con le previsioni automatiche (aggiornate ogni giorno da SmartBusiness).`],
   'dash-ore': [`Ore pianificate e ore previste`, `<b>Cosa mostra</b>: per ogni giorno, le <b>ore messe in turno</b> (barre blu: crew, hospitality e doppi, senza manager) e le <b>Ore totali previste</b> (lineetta nera), cioè le ore che servono secondo la previsione delle vendite. Il numero grande è quante ore sei sopra (+) o sotto (−) la previsione nella settimana.<br><br><b>Come si legge</b>: barra più alta della lineetta = più ore del necessario; barra più bassa = meno ore del previsto.<br><br><b>A cosa serve</b>: controllare il costo del lavoro prima di pubblicare i turni. Troppe ore in un giorno tranquillo = soldi spesi; troppo poche in un giorno forte = rischio di restare scoperti nei rush.`],
   'dash-prod': [`Vendite per ora di lavoro`, `<b>Cosa mostra</b>: quanti euro di vendite fa il locale per ogni ora di lavoro pianificata (vendite del giorno divise per le ore di crew, hospitality e doppi, senza manager). La linea tratteggiata è la media della settimana; il numero è scritto sul giorno migliore e su quello peggiore.<br><br><b>Come si legge</b>: barra alta = poche persone per tante vendite; barra bassa = tante persone per poche vendite.<br><br><b>A cosa serve</b>: è l'indice della produttività. Un giorno molto <b>sotto</b> la media ha probabilmente troppe ore (si possono togliere); un giorno molto <b>sopra</b> rischia di essere scoperto. Confrontando le settimane vedi se la produttività migliora.`],
-  'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale, giorno per giorno (anche 24 ore): sezione Store. La chiusura può essere anche dopo mezzanotte (fino alle 4:00, segnata «notte»): i turni di quella sera finiscono all'ora di chiusura. Il generatore non mette turni fuori da quest'orario.`],
+  'cfg-orario': [`Orario del locale`, `Apertura e chiusura del locale, giorno per giorno (anche 24 ore): sezione Store. La chiusura può essere anche dopo mezzanotte (fino alle 6:00, segnata «notte»): i turni di quella sera finiscono all'ora di chiusura. Il generatore non mette turni fuori da quest'orario.`],
   'col-nome': [`Fascia di copertura`, `Ogni riga è una fascia oraria (es. il rush del pranzo) con il numero minimo di persone che devono essere presenti per tutta la sua durata. Puoi cambiarne nome e orari, aggiungerne o eliminarne.`],
   'col-min': [`Minimo per giorno`, `Quante persone servono come minimo, da lunedì a domenica (0 = nessun minimo quel giorno). Si conta il momento più scoperto della fascia. Nei giorni con le Ore totali (sezione Previsioni) i minimi delle fasce <b>senza</b> postazione (rush, picchi, intermedi) vengono ricavati dalle Ore totali, tolte le ore hospitality.`],
   'col-post': [`Postazione`, `<b>Qualsiasi crew</b>: contano tutti i crew presenti, in qualunque postazione.<br><b>Una postazione</b> (quelle del locale, impostate nella sezione Store): contano solo le persone messe in quella postazione. Per la Sala contano anche le hospitality, se nella sezione Store è attiva la regola.`],
@@ -1405,7 +1405,7 @@ function renderGiornaliero() {
   const day = ui.day, cfg = state.config;
   const ctx = T.makeCtx(state, T.mondayOf(day));
   const dh = T.dayHours(cfg, day); // orario del locale di quel giorno (anche 24h)
-  const H0 = Math.max(0, Math.floor((dh.open - 30) / 60)), H1 = Math.min(28, Math.ceil((dh.close + 60) / 60));
+  const H0 = Math.max(0, Math.floor((dh.open - 30) / 60)), H1 = Math.min(31, Math.ceil((dh.close + 60) / 60));
   const hours = []; for (let h = H0; h < H1; h++) hours.push(h);
   const span = (H1 - H0) * 60, pct = (m) => (((m - H0 * 60) / span) * 100).toFixed(3) + '%';
   const hw = `calc(100% / ${hours.length})`;
@@ -1534,7 +1534,7 @@ const VLH_SHEETS_STD = [[8, 9, 10, 11, 12, 13, 14, 15], [15, 16, 17, 18, 19, 20,
  */
 function vlhSheetsFor(day) {
   const h = T.dayHours(state.config, day);
-  const a = h.h24 ? 0 : h.open <= 420 ? Math.floor(h.open / 60) : 8, b = h.h24 ? 23 : h.close > 1350 ? Math.min(27, Math.ceil(h.close / 60) - 1) : 22;
+  const a = h.h24 ? 0 : h.open <= 420 ? Math.floor(h.open / 60) : 8, b = h.h24 ? 23 : h.close > 1350 ? Math.min(29, Math.ceil(h.close / 60) - 1) : 22;
   if (a === 8 && b === 22) return VLH_SHEETS_STD;
   const out = []; for (let x = a; x <= b; x += 8) out.push(Array.from({ length: Math.min(8, b - x + 1) }, (_, i) => x + i));
   return out;
@@ -2571,8 +2571,8 @@ function renderRegole() {
 // Tutto ciò che cambia da un locale all'altro sta in state.config (cifrato insieme ai dati del locale):
 // un locale nuovo imposta qui le sue regole senza toccare il motore dei turni.
 const DAY_TIMES = []; for (let m = 0; m <= 1440; m += 15) DAY_TIMES.push(m);
-// la chiusura può andare oltre la mezzanotte (fino alle 4:00): 1:00 di notte = 25:00 dello stesso giorno
-const CLOSE_TIMES = []; for (let m = 15; m <= 1680; m += 15) CLOSE_TIMES.push(m);
+// la chiusura può andare oltre la mezzanotte (fino alle 6:00): 1:00 di notte = 25:00 dello stesso giorno (si scrive 1:00)
+const CLOSE_TIMES = []; for (let m = 15; m <= 1800; m += 15) CLOSE_TIMES.push(m);
 const dayTimeSel = (v, on, list = DAY_TIMES) => `<select onchange="${on}">${list.map((t) => `<option value="${t}" ${t === v ? 'selected' : ''}>${timeLabel(t)}</option>`).join('')}</select>`;
 const MGR_DEF = { short: [180, 300], long: [390, 510], breakFrom: 390, breakMin: 30, rest: 720, rest36: 2160, orderBy: 690, restDays: [1, 2, 3, 4], minPerDay: 2 };
 function storeStations() { if (!Array.isArray(state.config.stations) || !state.config.stations.length) state.config.stations = T.DEFAULT_STATIONS.map((x) => ({ ...x })); return state.config.stations; }

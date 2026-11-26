@@ -129,7 +129,7 @@
   // ---------- orari e date ----------
   const pad2 = (n) => String(n).padStart(2, '0');
   // dopo mezzanotte (locale che chiude alle 1:00 = 25:00 dello stesso giorno) si scrive l'ora vera: 1:00
-  const fmtTime = (m) => { const x = m > 1440 ? m - 1440 : m; return `${Math.floor(x / 60)}:${pad2(x % 60)}`; };
+  const fmtTime = (m) => { const x = m > 1440 ? m % 1440 : m; return `${Math.floor(x / 60)}:${pad2(x % 60)}`; };
   function fmtDur(m) {
     const sign = m < 0 ? '-' : '';
     const a = Math.abs(m), h = Math.floor(a / 60), r = a % 60;
@@ -1076,7 +1076,7 @@
   function ruleMcCafeMax(ctx) {
     const out = [];
     for (const d of ctx.days) {
-      for (let m = 0; m < 1680; m += 15) {
+      for (let m = 0; m < 1800; m += 15) {
         const n = mcCafeLoad(ctx.shifts, d, m), max = mcCafeMax(ctx.cfg, d, m);
         if (n > max) {
           const p = parts(d);
