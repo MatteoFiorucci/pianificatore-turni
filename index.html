@@ -440,6 +440,7 @@
   .homegrid > .witem > .card { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; scrollbar-width: thin; }
   /* nei riquadri della Home niente si schiaccia (titoli, pulsanti, legende): solo il grafico si adatta allo spazio che resta */
   .homegrid > .witem > .card > * { flex-shrink: 0; }
+  .homegrid > .witem > .card > .seg { align-self: flex-start; } /* i pulsanti Scorsa / Questa / Prossima restano compatti, senza spazio vuoto accanto */
   .homegrid > .witem > .card > svg.viz { flex: 1 1 0; min-height: 120px; height: 0; width: 100%; }
   .homegrid .hcard .hact { margin-top: auto; padding-top: 14px; }
   .homegrid .notes textarea, .homegrid .msgcard textarea { flex: 1; min-height: 70px; max-height: none; resize: none; }
@@ -539,21 +540,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611271557"></script>
-<script src="turni-storico.js?v=202611271557"></script>
-<script src="turni-core.js?v=202611271557"></script>
-<script src="turni-manager.js?v=202611271557"></script>
-<script src="turni-vlh.js?v=202611271557"></script>
+<script src="icone.js?v=202611271601"></script>
+<script src="turni-storico.js?v=202611271601"></script>
+<script src="turni-core.js?v=202611271601"></script>
+<script src="turni-manager.js?v=202611271601"></script>
+<script src="turni-vlh.js?v=202611271601"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611271557"></script>
-<script src="turni-cloud-config.js?v=202611271557"></script>
-<script src="turni-cloud.js?v=202611271557"></script>
-<script src="turni-cripto.js?v=202611271557"></script>
-<script src="riepilogo.js?v=202611271557"></script>
-<script src="importa-personale.js?v=202611271557"></script>
-<script src="turni-sb.js?v=202611271557"></script>
-<script src="lineare-ufficiale.js?v=202611271557"></script>
+<script src="turni-data.js?v=202611271601"></script>
+<script src="turni-cloud-config.js?v=202611271601"></script>
+<script src="turni-cloud.js?v=202611271601"></script>
+<script src="turni-cripto.js?v=202611271601"></script>
+<script src="riepilogo.js?v=202611271601"></script>
+<script src="importa-personale.js?v=202611271601"></script>
+<script src="turni-sb.js?v=202611271601"></script>
+<script src="lineare-ufficiale.js?v=202611271601"></script>
 <script>
 'use strict';
 const T = window.Turni;
