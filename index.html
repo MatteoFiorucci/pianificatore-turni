@@ -438,7 +438,9 @@
   .homegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); grid-auto-rows: 400px; gap: 16px; align-items: stretch; }
   .homegrid > .witem { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .homegrid > .witem > .card { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; scrollbar-width: thin; }
-  .homegrid > .witem > .card > .viz, .homegrid > .witem > .card > svg { flex: none; }
+  /* nei riquadri della Home niente si schiaccia (titoli, pulsanti, legende): solo il grafico si adatta allo spazio che resta */
+  .homegrid > .witem > .card > * { flex-shrink: 0; }
+  .homegrid > .witem > .card > svg.viz { flex: 1 1 0; min-height: 120px; height: 0; width: 100%; }
   .homegrid .hcard .hact { margin-top: auto; padding-top: 14px; }
   .homegrid .notes textarea, .homegrid .msgcard textarea { flex: 1; min-height: 70px; max-height: none; resize: none; }
   .hcard { padding: 18px; }
@@ -526,21 +528,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611262150"></script>
-<script src="turni-storico.js?v=202611262150"></script>
-<script src="turni-core.js?v=202611262150"></script>
-<script src="turni-manager.js?v=202611262150"></script>
-<script src="turni-vlh.js?v=202611262150"></script>
+<script src="icone.js?v=202611271542"></script>
+<script src="turni-storico.js?v=202611271542"></script>
+<script src="turni-core.js?v=202611271542"></script>
+<script src="turni-manager.js?v=202611271542"></script>
+<script src="turni-vlh.js?v=202611271542"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611262150"></script>
-<script src="turni-cloud-config.js?v=202611262150"></script>
-<script src="turni-cloud.js?v=202611262150"></script>
-<script src="turni-cripto.js?v=202611262150"></script>
-<script src="riepilogo.js?v=202611262150"></script>
-<script src="importa-personale.js?v=202611262150"></script>
-<script src="turni-sb.js?v=202611262150"></script>
-<script src="lineare-ufficiale.js?v=202611262150"></script>
+<script src="turni-data.js?v=202611271542"></script>
+<script src="turni-cloud-config.js?v=202611271542"></script>
+<script src="turni-cloud.js?v=202611271542"></script>
+<script src="turni-cripto.js?v=202611271542"></script>
+<script src="riepilogo.js?v=202611271542"></script>
+<script src="importa-personale.js?v=202611271542"></script>
+<script src="turni-sb.js?v=202611271542"></script>
+<script src="lineare-ufficiale.js?v=202611271542"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -838,7 +840,7 @@ function chartHours(dd) {
   const head = withT.length ? `<b class="${totPt > totT ? 'down' : 'up'}">${totPt >= totT ? '+' : '−'}${hrsTxt(Math.abs(totPt - totT))}</b> <span>${hrsTxt(totPt)} pianificate contro ${hrsTxt(totT)} previste</span>`
     : `<b>${hrsTxt(totP)}</b> <span>pianificate · mancano le Ore totali previste</span>`;
   return `<div class="hero">${head}</div><svg viewBox="0 0 ${VW} ${VH}" class="viz" role="group" aria-label="Ore pianificate contro ore previste">${grid}${marks}</svg>
-    <div class="vlegend"><span><i class="up"></i>pianificate (entro le previste)</span><span><i class="down"></i>più delle previste</span><span><i class="tick"></i>Ore totali previste</span></div>`;
+    <div class="vlegend"><span><i class="up"></i>pianificate</span><span><i class="down"></i>oltre le previste</span><span><i class="tick"></i>previste</span></div>`;
 }
 /** Vendite per ora di lavoro (vendite / ore pianificate senza manager), giorno per giorno. */
 function chartProd(dd) {
@@ -1087,7 +1089,7 @@ function homeExtraCards() {
   // ogni grafico ha la sua settimana: cambiandola si ridisegna solo quel riquadro
   const wsOf = (id) => (ui.dashWsOf || {})[id] ?? ws0;
   const dsel = (id) => { const ws = wsOf(id); return `<div class="seg" style="margin:0 0 8px">${[[ws0 - 7, 'Scorsa'], [ws0, 'Questa'], [ws0 + 7, 'Prossima']].map(([w, l]) => `<button class="${ws === w ? 'on' : ''}" onclick="homeWeek('${id}',${w})">${l}</button>`).join('')}</div>`; };
-  const chart = (id, k, sub, fn, info) => () => { const ws = wsOf(id); return `<div class="card hcard"><div class="hk" style="display:flex;align-items:center;gap:6px">${k} ${ib(info)}</div><div class="small muted" style="margin:2px 0 8px">${sub} · ${T.weekLabel(ws)}</div>${dsel(id)}${fn(dashData(ws))}</div>`; };
+  const chart = (id, k, sub, fn, info) => () => { const ws = wsOf(id); return `<div class="card hcard"><div class="hk" style="display:flex;align-items:center;gap:6px">${k} ${ib(info)}</div><div class="small muted" style="margin:2px 0 8px">${T.weekLabel(ws)}</div>${dsel(id)}${fn(dashData(ws))}</div>`; };
   const fcOfDay = (d) => T.forecastDay((state.forecasts || {})[T.mondayOf(d)], d - T.mondayOf(d)) || {};
   const reali = (state.autoForecast || {}).reali || {};
   return {
@@ -1101,7 +1103,7 @@ function homeExtraCards() {
       const who = (x) => { const e = personById(x.employeeId ?? x.managerId); return e ? esc(T.fullName(e)) : '—'; };
       const list = (arr) => arr.sort((a, b) => a.end - b.end).map((x) => `<div class="hrow tight" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${T.fmtTime(x.start)}–${T.fmtTime(x.end)}${x.station && T.STATIONS[x.station] ? ' · ' + T.STATIONS[x.station].short : ''}</span></div>`).join('');
       return box('Chi è in turno adesso', `${crew.length} crew e hospitality · ${mgr.length} manager`,
-        (mgr.length + crew.length ? list([...mgr, ...crew]) : '<p class="small muted">Nessuno in turno in questo momento.</p>')
+        (mgr.length + crew.length ? list([...mgr, ...crew].slice(0, 5)) + (mgr.length + crew.length > 5 ? `<div class="small muted" style="margin-top:4px">e altri ${mgr.length + crew.length - 5}…</div>` : '') : '<p class="small muted">Nessuno in turno in questo momento.</p>')
         + (soon.length ? `<div class="hs">Nella prossima ora: ${soon.filter((x) => x.start > nowMin).length} entrano, ${soon.filter((x) => x.end <= nowMin + 60 && x.end > nowMin).length} escono</div>` : ''),
         `<button class="btn" onclick="ui.day=${today};go('giornaliero')">Apri il lineare</button>`);
     },
