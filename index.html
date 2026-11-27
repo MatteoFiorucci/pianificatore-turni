@@ -470,6 +470,12 @@
   .witem .wbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .witem .wbar .btn { padding: 4px 10px; font-size: 13px; }
   .witem.editing { cursor: grab; }
+  .pchips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+  .pchip { display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line-soft); font-weight: 600; font-size: 12.5px; line-height: 1.3; cursor: default; outline: none; }
+  .pchip i { font-style: normal; font-weight: 500; font-size: 11px; color: var(--muted); }
+  .pchip:hover, .pchip:focus { border-color: var(--line-strong); }
+  .pchip.mg { background: var(--green-soft); border-color: transparent; }
+  .morelist .hrow { padding: 8px 0; }
   .rbars { display: flex; flex-direction: column; gap: 9px; margin-top: 4px; }
   .rbar { display: grid; grid-template-columns: 74px 1fr 42px 74px; align-items: center; gap: 8px; font-size: 13.5px; cursor: default; outline: none; }
   .rbar .rt { height: 12px; background: var(--surface-2); border-radius: 0 4px 4px 0; overflow: hidden; }
@@ -547,21 +553,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611271605"></script>
-<script src="turni-storico.js?v=202611271605"></script>
-<script src="turni-core.js?v=202611271605"></script>
-<script src="turni-manager.js?v=202611271605"></script>
-<script src="turni-vlh.js?v=202611271605"></script>
+<script src="icone.js?v=202611271614"></script>
+<script src="turni-storico.js?v=202611271614"></script>
+<script src="turni-core.js?v=202611271614"></script>
+<script src="turni-manager.js?v=202611271614"></script>
+<script src="turni-vlh.js?v=202611271614"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611271605"></script>
-<script src="turni-cloud-config.js?v=202611271605"></script>
-<script src="turni-cloud.js?v=202611271605"></script>
-<script src="turni-cripto.js?v=202611271605"></script>
-<script src="riepilogo.js?v=202611271605"></script>
-<script src="importa-personale.js?v=202611271605"></script>
-<script src="turni-sb.js?v=202611271605"></script>
-<script src="lineare-ufficiale.js?v=202611271605"></script>
+<script src="turni-data.js?v=202611271614"></script>
+<script src="turni-cloud-config.js?v=202611271614"></script>
+<script src="turni-cloud.js?v=202611271614"></script>
+<script src="turni-cripto.js?v=202611271614"></script>
+<script src="riepilogo.js?v=202611271614"></script>
+<script src="importa-personale.js?v=202611271614"></script>
+<script src="turni-sb.js?v=202611271614"></script>
+<script src="lineare-ufficiale.js?v=202611271614"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1028,6 +1034,17 @@ function notesClear(btn) {
   try { localStorage.removeItem('turni-appunti'); } catch (e) { /* niente */ }
   render();
 }
+// ================= HOME: "vedi tutti" =================
+// I riquadri mostrano le prime righe; "vedi tutti" apre l'elenco completo in una finestra.
+const homeMore = {};
+function moreLink(id, title, n, allHtml, altri = 'altri') {
+  homeMore[id] = { title, html: allHtml };
+  return `<button class="link small" style="margin-top:6px" onclick="showHomeMore('${id}')">e ${altri} ${n} · vedi tutti</button>`;
+}
+function showHomeMore(id) {
+  const m = homeMore[id]; if (!m) return;
+  showModal(`<h3>${m.title}</h3><div class="hcard morelist" style="padding:0">${m.html}</div><div class="actions"><button class="btn primary" onclick="closeModal()">Chiudi</button></div>`);
+}
 // ================= HOME PERSONALIZZABILE =================
 // Ogni dispositivo sceglie i suoi riquadri (localStorage): quali si vedono e in che ordine.
 const HOME_KEY = 'turni-home';
@@ -1179,13 +1196,14 @@ function homeExtraCards() {
       if (dh.h24) return box('Domani: chi apre e chi chiude', head, '<p class="small muted">Domani il locale è aperto 24 ore: non ci sono squadre di apertura e chiusura.</p>');
       const who = (x) => { const e = personById(x.employeeId ?? x.managerId); return e ? esc(T.fullName(e)) : '—'; };
       const st = (x) => (x.managerId != null ? 'Manager' : (T.STATIONS[x.station] || {}).short || '');
-      const row = (x, t) => `<div class="hrow tight" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${t} · ${esc(st(x))}</span></div>`;
+      const chip = (x) => `<span class="pchip${x.managerId != null ? ' mg' : ''}" data-tip="${esc(`${who(x)}|${T.fmtTime(x.start)}–${T.fmtTime(x.end)}|${st(x)}`)}" tabindex="0">${who(x)} <i>${esc(st(x) === 'Manager' ? 'Mgr' : st(x))}</i></span>`;
       const ap = [...mgr, ...crew].filter((x) => x.start <= dh.open).sort((a, b) => (a.managerId != null ? -1 : 1) - (b.managerId != null ? -1 : 1));
-      const ch = [...mgr, ...crew].filter((x) => x.end >= dh.close - g).sort((a, b) => (a.managerId != null ? -1 : 1) - (b.managerId != null ? -1 : 1));
-      return box('Domani: chi apre e chi chiude', head,
-        `<div class="small muted" style="margin-top:2px">Apre alle ${T.fmtTime(dh.open)}</div>${ap.length ? ap.slice(0, 4).map((x) => row(x, `${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`)).join('') : '<div class="hs warn">Nessuno in apertura</div>'}
-         <div class="small muted" style="margin-top:8px">Chiude alle ${T.fmtTime(dh.close)}</div>${ch.length ? ch.slice(0, 4).map((x) => row(x, `${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`)).join('') : '<div class="hs warn">Nessuno in chiusura</div>'}`,
-        `<button class="btn" onclick="ui.day=${d};go('giornaliero')">Lineare di domani</button>`);
+      const ch = [...mgr, ...crew].filter((x) => x.end >= dh.close).sort((a, b) => (a.managerId != null ? -1 : 1) - (b.managerId != null ? -1 : 1));
+      // tutte le persone; se sono tantissime (oltre 8 per parte) le altre sono in "vedi tutti"
+      const many = (arr, id, t) => arr.slice(0, 8).map(chip).join('') + (arr.length > 8 ? moreLink(id, t, arr.length - 8, arr.map((x) => `<div class="hrow tight" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${T.fmtTime(x.start)}–${T.fmtTime(x.end)} · ${esc(st(x))}</span></div>`).join('')) : '');
+      return box('Domani: chi apre e chi chiude', `${head} <button class="link small" style="margin-left:6px;font-size:13px" onclick="ui.day=${d};go('giornaliero')">lineare ›</button>`,
+        `<div class="small muted" style="margin-top:2px">Apre alle ${T.fmtTime(dh.open)} · ${ap.length} persone</div><div class="pchips">${ap.length ? many(ap, 'domani-ap', 'Domani: chi apre') : '<div class="hs warn">Nessuno in apertura</div>'}</div>
+         <div class="small muted" style="margin-top:10px">Chiude alle ${T.fmtTime(dh.close)} · ${ch.length} persone</div><div class="pchips">${ch.length ? many(ch, 'domani-ch', 'Domani: chi chiude') : '<div class="hs warn">Nessuno in chiusura</div>'}</div>`);
     },
     copertura: () => {
       const d = today, ws = ws0, dh = T.dayHours(state.config, d), ctx = T.makeCtx(state, ws);
@@ -1236,16 +1254,17 @@ function homeExtraCards() {
       const deliv = (state.config.mgrDelivery || []).map((k) => ws0 + k - 1).filter((dd) => dd >= today && dd <= today + 6);
       if (deliv.length) item('info', `Consegne: ${deliv.map((dd) => T.DOW_LONG[T.dow(dd)].toLowerCase() + ((state.config.mgrDeliveryAt || {})[T.dow(dd)] != null ? ' alle ' + T.fmtTime(state.config.mgrDeliveryAt[T.dow(dd)]) : '')).join(', ')}`, `ui.ws=${ws0};ui.type='MANAGER';go('turni')`);
       state.employees.filter((e) => e.trainee && e.traineeUntil != null && e.traineeUntil >= today && e.traineeUntil <= today + 7).forEach((e) => item('info', `${esc(T.fullName(e))} finisce la formazione il ${T.itDate(e.traineeUntil)}`, "go('formazione')"));
-      return box('Promemoria', out.length ? `${out.length} ${out.length === 1 ? 'cosa' : 'cose'} da ricordare` : 'Niente da ricordare', out.slice(0, 6).join('') + (out.length > 6 ? `<div class="small muted" style="margin-top:4px">e altre ${out.length - 6}…</div>` : '') + (out.length ? '' : '<div class="hs ok">Tutto in ordine</div>'));
+      return box('Promemoria', out.length ? `${out.length} ${out.length === 1 ? 'cosa' : 'cose'} da ricordare` : 'Niente da ricordare', out.slice(0, 6).join('') + (out.length > 6 ? moreLink('promemoria', 'Promemoria', out.length - 6, out.join(''), 'altre') : '') + (out.length ? '' : '<div class="hs ok">Tutto in ordine</div>'));
     },
     inturno: () => {
       const on = (x) => x.day === today && x.start <= nowMin && x.end > nowMin;
       const crew = state.shifts.filter(on), mgr = (state.mgrShifts || []).filter(on);
       const soon = state.shifts.concat(state.mgrShifts || []).filter((x) => x.day === today && ((x.start > nowMin && x.start <= nowMin + 60) || (x.end > nowMin && x.end <= nowMin + 60)));
       const who = (x) => { const e = personById(x.employeeId ?? x.managerId); return e ? esc(T.fullName(e)) : '—'; };
-      const list = (arr) => arr.sort((a, b) => a.end - b.end).map((x) => `<div class="hrow tight" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${T.fmtTime(x.start)}–${T.fmtTime(x.end)}${x.station && T.STATIONS[x.station] ? ' · ' + T.STATIONS[x.station].short : ''}</span></div>`).join('');
+      const list = (arr) => arr.map((x) => `<div class="hrow tight" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${T.fmtTime(x.start)}–${T.fmtTime(x.end)}${x.station && T.STATIONS[x.station] ? ' · ' + T.STATIONS[x.station].short : ''}</span></div>`).join('');
       return box('Chi è in turno adesso', `${crew.length} crew e hospitality · ${mgr.length} manager`,
-        (mgr.length + crew.length ? list([...mgr, ...crew].slice(0, 5)) + (mgr.length + crew.length > 5 ? `<div class="small muted" style="margin-top:4px">e altri ${mgr.length + crew.length - 5}…</div>` : '') : '<p class="small muted">Nessuno in turno in questo momento.</p>')
+        (mgr.length + crew.length ? (() => { const all = [...mgr, ...crew.sort((a, b) => a.end - b.end)];
+          return list(all.slice(0, 5)) + (all.length > 5 ? moreLink('inturno', `In turno adesso (${T.fmtTime(nowMin)})`, all.length - 5, list(all)) : ''); })() : '<p class="small muted">Nessuno in turno in questo momento.</p>')
         + (soon.length ? `<div class="hs">Nella prossima ora: ${soon.filter((x) => x.start > nowMin).length} entrano, ${soon.filter((x) => x.end <= nowMin + 60 && x.end > nowMin).length} escono</div>` : ''),
         `<button class="btn" onclick="ui.day=${today};go('giornaliero')">Apri il lineare</button>`);
     },
@@ -1265,12 +1284,12 @@ function homeExtraCards() {
     },
     contratti: () => {
       if (!state.shifts.some((x) => x.day >= ws0 && x.day <= ws0 + 6)) return box('Ore di contratto', T.weekLabel(ws0), '<div class="hs warn">Turni non ancora fatti per questa settimana</div>');
-      const ctx = T.makeCtx(state, ws0);
+      const ctx = T.makeCtx(state, ws0); let rowHtml;
       const rows = ctx.employees.filter((e) => e.active !== false).map((e) => { const w = T.worked(ctx, e.id) + T.doubleWorked(ctx, e.id), t = T.target(ctx, e); return { e, w, t, d: w - t }; })
         .filter((x) => x.t > 0 && Math.abs(x.d) >= 30).sort((a, b) => Math.abs(b.d) - Math.abs(a.d));
       return box('Ore di contratto', rows.length ? `${rows.length} persone fuori contratto` : 'Tutti in linea con il contratto',
-        rows.slice(0, 5).map((x) => `<div class="hrow tight" style="cursor:default"><b>${esc(T.fullName(x.e))}</b> <span class="muted small">${T.fmtDur(x.w)} su ${T.fmtDur(x.t)}</span> <span class="chip ${x.d < 0 ? 'warn' : 'err'}" style="margin-left:auto">${x.d > 0 ? '+' : ''}${T.fmtDur(x.d)}</span></div>`).join('')
-        + (rows.length > 5 ? `<div class="small muted" style="margin-top:4px">e altre ${rows.length - 5}…</div>` : ''), `<button class="btn" onclick="ui.ws=${ws0};go('turni')">Apri i turni</button>`);
+        (rowHtml = (x) => `<div class="hrow tight" style="cursor:default"><b>${esc(T.fullName(x.e))}</b> <span class="muted small">${T.fmtDur(x.w)} su ${T.fmtDur(x.t)}</span> <span class="chip ${x.d < 0 ? 'warn' : 'err'}" style="margin-left:auto">${x.d > 0 ? '+' : ''}${T.fmtDur(x.d)}</span></div>`, rows.slice(0, 5).map(rowHtml).join(''))
+        + (rows.length > 5 ? moreLink('contratti', 'Ore di contratto · fuori contratto', rows.length - 5, rows.map(rowHtml).join(''), 'altre') : ''), `<button class="btn" onclick="ui.ws=${ws0};go('turni')">Apri i turni</button>`);
     },
     assenze: () => {
       const until = today + 14, out = [];
@@ -1282,13 +1301,14 @@ function homeExtraCards() {
       });
       out.sort((a, b) => a[0] - b[0]);
       return box('Assenze e scadenze', out.length ? `${out.length} nei prossimi 14 giorni` : 'Niente nei prossimi 14 giorni',
-        out.slice(0, 7).map((x) => `<div class="hrow tight" style="cursor:default">${x[1]}</div>`).join('') + (out.length > 7 ? `<div class="small muted" style="margin-top:4px">e altre ${out.length - 7}…</div>` : ''),
+        out.slice(0, 7).map((x) => `<div class="hrow tight" style="cursor:default">${x[1]}</div>`).join('') + (out.length > 7 ? moreLink('assenze', 'Assenze e scadenze · prossimi 14 giorni', out.length - 7, out.map((x) => `<div class="hrow tight" style="cursor:default">${x[1]}</div>`).join(''), 'altre') : ''),
         `<button class="btn" onclick="go('ferie')">Ferie e malattie</button>`);
     },
     eventi: () => {
+      const evRow = (e) => `<div class="hrow tight" style="cursor:default"><b>${esc(e.nome || (EV_TIPI[e.tipo] || e.tipo || '').replace(/^\S+\s/, ''))}</b> <span class="muted small">${T.itDate(T.toDay(e.dal))}${e.al && e.al !== e.dal ? ' → ' + T.itDate(T.toDay(e.al)) : ''} · ${esc((EV_TIPI[e.tipo] || '').split(' (')[0].replace(/^\S+\s/, ''))}</span></div>`;
       const until = today + 30, evs = (state.eventi || []).filter((e) => e.dal && T.toDay(e.al || e.dal) >= today && T.toDay(e.dal) <= until).sort((a, b) => T.toDay(a.dal) - T.toDay(b.dal));
       return box('Eventi e chiusure', evs.length ? `${evs.length} nei prossimi 30 giorni` : 'Nessuno nei prossimi 30 giorni',
-        evs.slice(0, 6).map((e) => `<div class="hrow tight" style="cursor:default"><b>${esc(e.nome || (EV_TIPI[e.tipo] || e.tipo || '').replace(/^\S+\s/, ''))}</b> <span class="muted small">${T.itDate(T.toDay(e.dal))}${e.al && e.al !== e.dal ? ' → ' + T.itDate(T.toDay(e.al)) : ''} · ${esc((EV_TIPI[e.tipo] || '').split(' (')[0].replace(/^\S+\s/, ''))}</span></div>`).join(''),
+        evs.slice(0, 6).map(evRow).join('') + (evs.length > 6 ? moreLink('eventi', 'Eventi e chiusure · prossimi 30 giorni', evs.length - 6, evs.map(evRow).join(''), 'altri') : ''),
         `<button class="btn" onclick="go('previsioni')">Eventi e chiusure</button>`);
     },
     pubblicazione: () => {
@@ -1314,7 +1334,7 @@ function homeExtraCards() {
       const has = (x) => !!(state.reqCreds || {})[x.id];
       const no = [...act, ...mg].filter((x) => !has(x));
       return box('App del personale', `${act.filter(has).length + mg.filter(has).length} su ${act.length + mg.length} hanno l'accesso`,
-        no.length ? `<div class="small muted">Senza accesso: ${no.slice(0, 8).map((x) => esc(T.fullName(x))).join(', ')}${no.length > 8 ? ` e altre ${no.length - 8}` : ''}</div>` : '<div class="hs ok">Tutti hanno l\'accesso</div>',
+        no.length ? `<div class="small muted">Senza accesso: ${no.slice(0, 8).map((x) => esc(T.fullName(x))).join(', ')}${no.length > 8 ? '…' : ''}</div>${no.length > 8 ? moreLink('app', 'Senza accesso all\'app', no.length - 8, no.map((x) => `<div class="hrow tight" style="cursor:default"><b>${esc(T.fullName(x))}</b></div>`).join(''), 'altre') : ''}` : '<div class="hs ok">Tutti hanno l\'accesso</div>',
         `<button class="btn" onclick="go('richieste')">Accessi all'app</button>`);
     },
     appunti: () => { const n = notesGet();
