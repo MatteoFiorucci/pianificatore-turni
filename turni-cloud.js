@@ -21,6 +21,14 @@
   function patch(p) { const s = read(); if (s) write(Object.assign(s, p)); }
 
   let idToken = null, idExp = 0, key = null;
+  /**
+   * Account a cui appartengono i dati di QUESTA scheda. Le schede dello stesso sito condividono l'accesso (localStorage):
+   * se in un'altra scheda si entra con un altro locale (o si esce), questa scheda ha ancora in memoria i dati del locale
+   * di prima e non deve più scrivere niente, né online né nel browser (27/11/2026: Collestrada era finito su Assisi).
+   */
+  let tabUid = (read() || {}).uid || null;
+  const otherStore = () => !!tabUid && (((read() || {}).uid || null) !== tabUid);
+  function guard() { if (otherStore()) throw new CloudError('OTHER_STORE', 'In un\'altra scheda è stato aperto un altro locale (o sei uscito): ricarica questa pagina.'); }
 
   const configured = () => !!(cfg().apiKey && cfg().projectId);
   const session = () => read();
@@ -138,6 +146,7 @@
     const j = await post(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${cfg().apiKey}`, { email, password, returnSecureToken: true });
     idToken = j.idToken; idExp = Date.now() + (+j.expiresIn || 3600) * 1000; key = null;
     write({ email: j.email || email, uid: j.localId, refreshToken: j.refreshToken, key: null, salt: null, lastUpdate: null, dirty: false });
+    tabUid = j.localId;
     let doc;
     try { doc = await getDoc(); } catch (e) { write(null); throw e; }
     const salt = doc && doc.salt ? fromB64(doc.salt) : root.crypto.getRandomValues(new Uint8Array(16));
@@ -152,13 +161,14 @@
     return { doc, data };
   }
 
-  function logout() { write(null); idToken = null; key = null; }
+  function logout() { write(null); idToken = null; key = null; tabUid = null; }
 
   /**
    * Salva online. base = updateTime che ci aspettiamo online (null = documento nuovo; 'force' = sovrascrivi comunque).
    * Se nel frattempo qualcuno ha salvato da un altro dispositivo lancia CONFLICT.
    */
   async function push(state, base) {
+    guard();
     const s = read();
     // versione di prova sul computer (localhost): legge i dati veri ma non scrive niente online
     if (PROVA) { patch({ lastSavedAt: new Date().toISOString() }); return s.lastUpdate; }
@@ -185,6 +195,7 @@
 
   /** Legge i dati online: { changed:false } se sono gli stessi già presenti su questo dispositivo. */
   async function pull() {
+    guard();
     const doc = await getDoc();
     if (!doc) return { changed: false, doc: null };
     if (doc.updateTime === read().lastUpdate) return { changed: false, doc };
@@ -195,6 +206,7 @@
   // ---- richieste del personale (negozi/{uid}: chiave pubblica, codici, richieste) ----
   const storeUrl = (path = '') => `https://firestore.googleapis.com/v1/projects/${cfg().projectId}/databases/(default)/documents/negozi/${read().uid}${path}`;
   async function api(url, opts = {}) {
+    if (opts.method && opts.method !== 'GET') guard(); // mai scrivere sul locale di un'altra scheda
     if (PROVA && opts.method && opts.method !== 'GET') return {}; // versione di prova: nessuna scrittura online
     let r;
     try { r = await fetch(url, { ...opts, headers: { Authorization: 'Bearer ' + await token(), 'Content-Type': 'application/json', ...(opts.headers || {}) }, cache: 'no-store' }); }
@@ -285,7 +297,7 @@
   }
   root.TurniCloud = {
     checkInvite, signUp,
-    PROVA, configured, loggedIn, session, login, logout, push, pull, deviceName,
+    PROVA, configured, loggedIn, session, login, logout, push, pull, deviceName, otherStore, tabUid: () => tabUid,
     uid: () => (read() || {}).uid, publishKey, setStoreInfo, setCode, setAccess, deleteAccess, listAccess, accessExists, setOrario, deleteOrario, listRequests, answerRequest, deleteRequest,
     setDirty: (d) => patch({ dirty: !!d }),
     setLastUpdate: (t) => patch({ lastUpdate: t }),
