@@ -553,21 +553,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611271636"></script>
-<script src="turni-storico.js?v=202611271636"></script>
-<script src="turni-core.js?v=202611271636"></script>
-<script src="turni-manager.js?v=202611271636"></script>
-<script src="turni-vlh.js?v=202611271636"></script>
+<script src="icone.js?v=202611280002"></script>
+<script src="turni-storico.js?v=202611280002"></script>
+<script src="turni-core.js?v=202611280002"></script>
+<script src="turni-manager.js?v=202611280002"></script>
+<script src="turni-vlh.js?v=202611280002"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611271636"></script>
-<script src="turni-cloud-config.js?v=202611271636"></script>
-<script src="turni-cloud.js?v=202611271636"></script>
-<script src="turni-cripto.js?v=202611271636"></script>
-<script src="riepilogo.js?v=202611271636"></script>
-<script src="importa-personale.js?v=202611271636"></script>
-<script src="turni-sb.js?v=202611271636"></script>
-<script src="lineare-ufficiale.js?v=202611271636"></script>
+<script src="turni-data.js?v=202611280002"></script>
+<script src="turni-cloud-config.js?v=202611280002"></script>
+<script src="turni-cloud.js?v=202611280002"></script>
+<script src="turni-cripto.js?v=202611280002"></script>
+<script src="riepilogo.js?v=202611280002"></script>
+<script src="importa-personale.js?v=202611280002"></script>
+<script src="turni-sb.js?v=202611280002"></script>
+<script src="lineare-ufficiale.js?v=202611280002"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -616,16 +616,42 @@ const ui = { view: 'home', ws: T.mondayOf(T.todayDay()), day: T.todayDay(), type
 // dei manager non si vede niente (né menu né dati), solo la schermata di accesso, che non si può chiudere.
 const APP_STORE = new URLSearchParams(location.search).get('s');
 const APP_MODE = !!APP_STORE || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+if (APP_STORE && TurniCloud.loggedIn() && TurniCloud.uid() !== APP_STORE) TurniCloud.logout(); // link di un altro locale: si rientra
 ui.locked = APP_MODE && TurniCloud.configured() && !TurniCloud.loggedIn();
 
 // Se il browser non permette di salvare (es. navigazione privata) l'app funziona lo stesso, ma senza memoria.
+// 'turni-proprietario' = account a cui appartengono i dati salvati nel browser (scritto per esteso: loadState gira prima di qui)
 function loadState() {
-  try { const s = JSON.parse(window.localStorage.getItem(KEY)); if (s && Array.isArray(s.employees)) return TurniData.migrate(s); } catch (e) { storageOk = false; }
+  try {
+    const s = JSON.parse(window.localStorage.getItem(KEY)), owner = window.localStorage.getItem('turni-proprietario'), uid = TurniCloud.uid();
+    // dati nel browser di un altro locale rispetto all'accesso attuale: non si usano (si ricaricano quelli giusti online)
+    if (s && uid && owner && owner !== uid) { TurniCloud.setLastUpdate(null); return TurniData.emptyState(); }
+    if (s && Array.isArray(s.employees)) return TurniData.migrate(s);
+  } catch (e) { storageOk = false; }
   return TurniData.sampleState();
 }
 function saveLocal() {
-  try { window.localStorage.setItem(KEY, JSON.stringify(state)); storageOk = true; } catch (e) { storageOk = false; }
+  if (TurniCloud.otherStore && TurniCloud.otherStore()) { staleTab(); return; } // un'altra scheda ha cambiato locale
+  try {
+    window.localStorage.setItem(KEY, JSON.stringify(state)); storageOk = true;
+    const uid = TurniCloud.tabUid && TurniCloud.tabUid(); if (uid) window.localStorage.setItem('turni-proprietario', uid); else window.localStorage.removeItem('turni-proprietario');
+  } catch (e) { storageOk = false; }
 }
+/**
+ * Scheda ferma: in un'altra scheda dello stesso browser è stato aperto un altro locale (o si è usciti).
+ * Questa scheda ha ancora in memoria i dati di prima: non salva più niente e chiede di ricaricare.
+ */
+function staleTab() {
+  try { if (ui.stale) return; ui.stale = true; } catch (e) { return; } // (ui non ancora pronto all'avvio)
+  try { clearTimeout(sync.timer); } catch (e) { /* non ancora pronto */ }
+  const d = document.createElement('div'); d.id = 'stale';
+  d.innerHTML = `<div class="modal-bg" style="z-index:60"><div class="modal"><h3>🔒 Questa scheda è stata fermata</h3>
+    <p>In un'altra scheda di questo browser è stato aperto <b>un altro locale</b> (oppure sei uscito). Per non mescolare i dati dei due locali, questa scheda non salva più niente.</p>
+    <p class="muted small">Le modifiche fatte qui dopo il cambio non sono state salvate.</p>
+    <div class="actions"><button class="btn primary" onclick="location.reload()">Ricarica la pagina</button></div></div></div>`;
+  document.body.appendChild(d);
+}
+window.addEventListener('storage', (e) => { if ((e.key === 'turni-cloud-v1' || e.key === null) && TurniCloud.otherStore && TurniCloud.otherStore()) staleTab(); });
 /** Ogni modifica: salva nel browser e (se collegato) anche online, pochi secondi dopo. */
 function save() { saveLocal(); cloudTouch(); }
 const newId = () => state.nextId++;
@@ -739,6 +765,7 @@ function syncFormazioni() {
   if (changed) save();
 }
 function render() {
+  if (ui.stale) return;
   if (ui.locked) return renderGate();
   syncFormazioni();
   applyStoreUi();
@@ -3672,6 +3699,7 @@ async function cloudPush(base) {
   } catch (e) { cloudError(e); } finally { sync.busy = false; }
 }
 function cloudError(e) {
+  if (e.code === 'OTHER_STORE') { staleTab(); return; }
   if (e.code === 'OFFLINE') { setSync('offline', e.message); if (TurniCloud.session() && TurniCloud.session().dirty) sync.timer = setTimeout(() => cloudPush(), 30000); }
   else if (e.code === 'CONFLICT') cloudConflict();
   else if (e.code === 'LOGGED_OUT') { setSync('off'); if (APP_MODE) { ui.locked = true; if (APP_STORE) loadGateLogin(APP_STORE); else { ui.gateLogin = ''; render(); } return; } render(); askCloudLogin(e.message); }
@@ -3801,6 +3829,7 @@ function askCloudLogin(msg) {
 }
 async function cloudLogin() {
   const email = toLoginEmail(document.getElementById('cl-email').value), pw = document.getElementById('cl-pw').value;
+  let prevOwner = null; try { prevOwner = window.localStorage.getItem('turni-proprietario'); } catch (e) { prevOwner = null; }
   const err = document.getElementById('cl-err'), btn = document.getElementById('cl-btn');
   if (!document.getElementById('cl-email').value.trim() || !pw) { err.style.display = 'block'; err.textContent = 'Scrivi nome utente e password.'; return; }
   btn.disabled = true; btn.textContent = 'Accesso…'; err.style.display = 'none';
@@ -3810,6 +3839,15 @@ async function cloudLogin() {
   ui.loginDoc = r;
   ui.locked = false; // password giusta: si apre l'app
   ui.dragEdit = false; // si riparte sempre con la modifica trascinando spenta
+  // dati del browser di un ALTRO locale: mai mescolarli o caricarli su questo account. Si usano solo quelli online.
+  const otherLocal = !!prevOwner && prevOwner !== TurniCloud.uid();
+  if (otherLocal) {
+    ui.loginDoc = null; closeModal();
+    if (r.doc && r.data) { applyRemote(r.data.state, r.doc.updateTime); setSync('ok'); go(compactOn() ? 'giornaliero' : 'home'); return; }
+    state = TurniData.emptyState(); saveLocal(); render();
+    if (r.doc) showModal(`<h3>⚠️ Dati online non leggibili</h3><p>Questo account ha dati online cifrati con un'altra password. Su questo dispositivo c'erano i dati di un altro locale, che non vengono usati.</p><div class="actions"><button class="btn primary" onclick="closeModal()">OK</button></div>`);
+    return;
+  }
   if (!r.doc) {
     // primo accesso in assoluto: i dati di questo dispositivo diventano quelli online
     closeModal(); TurniCloud.setDirty(true); await cloudPush(null); render();
