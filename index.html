@@ -553,21 +553,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611271614"></script>
-<script src="turni-storico.js?v=202611271614"></script>
-<script src="turni-core.js?v=202611271614"></script>
-<script src="turni-manager.js?v=202611271614"></script>
-<script src="turni-vlh.js?v=202611271614"></script>
+<script src="icone.js?v=202611271620"></script>
+<script src="turni-storico.js?v=202611271620"></script>
+<script src="turni-core.js?v=202611271620"></script>
+<script src="turni-manager.js?v=202611271620"></script>
+<script src="turni-vlh.js?v=202611271620"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611271614"></script>
-<script src="turni-cloud-config.js?v=202611271614"></script>
-<script src="turni-cloud.js?v=202611271614"></script>
-<script src="turni-cripto.js?v=202611271614"></script>
-<script src="riepilogo.js?v=202611271614"></script>
-<script src="importa-personale.js?v=202611271614"></script>
-<script src="turni-sb.js?v=202611271614"></script>
-<script src="lineare-ufficiale.js?v=202611271614"></script>
+<script src="turni-data.js?v=202611271620"></script>
+<script src="turni-cloud-config.js?v=202611271620"></script>
+<script src="turni-cloud.js?v=202611271620"></script>
+<script src="turni-cripto.js?v=202611271620"></script>
+<script src="riepilogo.js?v=202611271620"></script>
+<script src="importa-personale.js?v=202611271620"></script>
+<script src="turni-sb.js?v=202611271620"></script>
+<script src="lineare-ufficiale.js?v=202611271620"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -991,24 +991,12 @@ function renderHome() {
     ${pend.slice(0, 4).map((q) => { const e = personById(q.employeeId); return `<button class="hrow" onclick="go('richieste')"><b>${esc(e ? T.fullName(e) : '—')}</b> <span class="muted">${T.shortDate(q.day)} · ${esc(KIND_TXT(q))}</span></button>`; }).join('')}
     ${pend.length > 4 ? `<div class="small muted" style="margin-top:4px">e altre ${pend.length - 4}…</div>` : ''}
     <div class="hact"><button class="btn" onclick="go('richieste')">Apri le richieste</button></div></div>`;
-  // previsioni: settimane senza Ore totali nelle prossime 6
-  const af = state.autoForecast;
-  const noFc = [0, 1, 2, 3, 4, 5].map((k) => ws0 + 7 * k).filter((ws) => !DAYS7.some((k) => (T.forecastDay((state.forecasts || {})[ws], k) || {}).crewHours));
-  const fcCard = `<div class="card hcard"><div class="hk">Previsioni</div><div class="hw">${af && af.at ? `Aggiornate ${esc(fmtWhen(af.at))}` : 'Mai caricate in automatico'}</div>
-    ${noFc.length ? `<div class="hs warn">${icon('avviso', 18)} Senza ore totali: ${noFc.map((ws) => T.shortDate(ws)).join(', ')}</div>` : `<div class="hs ok">${icon('ok', 18)} Ore totali presenti per le prossime 6 settimane</div>`}
-    <div class="hact"><button class="btn" onclick="go('previsioni')">Apri le previsioni</button></div></div>`;
-  // oggi
-  const todayShifts = state.shifts.filter((x) => x.day === today), todayMgr = (state.mgrShifts || []).filter((x) => x.day === today);
-  const people = new Set(todayShifts.map((x) => x.employeeId)).size;
-  const todayCard = `<div class="card hcard"><div class="hk">Oggi</div><div class="hw">${T.DOW_LONG[T.dow(today)]} ${T.itDate(today)}</div>
-    <div class="hs">${people} tra crew e hospitality · ${new Set(todayMgr.map((x) => x.managerId)).size} manager</div>
-    <div class="hact"><button class="btn" onclick="ui.day=${today};go('giornaliero')">Apri il lineare di oggi</button></div></div>`;
   const welcome = TurniCloud.configured() && !TurniCloud.loggedIn() ? `<div class="card hcard" style="margin-bottom:16px"><div class="hk">Benvenuto</div><div class="hw">Accedi o crea il tuo locale</div>
     <p class="small muted" style="margin:0 0 10px">Con l'accesso i dati si salvano online, cifrati, e sono gli stessi su PC e telefono. Un locale nuovo si crea con il codice invito.</p>
     <div class="hact"><button class="btn primary" onclick="askCloudLogin()">Accedi</button><button class="btn" onclick="askSignUp()">Crea il tuo locale</button></div></div>` : '';
   const cards = {
     settimana: () => weekCard(ws0, 'Questa settimana'), prossima: () => weekCard(ws0 + 7, 'Prossima settimana'),
-    richieste: () => reqCard, previsioni: () => fcCard, oggi: () => todayCard,
+    richieste: () => reqCard,
   };
   return `${welcome}${TurniCloud.loggedIn() ? setupCard() : ''}${homeWidgetsHtml(cards)}`;
 }
@@ -1051,25 +1039,22 @@ const HOME_KEY = 'turni-home';
 const HOME_WIDGETS = [
   ['settimana', 'Questa settimana', 'Errori, avvisi e pubblicazione della settimana in corso', true],
   ['prossima', 'Prossima settimana', 'Come la settimana in corso, per la prossima', true],
+  ['promemoria', 'Promemoria', 'Cose da non dimenticare: pubblicazione, ore totali, richieste in attesa, consegne, Carpigiani…', true],
+  ['domani', 'Domani: chi apre e chi chiude', 'Le squadre di apertura e di chiusura di domani, con i manager', true],
+  ['copertura', 'Copertura di oggi', 'Persone presenti ora per ora contro quelle richieste: le ore scoperte in rosso', true],
   ['richieste', 'Richieste del personale', 'Richieste da decidere', true],
-  ['previsioni', 'Previsioni', 'Quando sono state aggiornate e se mancano le ore totali', true],
-  ['oggi', 'Oggi', 'Quante persone in turno oggi e il lineare', true],
-  ['domani', 'Domani: chi apre e chi chiude', 'Le squadre di apertura e di chiusura di domani, con i manager', false],
-  ['copertura', 'Copertura di oggi', 'Persone presenti ora per ora contro quelle richieste: le ore scoperte in rosso', false],
-  ['promemoria', 'Promemoria', 'Cose da non dimenticare: pubblicazione, ore totali, richieste in attesa, consegne, Carpigiani…', false],
-  ['inturno', 'Chi è in turno adesso', 'Chi è al lavoro ora e chi entra o esce nella prossima ora', false],
-  ['gc', 'Clienti previsti', 'Grafico dei clienti (GC) giorno per giorno, questa settimana e la prossima', false],
-  ['vendite', 'Vendite rispetto all\'anno scorso', 'Grafico +/−% giorno per giorno', true],
+  ['messaggi', 'Messaggio al personale', 'Scrivi un messaggio che arriva nell\'app a crew, hospitality, manager o tutti', true],
   ['ore', 'Ore pianificate e ore previste', 'Grafico delle ore messe nei turni contro le ore totali', true],
+  ['gc', 'Clienti previsti', 'Grafico dei clienti (GC) giorno per giorno, questa settimana e la prossima', true],
+  ['precisione', 'Previsioni della settimana scorsa', 'Quanto ci hanno preso le previsioni dei clienti, giorno per giorno', true],
+  ['reparti', 'Vendite per reparto', 'Quanto pesano Kiosk, McCafé, Front e Drive sulle vendite della settimana', true],
+  ['inturno', 'Chi è in turno adesso', 'Chi è al lavoro ora e chi entra o esce nella prossima ora', false],
+  ['vendite', 'Vendite rispetto all\'anno scorso', 'Grafico +/−% giorno per giorno', false],
   ['scontrino', 'Scontrino medio', 'Vendite divise per i clienti, giorno per giorno, con l\'anno scorso', false],
-  ['reparti', 'Vendite per reparto', 'Quanto pesano Kiosk, McCafé, Front e Drive sulle vendite della settimana', false],
-  ['prod', 'Vendite per ora di lavoro', 'Grafico della produttività giorno per giorno', true],
-  ['precisione', 'Previsioni della settimana scorsa', 'Quanto ci hanno preso le previsioni dei clienti, giorno per giorno', false],
+  ['prod', 'Vendite per ora di lavoro', 'Grafico della produttività giorno per giorno', false],
   ['contratti', 'Ore di contratto', 'Chi questa settimana è sotto o sopra le ore del contratto', false],
   ['assenze', 'Assenze e scadenze', 'Ferie e malattie, fine formazione, chi entra o esce nei prossimi 14 giorni', false],
   ['eventi', 'Eventi e chiusure', 'Eventi, chiusure e orari ridotti dei prossimi 30 giorni', false],
-  ['pubblicazione', 'Prossime settimane', 'Le prossime 4 settimane: turni fatti, errori, pubblicazione', false],
-  ['messaggi', 'Messaggio al personale', 'Scrivi un messaggio che arriva nell\'app a crew, hospitality, manager o tutti', true],
   ['app', 'App del personale', 'Quante persone hanno l\'accesso all\'app e quante no', false],
   ['appunti', 'Appunti', 'Un blocco note per questo dispositivo', false],
 ];
@@ -1310,13 +1295,6 @@ function homeExtraCards() {
       return box('Eventi e chiusure', evs.length ? `${evs.length} nei prossimi 30 giorni` : 'Nessuno nei prossimi 30 giorni',
         evs.slice(0, 6).map(evRow).join('') + (evs.length > 6 ? moreLink('eventi', 'Eventi e chiusure · prossimi 30 giorni', evs.length - 6, evs.map(evRow).join(''), 'altri') : ''),
         `<button class="btn" onclick="go('previsioni')">Eventi e chiusure</button>`);
-    },
-    pubblicazione: () => {
-      const rows = [0, 1, 2, 3].map((k) => { const ws = ws0 + 7 * k, n = state.shifts.filter((x) => x.day >= ws && x.day <= ws + 6).length;
-        const err = n ? T.validate(T.makeCtx(state, ws)).filter((v) => v.sev === 'ERROR').length : 0;
-        const pub = !TurniCloud.loggedIn() ? '' : !pubOf(ws) ? '<span class="chip warn">da pubblicare</span>' : changedSincePublish(ws) ? '<span class="chip warn">da ripubblicare</span>' : '<span class="chip ok">pubblicata</span>';
-        return `<button class="hrow tight" onclick="ui.ws=${ws};ui.type='CREW';go('turni')"><b style="min-width:110px">${T.weekLabel(ws)}</b> ${n ? `<span class="chip ${err ? 'err' : 'ok'}">${err ? err + (err === 1 ? ' errore' : ' errori') : 'ok'}</span> ${pub}` : '<span class="muted small">turni non fatti</span>'} <span class="muted">›</span></button>`; });
-      return box('Prossime settimane', '', rows.join(''));
     },
     messaggi: () => {
       const logged = TurniCloud.loggedIn(), last = (state.messaggi || []).filter(msgAlive).slice(-3).reverse();
