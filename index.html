@@ -470,6 +470,13 @@
   .witem .wbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
   .witem .wbar .btn { padding: 4px 10px; font-size: 13px; }
   .witem.editing { cursor: grab; }
+  .rbars { display: flex; flex-direction: column; gap: 9px; margin-top: 4px; }
+  .rbar { display: grid; grid-template-columns: 74px 1fr 42px 74px; align-items: center; gap: 8px; font-size: 13.5px; cursor: default; outline: none; }
+  .rbar .rt { height: 12px; background: var(--surface-2); border-radius: 0 4px 4px 0; overflow: hidden; }
+  .rbar .rt i { display: block; height: 100%; background: var(--viz-up); border-radius: 0 4px 4px 0; animation: vgrowx .6s cubic-bezier(.2,.8,.2,1) both; transform-origin: left; }
+  .rbar b { text-align: right; } .rbar .re { text-align: right; }
+  .rbar:hover .rt i, .rbar:focus .rt i { filter: brightness(1.1); }
+  @keyframes vgrowx { from { transform: scaleX(0); } }
   .witem .whandle { cursor: grab; touch-action: none; user-select: none; padding: 4px 6px 4px 2px; }
   .witem.wplace { opacity: .35; }
   .witem.wplace > .card { border-style: dashed; }
@@ -540,21 +547,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611271601"></script>
-<script src="turni-storico.js?v=202611271601"></script>
-<script src="turni-core.js?v=202611271601"></script>
-<script src="turni-manager.js?v=202611271601"></script>
-<script src="turni-vlh.js?v=202611271601"></script>
+<script src="icone.js?v=202611271605"></script>
+<script src="turni-storico.js?v=202611271605"></script>
+<script src="turni-core.js?v=202611271605"></script>
+<script src="turni-manager.js?v=202611271605"></script>
+<script src="turni-vlh.js?v=202611271605"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611271601"></script>
-<script src="turni-cloud-config.js?v=202611271601"></script>
-<script src="turni-cloud.js?v=202611271601"></script>
-<script src="turni-cripto.js?v=202611271601"></script>
-<script src="riepilogo.js?v=202611271601"></script>
-<script src="importa-personale.js?v=202611271601"></script>
-<script src="turni-sb.js?v=202611271601"></script>
-<script src="lineare-ufficiale.js?v=202611271601"></script>
+<script src="turni-data.js?v=202611271605"></script>
+<script src="turni-cloud-config.js?v=202611271605"></script>
+<script src="turni-cloud.js?v=202611271605"></script>
+<script src="turni-cripto.js?v=202611271605"></script>
+<script src="riepilogo.js?v=202611271605"></script>
+<script src="importa-personale.js?v=202611271605"></script>
+<script src="turni-sb.js?v=202611271605"></script>
+<script src="lineare-ufficiale.js?v=202611271605"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -1030,11 +1037,15 @@ const HOME_WIDGETS = [
   ['richieste', 'Richieste del personale', 'Richieste da decidere', true],
   ['previsioni', 'Previsioni', 'Quando sono state aggiornate e se mancano le ore totali', true],
   ['oggi', 'Oggi', 'Quante persone in turno oggi e il lineare', true],
+  ['domani', 'Domani: chi apre e chi chiude', 'Le squadre di apertura e di chiusura di domani, con i manager', false],
+  ['copertura', 'Copertura di oggi', 'Persone presenti ora per ora contro quelle richieste: le ore scoperte in rosso', false],
+  ['promemoria', 'Promemoria', 'Cose da non dimenticare: pubblicazione, ore totali, richieste in attesa, consegne, Carpigiani…', false],
   ['inturno', 'Chi è in turno adesso', 'Chi è al lavoro ora e chi entra o esce nella prossima ora', false],
   ['gc', 'Clienti previsti', 'Grafico dei clienti (GC) giorno per giorno, questa settimana e la prossima', false],
   ['vendite', 'Vendite rispetto all\'anno scorso', 'Grafico +/−% giorno per giorno', true],
   ['ore', 'Ore pianificate e ore previste', 'Grafico delle ore messe nei turni contro le ore totali', true],
   ['scontrino', 'Scontrino medio', 'Vendite divise per i clienti, giorno per giorno, con l\'anno scorso', false],
+  ['reparti', 'Vendite per reparto', 'Quanto pesano Kiosk, McCafé, Front e Drive sulle vendite della settimana', false],
   ['prod', 'Vendite per ora di lavoro', 'Grafico della produttività giorno per giorno', true],
   ['precisione', 'Previsioni della settimana scorsa', 'Quanto ci hanno preso le previsioni dei clienti, giorno per giorno', false],
   ['contratti', 'Ore di contratto', 'Chi questa settimana è sotto o sopra le ore del contratto', false],
@@ -1143,8 +1154,90 @@ function homeExtraCards() {
   return {
     vendite: chart('vendite', 'Vendite rispetto all\'anno scorso', 'Stesso giorno, 52 settimane fa', chartSales, 'dash-vendite'),
     ore: chart('ore', 'Ore pianificate e ore previste', 'Crew, hospitality e doppi, senza manager', chartHours, 'dash-ore'),
+    reparti: () => {
+      const ws = wsOf('reparti'), tot = {}; let sales = 0, giorni = 0;
+      for (let k = 0; k < 7; k++) {
+        const d = ws + k, x = T.forecastDay((state.forecasts || {})[ws], k) || {}, r = reali[T.toIso(d)], v = d < today && r ? r[0] : x.sales;
+        if (!x.canali || !v) continue; giorni++; sales += v;
+        for (const [c, q] of Object.entries(x.canali)) tot[c] = (tot[c] || 0) + q.s * v;
+      }
+      const rows = Object.entries(tot).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]), max = rows.length ? rows[0][1] : 1;
+      const body = rows.length ? `<div class="rbars">${rows.map(([c, v]) => `<div class="rbar" data-tip="${esc(`${CANALI[c] || c}|${eur(v)}|${Math.round((v / sales) * 100)}% delle vendite della settimana`)}" tabindex="0">
+          <span class="rl">${esc(CANALI[c] || c)}</span><span class="rt"><i style="width:${Math.max(2, (v / max) * 100)}%"></i></span><b>${Math.round((v / sales) * 100)}%</b><span class="small muted re">${eur(v)}</span></div>`).join('')}</div>
+          <div class="small muted" style="margin-top:6px">Quote dalle ultime 4 settimane di SmartBusiness${giorni < 7 ? ` · ${giorni} giorni su 7 con i dati` : ''}</div>`
+        : noData('Servono le previsioni automatiche con le vendite per reparto (dati SmartBusiness).');
+      return `<div class="card hcard"><div class="hk">Vendite per reparto</div><div class="small muted" style="margin:2px 0 8px">${T.weekLabel(ws)}</div>${dsel('reparti')}
+        ${rows.length ? `<div class="hero"><b>${eur(sales)}</b> <span>vendite della settimana</span></div>` : ''}${body}</div>`;
+    },
     scontrino: chart('scontrino', 'Scontrino medio', 'Vendite divise per i clienti; la lineetta è lo stesso giorno dell\'anno scorso', chartTicket, 'dash-scontrino'),
     prod: chart('prod', 'Vendite per ora di lavoro', 'Vendite divise per le ore pianificate', chartProd, 'dash-prod'),
+    domani: () => {
+      const d = today + 1, dh = T.dayHours(T.cfgWithEvents ? T.cfgWithEvents(state) : state.config, d), g = state.config.closeGrace ?? 30;
+      const crew = state.shifts.filter((x) => x.day === d), mgr = (state.mgrShifts || []).filter((x) => x.day === d);
+      const head = `${T.DOW_LONG[T.dow(d)]} ${T.itDate(d)}`;
+      if (!crew.length && !mgr.length) return box('Domani: chi apre e chi chiude', head, '<div class="hs warn">Turni di domani non ancora fatti</div>', `<button class="btn" onclick="ui.ws=${T.mondayOf(d)};go('turni')">Apri i turni</button>`);
+      if (dh.h24) return box('Domani: chi apre e chi chiude', head, '<p class="small muted">Domani il locale è aperto 24 ore: non ci sono squadre di apertura e chiusura.</p>');
+      const who = (x) => { const e = personById(x.employeeId ?? x.managerId); return e ? esc(T.fullName(e)) : '—'; };
+      const st = (x) => (x.managerId != null ? 'Manager' : (T.STATIONS[x.station] || {}).short || '');
+      const row = (x, t) => `<div class="hrow tight" style="cursor:default"><b>${who(x)}</b> <span class="muted small">${t} · ${esc(st(x))}</span></div>`;
+      const ap = [...mgr, ...crew].filter((x) => x.start <= dh.open).sort((a, b) => (a.managerId != null ? -1 : 1) - (b.managerId != null ? -1 : 1));
+      const ch = [...mgr, ...crew].filter((x) => x.end >= dh.close - g).sort((a, b) => (a.managerId != null ? -1 : 1) - (b.managerId != null ? -1 : 1));
+      return box('Domani: chi apre e chi chiude', head,
+        `<div class="small muted" style="margin-top:2px">Apre alle ${T.fmtTime(dh.open)}</div>${ap.length ? ap.slice(0, 4).map((x) => row(x, `${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`)).join('') : '<div class="hs warn">Nessuno in apertura</div>'}
+         <div class="small muted" style="margin-top:8px">Chiude alle ${T.fmtTime(dh.close)}</div>${ch.length ? ch.slice(0, 4).map((x) => row(x, `${T.fmtTime(x.start)}–${T.fmtTime(x.end)}`)).join('') : '<div class="hs warn">Nessuno in chiusura</div>'}`,
+        `<button class="btn" onclick="ui.day=${d};go('giornaliero')">Lineare di domani</button>`);
+    },
+    copertura: () => {
+      const d = today, ws = ws0, dh = T.dayHours(state.config, d), ctx = T.makeCtx(state, ws);
+      const crew = ctx.shifts.filter((x) => x.day === d);
+      if (!crew.length) return box('Copertura di oggi', `${T.DOW_LONG[T.dow(d)]} ${T.itDate(d)}`, '<div class="hs warn">Turni di oggi non ancora fatti</div>');
+      const vn = T.vlhNeeds ? T.vlhNeeds(state, d) : null;
+      const h0 = Math.floor(dh.open / 60), h1 = Math.ceil(dh.close / 60), hours = [];
+      for (let h = h0; h < h1; h++) {
+        const a = h * 60, b = a + 60, m = a + 30;
+        const pres = crew.filter((x) => Math.min(x.end, b) - Math.max(x.start, a) >= 30).length;
+        let req = 0;
+        if (vn && vn.hours && vn.hours[h]) req = Math.round(vn.hours[h].crew || 0);
+        else for (const r of ctx.coverage) if (!r.station && !r.soft && r.start <= m && T.covEnd(ctx.cfg, r) > m) req = Math.max(req, T.reqMin(r, d) || 0);
+        hours.push({ h, pres, req });
+      }
+      const max = Math.max(1, ...hours.map((x) => Math.max(x.pres, x.req))), bad = hours.filter((x) => x.req && x.pres < x.req);
+      const W = VW, H = 150, top = 10, bot = 26, left = 10, step = (W - left - 10) / hours.length, bw = Math.min(18, step * 0.62), y = (v) => H - bot - (v / max) * (H - top - bot);
+      const now = new Date(), nh = now.getHours();
+      const marks = hours.map((x, i) => { const cx = left + step * i + step / 2, low = x.req && x.pres < x.req;
+        return vMark({ i, x: cx - bw / 2, w: bw, y0: y(0), y1: x.pres ? y(x.pres) : null, cls: low ? 'down' : 'up', day: d, hitX: cx - step / 2, hitW: step, top, bottom: H - bot,
+          extra: x.req ? `<line class="vtarget" x1="${cx - bw / 2 - 3}" x2="${cx + bw / 2 + 3}" y1="${y(x.req)}" y2="${y(x.req)}"/>` : '',
+          tip: [`${x.h % 24}:00 – ${(x.h + 1) % 24}:00`, `${x.pres} crew e hospitality`, x.req ? `${vn ? 'servono (VLH)' : 'minimo richiesto'} ${x.req}` : 'nessun minimo', ...(low ? [`mancano ${x.req - x.pres}`] : [])],
+          label: (i % 2 === 0 || hours.length <= 12 ? `<text class="vtxt${x.h === nh ? ' today' : ''}" x="${cx}" y="${H - 8}" text-anchor="middle">${x.h % 24}</text>` : '') });
+      }).join('');
+      return `<div class="card hcard"><div class="hk">Copertura di oggi</div><div class="hw" style="margin-bottom:2px">${bad.length ? `${bad.length} ${bad.length === 1 ? 'ora scoperta' : 'ore scoperte'}` : 'Tutte le ore coperte'}</div>
+        <div class="small muted" style="margin-bottom:6px">${T.DOW_LONG[T.dow(d)]} ${T.itDate(d)} · ${vn ? 'confronto con la VLH' : 'confronto con i minimi delle fasce'}</div>
+        <svg viewBox="0 0 ${W} ${H}" class="viz" role="group" aria-label="Copertura di oggi ora per ora">${marks}</svg>
+        <div class="vlegend"><span><i class="up"></i>presenti</span><span><i class="down"></i>meno del richiesto</span><span><i class="tick"></i>${vn ? 'VLH' : 'minimo'}</span></div>
+        <div class="hact"><button class="btn" onclick="ui.day=${d};go('giornaliero')">Apri il lineare</button></div></div>`;
+    },
+    promemoria: () => {
+      const out = [], logged = TurniCloud.loggedIn(), nx = ws0 + 7;
+      const has = (ws) => state.shifts.some((x) => x.day >= ws && x.day <= ws + 6);
+      const item = (lvl, txt, go_) => out.push(`<button class="hrow tight" onclick="${go_}"><span class="chip ${lvl}" style="padding:2px 8px">${lvl === 'err' ? '!' : lvl === 'warn' ? '•' : 'i'}</span> <span style="flex:1;text-align:left">${txt}</span> <span class="muted">›</span></button>`);
+      if (!has(nx)) item('warn', `Turni della settimana prossima (${T.weekLabel(nx)}) non ancora fatti`, `ui.ws=${nx};go('turni')`);
+      else if (logged && !pubOf(nx)) item('warn', `Settimana prossima fatta ma non ancora pubblicata`, `ui.ws=${nx};go('turni')`);
+      if (logged && pubOf(ws0) && changedSincePublish(ws0)) item('warn', 'Questa settimana è stata modificata dopo la pubblicazione: da ripubblicare', `ui.ws=${ws0};go('turni')`);
+      const noFc = [0, 1, 2, 3, 4, 5].map((k) => ws0 + 7 * k).filter((ws) => !DAYS7.some((k) => (T.forecastDay((state.forecasts || {})[ws], k) || {}).crewHours));
+      if (noFc.length) item('warn', `Mancano le ore totali: ${noFc.slice(0, 3).map((ws) => T.shortDate(ws)).join(', ')}${noFc.length > 3 ? '…' : ''}`, "go('previsioni')");
+      const pend = (state.requests || []).filter((q) => q.status === 'in attesa'), old = pend.filter((q) => q.createdAt && Date.now() - Date.parse(q.createdAt) > 2 * 864e5);
+      if (old.length) item('err', `${old.length} ${old.length === 1 ? 'richiesta aspetta' : 'richieste aspettano'} da più di 2 giorni`, "go('richieste')");
+      else if (pend.length) item('info', `${pend.length} ${pend.length === 1 ? 'richiesta da decidere' : 'richieste da decidere'}`, "go('richieste')");
+      const af = state.autoForecast; if (af && af.upTo && T.toDay(af.upTo) < today - 3) item('warn', `Previsioni ferme ai dati del ${T.itDate(T.toDay(af.upTo))}: da aggiornare`, "go('previsioni')");
+      const M = MGR();
+      for (const ws of [ws0, nx]) {
+        if (M && M.carpiWeek(state, ws)) { const cd = M.carpiDays(state), dd = ws + cd.sm - 1; if (dd >= today) item('info', `Carpigiani: smontaggio ${T.DOW_LONG[T.dow(dd)].toLowerCase()} ${T.itDate(dd)}`, `ui.ws=${ws};ui.type='MANAGER';go('turni')`); }
+      }
+      const deliv = (state.config.mgrDelivery || []).map((k) => ws0 + k - 1).filter((dd) => dd >= today && dd <= today + 6);
+      if (deliv.length) item('info', `Consegne: ${deliv.map((dd) => T.DOW_LONG[T.dow(dd)].toLowerCase() + ((state.config.mgrDeliveryAt || {})[T.dow(dd)] != null ? ' alle ' + T.fmtTime(state.config.mgrDeliveryAt[T.dow(dd)]) : '')).join(', ')}`, `ui.ws=${ws0};ui.type='MANAGER';go('turni')`);
+      state.employees.filter((e) => e.trainee && e.traineeUntil != null && e.traineeUntil >= today && e.traineeUntil <= today + 7).forEach((e) => item('info', `${esc(T.fullName(e))} finisce la formazione il ${T.itDate(e.traineeUntil)}`, "go('formazione')"));
+      return box('Promemoria', out.length ? `${out.length} ${out.length === 1 ? 'cosa' : 'cose'} da ricordare` : 'Niente da ricordare', out.slice(0, 6).join('') + (out.length > 6 ? `<div class="small muted" style="margin-top:4px">e altre ${out.length - 6}…</div>` : '') + (out.length ? '' : '<div class="hs ok">Tutto in ordine</div>'));
+    },
     inturno: () => {
       const on = (x) => x.day === today && x.start <= nowMin && x.end > nowMin;
       const crew = state.shifts.filter(on), mgr = (state.mgrShifts || []).filter(on);
