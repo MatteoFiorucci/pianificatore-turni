@@ -46,12 +46,33 @@
    * Orari ridotti di giorni precisi, dagli eventi "Orario ridotto" (es. il 24/12 chiude alle 20:30):
    * { giorno: { open, close } }. Si mettono in cfg.dateHours e valgono per tutto (turni, fasce, VLH, manager).
    */
-  function dateHoursMap(eventi) {
-    const out = {};
-    for (const ev of eventi || []) {
-      if (ev.tipo !== 'ORARIO' || !ev.dal) continue;
-      for (let d = toDay(ev.dal); d <= toDay(ev.al || ev.dal); d++) out[d] = { open: ev.apre ?? null, close: ev.chiude ?? null };
+  /**
+   * Evento "Orario diverso" che vale in un giorno. Se più orari cadono sullo stesso giorno vince il più specifico
+   * (quello che dura meno giorni: la vigilia batte "fino al 10/01"); a parità vince quello inserito per ultimo.
+   */
+  const evDays = (ev) => toDay(ev.al || ev.dal) - toDay(ev.dal) + 1;
+  function hoursEventOn(eventi, d) {
+    let win = null, wi = -1;
+    (eventi || []).forEach((ev, i) => {
+      if (ev.tipo !== 'ORARIO' || !ev.dal || d < toDay(ev.dal) || d > toDay(ev.al || ev.dal)) return;
+      if (!win || evDays(ev) < evDays(win) || (evDays(ev) === evDays(win) && i > wi)) { win = ev; wi = i; }
+    });
+    return win;
+  }
+  /** Giorni in cui due o più orari si sovrappongono: [{ day, vince, perdono: [eventi] }]. */
+  function hoursOverlaps(eventi) {
+    const out = [], days = new Set();
+    for (const ev of eventi || []) if (ev.tipo === 'ORARIO' && ev.dal) for (let d = toDay(ev.dal); d <= toDay(ev.al || ev.dal); d++) days.add(d);
+    for (const d of [...days].sort((a, b) => a - b)) {
+      const all = (eventi || []).filter((ev) => ev.tipo === 'ORARIO' && ev.dal && d >= toDay(ev.dal) && d <= toDay(ev.al || ev.dal));
+      if (all.length > 1) { const v = hoursEventOn(eventi, d); out.push({ day: d, vince: v, perdono: all.filter((x) => x !== v) }); }
     }
+    return out;
+  }
+  function dateHoursMap(eventi) {
+    const out = {}, days = new Set();
+    for (const ev of eventi || []) if (ev.tipo === 'ORARIO' && ev.dal) for (let d = toDay(ev.dal); d <= toDay(ev.al || ev.dal); d++) days.add(d);
+    for (const d of days) { const ev = hoursEventOn(eventi, d); out[d] = { open: ev.apre ?? null, close: ev.chiude ?? null }; }
     return out;
   }
   /** Impostazioni del locale con gli orari ridotti dei giorni speciali. */
@@ -2342,7 +2363,7 @@
 
   root.Turni = {
     ABSENCE_TYPES, absenceInfo, eventsOn, closureOf, restFor, doubleMaxOf, roundTimeOk,
-    STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, dateHoursMap, cfgWithEvents, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
+    STATIONS, CREW_STATIONS, DEFAULT_STATIONS, applyStore, dayHours, hoursEventOn, hoursOverlaps, dateHoursMap, cfgWithEvents, TYPES, DOW_SHORT, DOW_LONG, RULES, DEFAULT_CONFIG, DEFAULT_COVERAGE,
     fmtTime, fmtDur, parseTime, parseHours, hoursText, toDay, toIso, dow, mondayOf, todayDay, shortDate, longDate, itDate, weekLabel,
     limitsFrom, fullName, dur, isDouble, reqMin, covEnd, maxDaily, maxFor, isWeekend, isLongWeekday, isRigidAfternoon, isHybridAfternoon, isLongWithoutRush, makeCtx, shiftsOf, absenceOn, isRest, isAvail, limitOf, fitsLimit, proposeFor, proposeSwap, started, isTrainee, canClose, worked, doubleWorked, target, coverageMin, deficitOf, validate, generate, forecastPeople, forecastDay, vlhHourGC, vlhNeeds, AFF_TIPI, affLabel, affDone, affFinished,
   };
