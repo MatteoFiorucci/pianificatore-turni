@@ -553,21 +553,21 @@
 <div id="modal"></div>
 <div id="toast" class="no-print"></div>
 
-<script src="icone.js?v=202611271620"></script>
-<script src="turni-storico.js?v=202611271620"></script>
-<script src="turni-core.js?v=202611271620"></script>
-<script src="turni-manager.js?v=202611271620"></script>
-<script src="turni-vlh.js?v=202611271620"></script>
+<script src="icone.js?v=202611271636"></script>
+<script src="turni-storico.js?v=202611271636"></script>
+<script src="turni-core.js?v=202611271636"></script>
+<script src="turni-manager.js?v=202611271636"></script>
+<script src="turni-vlh.js?v=202611271636"></script>
 <!-- file con i dati reali del personale: esiste solo sul computer del manager, online non c'è (e l'app parte vuota) -->
 <script src="privato/turni-privato.js" onerror="this.remove()"></script>
-<script src="turni-data.js?v=202611271620"></script>
-<script src="turni-cloud-config.js?v=202611271620"></script>
-<script src="turni-cloud.js?v=202611271620"></script>
-<script src="turni-cripto.js?v=202611271620"></script>
-<script src="riepilogo.js?v=202611271620"></script>
-<script src="importa-personale.js?v=202611271620"></script>
-<script src="turni-sb.js?v=202611271620"></script>
-<script src="lineare-ufficiale.js?v=202611271620"></script>
+<script src="turni-data.js?v=202611271636"></script>
+<script src="turni-cloud-config.js?v=202611271636"></script>
+<script src="turni-cloud.js?v=202611271636"></script>
+<script src="turni-cripto.js?v=202611271636"></script>
+<script src="riepilogo.js?v=202611271636"></script>
+<script src="importa-personale.js?v=202611271636"></script>
+<script src="turni-sb.js?v=202611271636"></script>
+<script src="lineare-ufficiale.js?v=202611271636"></script>
 <script>
 'use strict';
 const T = window.Turni;
@@ -642,7 +642,7 @@ const sortByName = (list) => [...list].sort((a, b) => T.fullName(a).localeCompar
 const INFO = {
   'previsioni': [`Previsioni`, `Per ogni giorno: vendite previste, clienti (GC) e <b>Ore totali</b>.<br><br><b>Ore totali</b> = le ore di lavoro del giorno come nel totale del lineare (hospitality + crew + doppi turni), <b>senza le ore manager</b>.<br><br>Il generatore toglie le ore hospitality tipiche di quel giorno (media delle 4 settimane prima) e distribuisce le ore che restano tra i crew nelle fasce; le hospitality seguono le loro fasce in Regole. I giorni senza Ore totali usano i minimi di Regole.`],
   'prev-auto': [`Previsioni automatiche`, `Vendite e GC segnati <b>auto</b> sono calcolati in automatico dallo storico delle vendite, aggiornato ogni giorno.<br><br>Il calcolo mette insieme più metodi (la previsione del sistema di cassa, la media delle ultime settimane, lo stesso periodo dell'anno scorso) e dà più peso a quelli che nelle ultime 8 settimane hanno sbagliato meno: più giorni di storico ci sono, più diventa preciso.<br><br>Le <b>Ore totali</b> segnate <b>stima</b> sono calcolate dai GC previsti, con il rapporto ore/clienti imparato dai giorni in cui le hai scritte tu (ultime 8 settimane; senza dati si usa un valore di partenza). Se cambi i GC a mano, la stima si aggiorna.<br><br>Se cambi un valore a mano, resta il tuo: gli aggiornamenti automatici non lo sovrascrivono. Più settimane correggi, più la stima delle Ore totali diventa precisa.<br><br><b>Settimane già pianificate:</b> quando una settimana ha dei turni, i suoi numeri restano fermi; si aggiornano solo le settimane ancora da fare (e la previsione del sistema di cassa, solo come confronto).<br><br><b>Per canale:</b> clicca il giorno (▸) per vedere vendite e GC divisi per canale, con le quote medie delle ultime 4 settimane per lo stesso giorno.`],
-  'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero e nessun turno. Nella settimana della chiusura il riposo di ognuno (crew, hospitality e manager) va nei giorni di chiusura e le ore del contratto non si perdono: si distribuiscono sugli altri giorni aperti.<br><b>🕐 Orario ridotto</b> (es. il 24 chiude alle 20:30, o apre più tardi): quel giorno il generatore usa il nuovo orario come se fosse quello normale. La squadra di chiusura si sposta sulla nuova chiusura, nessun turno va oltre, e le previsioni calano della quota di clienti che di solito entra nelle ore perse.<br><b>🕒 Chiusura parziale</b> (manutenzione in mezzo alla giornata): le previsioni calano della quota di clienti di quelle ore; niente turni e niente minimi in quegli orari. Per aprire più tardi o chiudere prima usa "Orario ridotto".<br><b>⭐ Evento o ricorrenza</b> (promozioni, ricorrenze, feste locali): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni, nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto molti più clienti del solito.`],
+  'eventi': [`Eventi e chiusure`, `Qui segni i giorni diversi dal solito. Le previsioni di quei giorni si correggono da sole, e di conseguenza le Ore totali e i turni.<br><br><b>🔒 Chiusura totale</b> (festività, inventario): vendite, GC e ore a zero e nessun turno. Nella settimana della chiusura il riposo di ognuno (crew, hospitality e manager) va nei giorni di chiusura e le ore del contratto non si perdono: si distribuiscono sugli altri giorni aperti.<br><b>🕐 Orario diverso</b> (es. il 24 chiude alle 20:30, o per un periodo chiude più tardi alle 22:30): quei giorni il generatore usa il nuovo orario come se fosse quello normale. Se due orari cadono sullo stesso giorno vale <b>quello più specifico</b>, cioè quello che dura meno giorni (la vigilia batte "fino al 10/01"). La squadra di chiusura si sposta sulla nuova chiusura, nessun turno va oltre, e le previsioni calano della quota di clienti che di solito entra nelle ore perse.<br><b>🕒 Chiusura parziale</b> (manutenzione in mezzo alla giornata): le previsioni calano della quota di clienti di quelle ore; niente turni e niente minimi in quegli orari. Per aprire più tardi o chiudere prima (o dopo) usa "Orario diverso".<br><b>⭐ Evento o ricorrenza</b> (promozioni, ricorrenze, feste locali): l'effetto si calcola dallo storico, guardando come sono andate le stesse giornate negli anni passati (date di confronto). Puoi anche scrivere tu la %.<br><b>🏬 Novità in zona</b> (nuovo negozio vicino, cantiere, nuova zona commerciale): indichi tu la % per il periodo; dopo qualche settimana le previsioni la imparano da sole dai dati.<br><br><b>Eventi di più giorni:</b> puoi dare una % diversa a ogni giorno con "Riempi veloce" o giorno per giorno.<br><br><b>Dove si vede l'effetto:</b> sotto vendite e GC in Previsioni, nel lineare (riquadro Previsione e righe "GC previsti" e "di cui evento" ora per ora) e in testa al lineare stampato.<br><br>Con un evento il calcolo parte dalla previsione "normale" delle ultime settimane, così l'effetto non viene contato due volte. I valori scritti a mano restano i tuoi.<br><br><b>Suggeriti dallo storico</b>: festività in cui il locale è stato chiuso negli ultimi due anni e giorni che l'anno scorso hanno avuto molti più clienti del solito.`],
   'mgr': [`Squadra manager`, `I manager hanno un calendario a parte (non entrano nelle Ore totali e nei rush dei crew).<br><br><b>Ruolo e ore</b>: ore da contratto di ognuno, su 6 giorni; i giorni in cui possono riposare si scelgono nella sezione <b>Store</b>.<br><b>Giorni ordine</b>: giorni in cui quella persona fa l'ordine: entra entro l'orario impostato nella sezione Store (o in apertura), non riposa e il giorno prima non fa la sera.<br><b>Orario flessibile</b>: giorni in cui può fare un orario a metà giornata invece di apertura o chiusura.<br><b>1 centrale</b>: una volta a settimana, nei primi giorni della settimana, un turno centrale (es. per controllare gli orari).<br><br>Ogni giorno: un manager in apertura e uno in chiusura. Nei giorni di <b>delivery</b> c'è un secondo manager in apertura. <b>Carpigiani</b> (ogni 2 settimane, qualsiasi manager): il giorno dello smontaggio due manager la sera, il giorno del rimontaggio due manager in apertura. Stacchi, durate dei turni e manager minimi al giorno: sezione <b>Store</b>. Il weekend gira tra aperture, centrali e chiusure.`],
   'hosp-rot': [`Pranzi e cene delle hospitality`, `Quanti turni di pranzo e di cena fa ognuna questa settimana e nelle 4 settimane prima (pranzo = turno che sta per lo più prima delle 16:00). Il generatore li fa a rotazione: chi ha fatto più cene fa più pranzi, e il contrario. La barra mostra la parte di pranzi.`],
   'mgr-weekend': [`Weekend dei manager`, `Quante aperture, centrali e cene ha fatto ognuno nel fine settimana nelle ultime 4 settimane (questa compresa). Il generatore le fa a rotazione, così in un mese ognuno fa almeno un'apertura, un centrale e una cena.`],
@@ -2401,7 +2401,7 @@ function clearFc() { if (state.forecasts) delete state.forecasts[ui.ws]; save();
 
 // ================= EVENTI E CHIUSURE =================
 // ev = { id, nome, tipo, dal, al, da, a (minuti, chiusura parziale), effetto (% manuale o null), confronto: [date passate] }
-const EV_TIPI = { CHIUSURA: '🔒 Chiusura totale', ORARIO: '🕐 Orario ridotto (apre dopo / chiude prima)', PARZIALE: '🕒 Chiusura parziale (ore in mezzo alla giornata)', EVENTO: '⭐ Evento o ricorrenza', ZONA: '🏬 Novità in zona' };
+const EV_TIPI = { CHIUSURA: '🔒 Chiusura totale', ORARIO: '🕐 Orario diverso (apre o chiude a un\'altra ora)', PARZIALE: '🕒 Chiusura parziale (ore in mezzo alla giornata)', EVENTO: '⭐ Evento o ricorrenza', ZONA: '🏬 Novità in zona' };
 const isoAdd = (iso, n) => T.toIso(T.toDay(iso) + n);
 const itIso = (iso) => iso.split('-').reverse().join('/');
 const pctTxt = (f) => `${f >= 1 ? '+' : '−'}${Math.round(Math.abs(f - 1) * 100)}%`;
@@ -2481,7 +2481,8 @@ function dayEffect(iso) {
   const evs = T.eventsOn(state.eventi, T.toDay(iso));
   if (!evs.length) return null;
   let g = 1, sv = 1;
-  for (const ev of evs) { const e = eventEffect(ev, iso); g *= e.g; sv *= e.s; }
+  const win = T.hoursEventOn(state.eventi, T.toDay(iso));
+  for (const ev of evs) { if (ev.tipo === 'ORARIO' && ev !== win) continue; const e = eventEffect(ev, iso); g *= e.g; sv *= e.s; }
   return { g, s: sv, evs };
 }
 /**
@@ -2562,12 +2563,27 @@ function eventSuggestions() {
     return { iso, al, tipo: g.tipo, nome, perche, confronto: g.tipo === 'EVENTO' ? (fissa ? [yAgo(iso, 1), yAgo(iso, 2)] : [isoAdd(iso, -364), isoAdd(iso, -728)]) : [] };
   });
 }
+/** Sovrapposizioni di orari diversi che riguardano un evento: { vince: [{day, altri}], perde: [{day, vince}] }. */
+function hoursClash(ev) {
+  const ov = T.hoursOverlaps(state.eventi || []);
+  return { vince: ov.filter((o) => o.vince === ev).map((o) => ({ day: o.day, altri: o.perdono })), perde: ov.filter((o) => o.perdono.includes(ev)).map((o) => ({ day: o.day, vince: o.vince })) };
+}
+const daysTxt = (days) => { const d = days.map((x) => T.itDate(x).slice(0, 5)); return d.length > 3 ? `${d.slice(0, 3).join(', ')} e altri ${d.length - 3}` : d.join(', '); };
+/** Testo dell'avviso sugli orari sovrapposti (vince il più specifico, cioè quello che dura meno giorni). */
+function clashTxt(ev) {
+  const c = hoursClash(ev), out = [];
+  const by = (arr, key) => { const m = new Map(); arr.forEach((x) => { const k = key(x); m.set(k, [...(m.get(k) || []), x.day]); }); return m; };
+  for (const [nome, days] of by(c.perde, (x) => x.vince.nome)) out.push(`il ${daysTxt(days)} vale «${esc(nome)}», più specifico`);
+  for (const [nome, days] of by(c.vince, (x) => x.altri.map((a) => a.nome).join('», «'))) out.push(`il ${daysTxt(days)} vale questo al posto di «${esc(nome)}»`);
+  return out;
+}
 function renderEventi() {
   const today = T.todayDay();
   const list = [...(state.eventi || [])].sort((a, b) => a.dal.localeCompare(b.dal));
   const future = list.filter((ev) => T.toDay(ev.al || ev.dal) >= today), past = list.filter((ev) => T.toDay(ev.al || ev.dal) < today);
   const when = (ev) => (ev.al && ev.al !== ev.dal ? `${itIso(ev.dal)} – ${itIso(ev.al)}` : itIso(ev.dal)) + (ev.tipo === 'PARZIALE' ? ` · ${T.fmtTime(ev.da)}–${T.fmtTime(ev.a)}` : '') + (ev.tipo === 'ORARIO' ? ` · ${orarioTxt(ev)}` : '');
-  const row = (ev) => `<tr class="clickable" onclick="editEvent(${ev.id})"><td style="white-space:nowrap">${when(ev)}</td><td><b>${esc(ev.nome)}</b><br><span class="small muted">${EV_TIPI[ev.tipo]}</span></td><td class="small">${esc(evSummary(ev))}</td></tr>`;
+  const clash = (ev) => { if (ev.tipo !== 'ORARIO') return ''; const t = clashTxt(ev); return t.length ? `<br><span class="small" style="color:var(--warn-ink)">⚠️ Orari sovrapposti: ${t.join('; ')}</span>` : ''; };
+  const row = (ev) => `<tr class="clickable" onclick="editEvent(${ev.id})"><td style="white-space:nowrap">${when(ev)}</td><td><b>${esc(ev.nome)}</b><br><span class="small muted">${EV_TIPI[ev.tipo]}</span>${clash(ev)}</td><td class="small">${esc(evSummary(ev))}</td></tr>`;
   const sug = eventSuggestions();
   return `<div class="card section">
     <div style="display:flex;align-items:center;gap:10px"><h3 style="margin:0">📅 Eventi e chiusure ${ib('eventi')}</h3><div class="spacer"></div><button class="btn primary" onclick="editEvent()">+ Aggiungi</button></div>
@@ -2667,6 +2683,12 @@ function saveEvent() {
   if (e.id == null) { e.id = newId(); state.eventi.push(e); } else state.eventi = state.eventi.map((x) => (x.id === e.id ? e : x));
   ui.evDraft = null;
   refreshEvents(); save(); closeModal(); render();
+  if (e.tipo === 'ORARIO') {
+    const t = clashTxt(state.eventi.find((x) => x.id === e.id));
+    if (t.length) showModal(`<h3>⚠️ Orari sovrapposti</h3><p>«${esc(e.nome)}» cade negli stessi giorni di un altro orario diverso. Vale sempre <b>quello più specifico</b> (che dura meno giorni):</p>
+      <ul>${t.map((x) => `<li>${x}</li>`).join('')}</ul><p class="small muted">Turni, fasce di copertura e previsioni di quei giorni usano solo l'orario che vale. Se vuoi il contrario, cambia le date di uno dei due.</p>
+      <div class="actions"><button class="btn primary" onclick="closeModal()">Ho capito</button></div>`);
+  }
   const shifts = e.tipo === 'CHIUSURA' ? state.shifts.filter((s) => s.day >= T.toDay(e.dal) && s.day <= T.toDay(e.al)).length : 0;
   if (shifts) alert(`Attenzione: in quei giorni ci sono già ${shifts} turni. Toglili dalla pagina Turni (compaiono come errore).`);
 }
